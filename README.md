@@ -118,7 +118,7 @@ Disponible como **Aplicación Web SPA** (React + Vite) y como **Aplicación de E
 ## 📂 Estructura del Proyecto
 
 ```
-smart-invoicer-sql-version/
+ZendaERP/
 ├── src/                              # Frontend (React + Vite)
 │   ├── api/client.js                 # Cliente HTTP centralizado con auth y auto-refresh
 │   ├── App.jsx                       # Raíz: auth, routing por estado, layout
@@ -335,8 +335,8 @@ VITE_API_URL="http://localhost:3001/api"
 ```bash
 # 1. Clonar e ingresar al proyecto
 git clone <url-del-repositorio>
-cd smart-invoicer-sql-version
-
+cd ZendaERP
+enda
 # 2. Instalar dependencias del frontend (raíz)
 pnpm install
 
