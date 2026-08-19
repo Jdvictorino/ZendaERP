@@ -1,0 +1,1047 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RegistrationReviewModal snapshot > renders admin and company data correctly 1`] = `
+<div>
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+  >
+    <div
+      aria-hidden="true"
+      class="absolute inset-0 bg-black transition-opacity opacity-50"
+    />
+    <div
+      aria-modal="true"
+      class="relative bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 transform transition-all duration-200 ease-out opacity-100 scale-100"
+      role="dialog"
+    >
+      <div
+        class="w-full max-w-4xl"
+      >
+        <div
+          class="relative rounded-3xl border border-slate-100 bg-white shadow-2xl"
+        >
+          <header
+            class="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <div>
+              <p
+                class="text-xs uppercase tracking-[0.28em] text-indigo-500"
+              >
+                Resumen
+              </p>
+              <h3
+                class="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl"
+              >
+                Confirma los datos antes de crear la cuenta
+              </h3>
+              <p
+                class="mt-2 text-sm text-slate-500"
+              >
+                Verifica la información del administrador y la empresa. Puedes volver para editar o reiniciar el proceso en cualquier momento.
+              </p>
+            </div>
+            <button
+              aria-label="Cerrar"
+              class="self-start text-2xl text-slate-400 transition-colors hover:text-slate-600 sm:self-center"
+            >
+              ×
+            </button>
+          </header>
+          <div
+            class="space-y-6 px-6 py-6"
+          >
+            <div
+              class="grid gap-4 sm:grid-cols-2"
+            >
+              <div
+                class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+              >
+                <div
+                  class="flex flex-col items-center space-y-2"
+                >
+                  <img
+                    alt="Foto de perfil"
+                    class="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
+                    src="https://placehold.co/100x100/e2e8f0/a0aec0?text=Foto"
+                  />
+                  <label
+                    class="cursor-pointer bg-gray-200 text-gray-700 text-sm py-1 px-3 rounded-lg hover:bg-gray-300 flex items-center gap-2"
+                    for="adminPreview"
+                  >
+                    <svg
+                      class="lucide lucide-upload"
+                      fill="none"
+                      height="14"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="14"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                      />
+                      <polyline
+                        points="17 8 12 3 7 8"
+                      />
+                      <line
+                        x1="12"
+                        x2="12"
+                        y1="3"
+                        y2="15"
+                      />
+                    </svg>
+                    Cargar Foto
+                  </label>
+                  <input
+                    accept="image/*"
+                    class="hidden"
+                    id="adminPreview"
+                    type="file"
+                  />
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-lg font-semibold text-slate-900"
+                  >
+                    Juan Pérez
+                  </p>
+                  <p
+                    class="text-xs uppercase tracking-wide text-slate-500"
+                  >
+                    Administrador principal
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Será el responsable de gestionar la nueva instancia.
+                  </p>
+                </div>
+              </div>
+              <div
+                class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+              >
+                <div
+                  class="flex flex-col items-center space-y-2"
+                >
+                  <img
+                    alt="Foto de perfil"
+                    class="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
+                    src="https://placehold.co/100x100/e2e8f0/a0aec0?text=Foto"
+                  />
+                  <label
+                    class="cursor-pointer bg-gray-200 text-gray-700 text-sm py-1 px-3 rounded-lg hover:bg-gray-300 flex items-center gap-2"
+                    for="companyPreview"
+                  >
+                    <svg
+                      class="lucide lucide-upload"
+                      fill="none"
+                      height="14"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="14"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                      />
+                      <polyline
+                        points="17 8 12 3 7 8"
+                      />
+                      <line
+                        x1="12"
+                        x2="12"
+                        y1="3"
+                        y2="15"
+                      />
+                    </svg>
+                    Cargar Foto
+                  </label>
+                  <input
+                    accept="image/*"
+                    class="hidden"
+                    id="companyPreview"
+                    type="file"
+                  />
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-lg font-semibold text-slate-900"
+                  >
+                    Mi Empresa
+                  </p>
+                  <p
+                    class="text-xs uppercase tracking-wide text-slate-500"
+                  >
+                    Datos de la empresa
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Información fiscal y comercial para tus registros.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div
+              class="grid gap-4 md:grid-cols-2"
+            >
+              <section
+                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              >
+                <header
+                  class="border-b border-slate-200 px-4 py-3"
+                >
+                  <p
+                    class="text-sm font-semibold text-slate-700"
+                  >
+                    Administrador
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Datos personales y laborales
+                  </p>
+                </header>
+                <div
+                  class="grid gap-4 px-4 py-4 grid-cols-1 md:grid-cols-2"
+                >
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Nombres
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      Juan
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Apellidos
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      Pérez
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Correo electrónico
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      juan@example.com
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Cargo
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      Administrador
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Género
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Identificación
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      001-1234567-8
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      ID de empleado
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Empresa declarada
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                </div>
+              </section>
+              <section
+                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              >
+                <header
+                  class="border-b border-slate-200 px-4 py-3"
+                >
+                  <p
+                    class="text-sm font-semibold text-slate-700"
+                  >
+                    Contacto del administrador
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Medios de contacto y dirección
+                  </p>
+                </header>
+                <div
+                  class="grid gap-4 px-4 py-4 grid-cols-1 md:grid-cols-2"
+                >
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Teléfono
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      809-555-1234
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Celular
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Calle
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Sector
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Ciudad
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Código postal
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      País
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <div
+              class="grid gap-4 md:grid-cols-2"
+            >
+              <section
+                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              >
+                <header
+                  class="border-b border-slate-200 px-4 py-3"
+                >
+                  <p
+                    class="text-sm font-semibold text-slate-700"
+                  >
+                    Empresa
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Información comercial
+                  </p>
+                </header>
+                <div
+                  class="grid gap-4 px-4 py-4 grid-cols-1 md:grid-cols-2"
+                >
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Nombre comercial
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      Mi Empresa
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      RNC
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      101-23456-7
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Teléfono
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      809-555-0000
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Correo
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      info@miempresa.com
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Página web
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Divisa principal
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Permite personalización
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Tema
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                </div>
+              </section>
+              <section
+                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              >
+                <header
+                  class="border-b border-slate-200 px-4 py-3"
+                >
+                  <p
+                    class="text-sm font-semibold text-slate-700"
+                  >
+                    Dirección de la empresa
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Ubicación fiscal
+                  </p>
+                </header>
+                <div
+                  class="grid gap-4 px-4 py-4 grid-cols-1 md:grid-cols-2"
+                >
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Calle
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      Calle Falsa
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Sector
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      Centro
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Ciudad
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      Santo Domingo
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Código postal
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      País
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <div
+              class="grid gap-4 md:grid-cols-2"
+            >
+              <section
+                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              >
+                <header
+                  class="border-b border-slate-200 px-4 py-3"
+                >
+                  <p
+                    class="text-sm font-semibold text-slate-700"
+                  >
+                    Preferencias
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Configuraciones generales
+                  </p>
+                </header>
+                <div
+                  class="grid gap-4 px-4 py-4 grid-cols-1 md:grid-cols-2"
+                >
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Sonidos activos
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Volumen de notificaciones
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Categorías de clientes
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Modo de impresión
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Impresora registrada
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                </div>
+              </section>
+              <section
+                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              >
+                <header
+                  class="border-b border-slate-200 px-4 py-3"
+                >
+                  <p
+                    class="text-sm font-semibold text-slate-700"
+                  >
+                    Caja y terminales
+                  </p>
+                  <p
+                    class="text-xs text-slate-400"
+                  >
+                    Parámetros de punto de venta
+                  </p>
+                </header>
+                <div
+                  class="grid gap-4 px-4 py-4 grid-cols-1"
+                >
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Tolerancia de cierre
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Requiere supervisor si excede
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      —
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Cantidad de terminales
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      0
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Terminal 1
+                    </p>
+                    <p
+                      class="text-sm font-medium text-slate-900 break-words"
+                    >
+                      ID: — · Nombre: — · Activo: —
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <section
+              class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+            >
+              <header
+                class="border-b border-slate-200 px-4 py-3"
+              >
+                <p
+                  class="text-sm font-semibold text-slate-700"
+                >
+                  Descuentos por categoría
+                </p>
+                <p
+                  class="text-xs text-slate-400"
+                >
+                  Porcentajes aplicados a cada segmento
+                </p>
+              </header>
+              <div
+                class="grid gap-4 px-4 py-4 grid-cols-1 md:grid-cols-2"
+              >
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Sin categorías definidas
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+              </div>
+            </section>
+            <section
+              class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+            >
+              <header
+                class="border-b border-slate-200 px-4 py-3"
+              >
+                <p
+                  class="text-sm font-semibold text-slate-700"
+                >
+                  Datos bancarios
+                </p>
+                <p
+                  class="text-xs text-slate-400"
+                >
+                  Información para transferencias y depósitos
+                </p>
+              </header>
+              <div
+                class="grid gap-4 px-4 py-4 grid-cols-1 md:grid-cols-2"
+              >
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Tipo de entidad
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Banco
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Beneficiario
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    ID del beneficiario
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Tipo de cuenta
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Número de cuenta
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Correo bancario
+                  </p>
+                  <p
+                    class="text-sm font-medium text-slate-900 break-words"
+                  >
+                    —
+                  </p>
+                </div>
+              </div>
+            </section>
+            <div
+              class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4"
+            >
+              <div
+                class="flex flex-col gap-2 sm:flex-row"
+              >
+                <button
+                  class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-700 sm:w-auto"
+                >
+                  Editar administrador
+                </button>
+                <button
+                  class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-700 sm:w-auto"
+                >
+                  Editar empresa
+                </button>
+                <button
+                  class="w-full rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 transition-colors hover:border-red-200 hover:bg-red-100 sm:w-auto"
+                >
+                  Cancelar y borrar todo
+                </button>
+              </div>
+              <button
+                class="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-colors sm:w-auto bg-indigo-600 hover:bg-indigo-700"
+              >
+                Confirmar y crear cuenta
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

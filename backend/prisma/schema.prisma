@@ -1,0 +1,688 @@
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+// Schema Prisma para Zenda ERP
+// Base de datos: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// AUTENTICACIÓN Y USUARIOS
+// =============================================
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  rnc       String?
+  address   String?
+  phone     String?
+  email     String?
+  logoUrl   String?
+  currency  String   @default("DOP")
+
+  // Billing multitenant
+  billingStatus      String    @default("active") // active, trial, past_due, suspended, blocked, cancelled
+  billingDueDate     DateTime?
+  billingGraceUntil  DateTime?
+  billingBlockedAt   DateTime?
+  billingBlockedReason String?
+  lastPaymentAt      DateTime?
+  
+  // Configuración NCF
+  ncfB01Prefix       String?
+  ncfB01SequenceNext Int     @default(1)
+  ncfB02Prefix       String?
+  ncfB02SequenceNext Int     @default(1)
+  
+  // Configuración e-CF (Facturación Electrónica DGII)
+  ecfEnabled         Boolean @default(false)
+  ecfEnvironment     String  @default("test") // test, certification, production
+  ecfCertificateB64  String? @db.Text // Certificado .p12 en base64
+  ecfCertificatePass String? // Password del certificado (encriptado)
+  
+  // Configuración general (JSONB)
+  settings      Json @default("{}")
+  notifications Json @default("{}")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  users             User[]
+  products          Product[]
+  productCategories ProductCategory[]
+  customers         Customer[]
+  suppliers         Supplier[]
+  invoices          Invoice[]
+  expenses          Expense[]
+  cashShifts        CashShift[]
+  shipments         Shipment[]
+  offers            Offer[]
+  creditNotes       CreditNote[]
+  debitNotes        DebitNote[]
+  ecfSequences      EcfSequence[]
+  ecfDocuments      EcfDocument[]
+  alerts            Alert[]
+  billingEvents     CompanyBillingEvent[]
+
+  @@map("companies")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  email         String    @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  employeeId    String?
+  cargo         String?
+  role          String    @default("viewer") // admin, manager, cashier, warehouse, viewer
+  photoUrl      String?
+  phone         String?
+  cellphone     String?
+  gender        String?
+  idNumber      String?
+  pinHash       String?
+  address       Json?     @default("{}")
+  isAdmin       Boolean   @default(false)
+  emailVerified Boolean   @default(false)
+  status        String    @default("active")
+  lastLogin     DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  refreshTokens        RefreshToken[]
+  invoices             Invoice[]
+  expenses             Expense[]
+  inventoryLogs        InventoryLog[]
+  cashShifts           CashShift[]
+  cashMovements        CashMovement[]
+  passwordResetTokens  PasswordResetToken[]
+
+  @@index([companyId])
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+// =============================================
+// CATÁLOGOS
+// =============================================
+
+model ProductCategory {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  status      String   @default("active")
+  
+  createdAt DateTime @default(now())
+  
+  // Relaciones
+  products Product[]
+
+  @@index([companyId])
+  @@map("product_categories")
+}
+
+model Supplier {
+  id                   String   @id @default(uuid())
+  companyId            String
+  company              Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  name                 String
+  rnc                  String?
+  identificationNumber String?  // Cédula o pasaporte
+  contactName          String?
+  phone                String?
+  email                String?
+  address              String?
+  website              String?
+  logo                 String?  @db.Text  // Base64 o URL
+  bankDetails          Json?    // Datos bancarios (bankName, accountNumber, etc.)
+  status               String   @default("active")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  products Product[]
+  expenses Expense[]
+
+  @@index([companyId])
+  @@map("suppliers")
+}
+
+model Customer {
+  id           String   @id @default(uuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  customerCode String?
+  name         String
+  rnc          String?
+  email        String?
+  phone        String?
+  address      String?
+  category     String?  // Retail, Mayorista, VIP
+  creditLimit  Decimal  @default(0) @db.Decimal(12, 2)
+  balance      Decimal  @default(0) @db.Decimal(12, 2)
+  status       String   @default("active")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  invoices Invoice[]
+
+  @@index([companyId])
+  @@map("customers")
+}
+
+// =============================================
+// PRODUCTOS E INVENTARIO
+// =============================================
+
+model Product {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    ProductCategory? @relation(fields: [categoryId], references: [id])
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  
+  name           String
+  description    String?
+  code           String?  // EAN-13
+  barcode        String?
+  sku            String?
+  costPrice      Decimal  @default(0) @db.Decimal(12, 2)
+  salePrice      Decimal  @default(0) @db.Decimal(12, 2)
+  wholesalePrice Decimal? @db.Decimal(12, 2)
+  stock          Int      @default(0)
+  minStock       Int      @default(0)
+  maxStock       Int?
+  unit           String   @default("unidad")
+  taxRate        Decimal  @default(18.00) @db.Decimal(5, 2)
+  isTaxable      Boolean  @default(true)
+  status         String   @default("active")
+  imageUrl       String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  variants      ProductVariant[]
+  inventoryLogs InventoryLog[]
+  invoiceItems  InvoiceItem[]
+
+  @@index([companyId])
+  @@index([barcode])
+  @@index([sku])
+  @@map("products")
+}
+
+model ProductVariant {
+  id              String   @id @default(uuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  name            String
+  sku             String?
+  barcode         String?
+  imageUrl        String?
+  purchasePrice   Decimal  @default(0) @db.Decimal(12, 2)
+  salePrice       Decimal  @default(0) @db.Decimal(12, 2)
+  priceAdjustment Decimal  @default(0) @db.Decimal(12, 2)
+  stock           Int      @default(0)
+  attributes      Json     @default("{}")
+  
+  createdAt DateTime @default(now())
+  
+  // Relaciones
+  invoiceItems InvoiceItem[]
+
+  @@map("product_variants")
+}
+
+model InventoryLog {
+  id            String   @id @default(uuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  
+  type          String   // entrada, salida, ajuste, venta
+  quantity      Int
+  previousStock Int?
+  newStock      Int?
+  reason        String?
+  referenceId   String?
+  referenceType String?
+  
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("inventory_logs")
+}
+
+// =============================================
+// VENTAS Y FACTURACIÓN
+// =============================================
+
+model Invoice {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  shiftId     String?
+  
+  orderNumber   String
+  invoiceNumber String?
+  
+  // NCF
+  ncfNumber String?
+  ncfType   String?  // B01, B02, NoFiscal
+  
+  // Totales
+  subtotal       Decimal @default(0) @db.Decimal(12, 2)
+  taxAmount      Decimal @default(0) @db.Decimal(12, 2)
+  discountAmount Decimal @default(0) @db.Decimal(12, 2)
+  total          Decimal @default(0) @db.Decimal(12, 2)
+  
+  // Estado
+  status    String   @default("Pendiente")
+  isBilled  Boolean  @default(false)
+  billedDate DateTime?
+  
+  // Pago
+  paymentMethod String?
+  amountPaid    Decimal @default(0) @db.Decimal(12, 2)
+  changeAmount  Decimal @default(0) @db.Decimal(12, 2)
+  
+  // Entrega
+  deliveryType String?
+  shipmentId   String?
+  
+  // Info adicional
+  customerRnc  String?
+  customerName String?
+  notes        String?
+  emitterInfo  Json?
+  
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  items        InvoiceItem[]
+  creditNotes  CreditNote[]
+  debitNotes   DebitNote[]
+  ecfDocuments EcfDocument[]
+  shipment     Shipment?
+
+  @@index([companyId])
+  @@index([date])
+  @@index([customerId])
+  @@index([ncfNumber])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  
+  productName     String
+  quantity        Int
+  unitPrice       Decimal @db.Decimal(12, 2)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  taxRate         Decimal @default(18.00) @db.Decimal(5, 2)
+  subtotal        Decimal @db.Decimal(12, 2)
+  customizationNotes String?
+  customImageUrls    Json?
+  variantInfo        Json?
+  
+  createdAt DateTime @default(now())
+
+  @@map("invoice_items")
+}
+
+model CreditNote {
+  id         String   @id @default(uuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceId  String?
+  invoice    Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  ncfNumber String?
+  reason    String?
+  amount    Decimal  @db.Decimal(12, 2)
+  status    String   @default("active")
+  
+  createdAt DateTime @default(now())
+
+  @@map("credit_notes")
+}
+
+model DebitNote {
+  id         String   @id @default(uuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceId  String?
+  invoice    Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  ncfNumber String?
+  reason    String?
+  amount    Decimal  @db.Decimal(12, 2)
+  status    String   @default("active")
+  
+  createdAt DateTime @default(now())
+
+  @@map("debit_notes")
+}
+
+// =============================================
+// COMPRAS Y GASTOS (606 DGII)
+// =============================================
+
+model Expense {
+  id          String    @id @default(uuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  
+  rncCedula       String?
+  supplierName    String?
+  ncf             String?
+  invoiceDate     DateTime
+  paymentDate     DateTime?
+  montoFacturado  Decimal  @db.Decimal(12, 2)
+  itbisFacturado  Decimal  @default(0) @db.Decimal(12, 2)
+  paymentType     String?
+  expenseType     String?
+  description     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([invoiceDate])
+  @@map("expenses")
+}
+
+// =============================================
+// CAJA Y TURNOS
+// =============================================
+
+model CashShift {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  registerId     String?
+  openingAmount  Decimal  @default(0) @db.Decimal(12, 2)
+  closingAmount  Decimal? @db.Decimal(12, 2)
+  expectedAmount Decimal? @db.Decimal(12, 2)
+  difference     Decimal? @db.Decimal(12, 2)
+  status         String   @default("open")
+  notes          String?
+  
+  openedAt DateTime @default(now())
+  closedAt DateTime?
+  
+  // Relaciones
+  movements CashMovement[]
+
+  @@map("cash_shifts")
+}
+
+model CashMovement {
+  id       String    @id @default(uuid())
+  shiftId  String
+  shift    CashShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  userId   String?
+  user     User?     @relation(fields: [userId], references: [id])
+  
+  type   String  // entrada, salida
+  amount Decimal @db.Decimal(12, 2)
+  reason String?
+  
+  createdAt DateTime @default(now())
+
+  @@map("cash_movements")
+}
+
+// =============================================
+// ENVÍOS
+// =============================================
+
+model Shipment {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceId   String?  @unique
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  // Campos adicionales para envíos independientes
+  orderNumber       String?
+  orderId           String?
+  items             Json?
+  toAddress         Json?
+  courier           String?
+  postage           Decimal?  @db.Decimal(12, 2)
+  weightKg          Decimal?  @db.Decimal(10, 3)
+  dimensions        Json?
+  
+  trackingNumber    String?
+  carrier           String?
+  status            String   @default("pending")
+  recipientName     String?
+  recipientPhone    String?
+  deliveryAddress   String?
+  deliveryNotes     String?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  deliverySignature String?
+  qrCode            String?
+  assignedDriverId  String?
+  proofImageUrl     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([assignedDriverId])
+  @@index([orderNumber])
+  @@map("shipments")
+}
+
+// =============================================
+// OFERTAS Y PROMOCIONES
+// =============================================
+
+model Offer {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  name          String
+  description   String?
+  discountType  String?  // percent, fixed
+  discountValue Decimal? @db.Decimal(12, 2)
+  minPurchase   Decimal? @db.Decimal(12, 2)
+  maxUses       Int?
+  currentUses   Int      @default(0)
+  appliesTo     String?  // all, category, product
+  appliesToIds  String[] // IDs de productos o categorías
+  validFrom     DateTime?
+  validUntil    DateTime?
+  status        String   @default("active")
+  
+  createdAt DateTime @default(now())
+
+  @@map("offers")
+}
+
+// =============================================
+// ALERTAS Y NOTIFICACIONES
+// =============================================
+
+model Alert {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  type        String   // new_order, low_stock, payment_received, etc.
+  title       String
+  message     String?
+  data        Json?    // Datos adicionales (orderId, productId, etc.)
+  
+  // Control de acceso por rol
+  targetRoles String[] // ['admin', 'manager'] - roles que pueden ver esta alerta
+  
+  // Estado
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  readByUserId String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+model CompanyBillingEvent {
+  id         String   @id @default(uuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  eventType  String   // status_changed, payment_registered, access_blocked, access_restored
+  fromStatus String?
+  toStatus   String?
+  amount     Decimal? @db.Decimal(12, 2)
+  reason     String?
+  notes      String?
+  actor      String?  // system, api-key:<name>, user:<id>
+  metadata   Json?    @default("{}")
+
+  createdAt  DateTime @default(now())
+
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("company_billing_events")
+}
+
+// =============================================
+// FACTURACIÓN ELECTRÓNICA (e-CF) DGII
+// =============================================
+
+model EcfSequence {
+  id                   String    @id @default(uuid())
+  companyId            String
+  company              Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  tipoEcf              String    // E31, E32, E33, E34, E41, E43, E44, E45, E46, E47
+  nombre               String    // Nombre descriptivo del tipo
+  rangoDesde           Int       @default(1)
+  rangoHasta           Int       @default(0) // 0 = sin límite
+  secuencial           Int       @default(1) // Próximo secuencial a usar
+  fechaVencimiento     DateTime? // Vencimiento de la autorización DGII
+  estado               String    @default("activa") // activa, agotada, vencida, inactiva
+  
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([companyId, tipoEcf])
+  @@index([companyId])
+  @@map("ecf_sequences")
+}
+
+model EcfDocument {
+  id              String    @id @default(uuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceId       String?
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+  
+  // Identificación del documento
+  tipoEcf         String    // E31, E32, E33, E34, etc.
+  eNcf            String    @unique // e-NCF completo (ej: E310000000001)
+  
+  // Datos del XML
+  xmlContent      String?   @db.Text  // XML generado (sin firma)
+  xmlSigned       String?   @db.Text  // XML firmado
+  
+  // Estado DGII
+  trackId         String?   // TrackId retornado por la DGII
+  dgiiStatus      String    @default("pendiente") // pendiente, enviado, aceptado, rechazado, en_proceso, aceptado_condicional
+  dgiiMessage     String?   // Mensaje de respuesta de la DGII
+  securityCode    String?   // Primeros 6 dígitos del SignatureValue
+  
+  // Datos del comprobante
+  rncEmisor       String
+  rncComprador    String?
+  nombreComprador String?
+  montoTotal      Decimal   @db.Decimal(12, 2)
+  itbisTotal      Decimal   @default(0) @db.Decimal(12, 2)
+  fechaEmision    DateTime
+  
+  // Auditoría
+  enviadoAt       DateTime?
+  aceptadoAt      DateTime?
+  rechazadoAt     DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([trackId])
+  @@index([eNcf])
+  @@index([dgiiStatus])
+  @@map("ecf_documents")
+}

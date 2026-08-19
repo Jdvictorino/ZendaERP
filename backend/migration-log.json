@@ -1,0 +1,13 @@
+{
+  "completedAt": "2026-02-17T19:54:41.047Z",
+  "firebaseUserId": "Pr5WVrFj2OhXzewjV4uq1Tw7NDB3",
+  "postgresCompanyId": "5034934b-3090-4e22-a4db-deae7cfac824",
+  "counts": {
+    "categories": 4,
+    "suppliers": 3,
+    "customers": 0,
+    "products": 4,
+    "invoices": 10,
+    "expenses": 0
+  }
+}

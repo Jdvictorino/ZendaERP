@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentación Técnica - Zenda ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1, h2, h3, h4 {
+            color: #1a365d;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f7fafc;
+            font-weight: 600;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-12 shadow-lg rounded-lg">
+        
+        <!-- PORTADA -->
+        <div class="text-center mb-16 border-b-2 border-blue-900 pb-8">
+            <h1 class="text-4xl font-bold text-blue-900 mb-4">DOCUMENTACIÓN TÉCNICA</h1>
+            <h2 class="text-2xl text-gray-600 mb-8">ZENDA ERP</h2>
+            <div class="text-left max-w-md mx-auto bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <p class="mb-2"><strong>Cliente:</strong> Batey Creativo SRL</p>
+                <p class="mb-2"><strong>Fecha:</strong> 25 de Noviembre de 2025</p>
+                <p><strong>Versión:</strong> 1.0</p>
+            </div>
+        </div>
+
+        <!-- CAPÍTULO 1 -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-bold border-b border-gray-300 pb-2 mb-6 text-blue-800">CAPÍTULO 1: CONTEXTUALIZACIÓN DEL PROYECTO</h2>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">1.1 Contextualización</h3>
+                
+                <div class="mb-4">
+                    <h4 class="font-bold text-gray-800">Problemática</h4>
+                    <p class="text-gray-700 text-justify">Actualmente, <strong>Batey Creativo SRL</strong> enfrenta desafíos significativos en la gestión operativa de sus ventas e inventarios. El proceso manual o fragmentado de facturación genera lentitud en la atención al cliente, errores humanos en los cálculos de impuestos y descuentos, y una falta de visibilidad en tiempo real sobre el stock de productos. Además, el control de los envíos y la logística de entrega se maneja de manera informal, lo que ocasiona incertidumbre sobre el estado de los paquetes y dificultades para cuadrar las cajas al final de los turnos de los empleados.</p>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="font-bold text-gray-800">Importancia</h4>
+                    <p class="text-gray-700 text-justify">La implementación de un sistema automatizado es crucial para modernizar la infraestructura operativa de la empresa. Permitirá centralizar la información, asegurar la integridad de los datos financieros y optimizar el flujo de trabajo desde la toma del pedido hasta la entrega final al cliente.</p>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="font-bold text-gray-800">Necesidad del Cliente</h4>
+                    <p class="text-gray-700 text-justify"><strong>Batey Creativo SRL</strong> requiere una solución tecnológica integral que sea accesible tanto desde computadoras de escritorio (para cajeros y administradores) como desde dispositivos móviles (para repartidores). Necesitan un sistema que soporte facturación rápida, gestión de inventario, control de gastos, múltiples roles de usuario y seguimiento de envíos mediante tecnología QR.</p>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="font-bold text-gray-800">Justificación</h4>
+                    <p class="text-gray-700 text-justify">El desarrollo de "Zenda ERP" se justifica por la necesidad de reducir los tiempos operativos y minimizar las pérdidas por errores administrativos. Al digitalizar el negocio, Batey Creativo SRL podrá tomar decisiones basadas en datos reales, mejorar la satisfacción del cliente mediante procesos más rápidos y asegurar el control financiero mediante cierres de caja automatizados y auditoría de acciones.</p>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="font-bold text-gray-800">Limitantes y Alcances</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div class="bg-green-50 p-4 rounded border border-green-200">
+                            <h5 class="font-bold text-green-800 mb-2">Alcances</h5>
+                            <ul class="list-disc list-inside text-sm space-y-1">
+                                <li>Gestión de Ventas: Facturación POS, cotizaciones, pedidos.</li>
+                                <li>Inventario: Control de stock, variantes, alertas.</li>
+                                <li>Usuarios: Roles (Admin, Gerente, Vendedor, Repartidor).</li>
+                                <li>Logística: Envíos con estados y validación QR.</li>
+                                <li>Marketing: Cupones y ofertas.</li>
+                                <li>Plataforma: Web y Desktop (Electron).</li>
+                            </ul>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded border border-red-200">
+                            <h5 class="font-bold text-red-800 mb-2">Limitantes</h5>
+                            <ul class="list-disc list-inside text-sm space-y-1">
+                                <li>Requiere conexión a internet (sync real-time).</li>
+                                <li>Almacenamiento sujeto a cuotas de Firebase.</li>
+                                <li>Sin integración bancaria directa (pagos manuales).</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">1.2 Propuesta de Proyecto (OBJETIVO GENERAL)</h3>
+                <p class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 text-justify">
+                    Desarrollar e implementar "Zenda ERP", una plataforma de gestión empresarial multiplataforma para <strong>Batey Creativo SRL</strong>, que automatice los procesos de facturación, control de inventario y logística de envíos, utilizando tecnologías web modernas y servicios en la nube para garantizar la escalabilidad, seguridad y disponibilidad de la información en tiempo real.
+                </p>
+            </div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">1.3 Objetivos Específicos</h3>
+                <ul class="list-decimal list-inside space-y-2 bg-gray-50 p-4 rounded border border-gray-200">
+                    <li><strong>Analizar</strong> los flujos de trabajo actuales de Batey Creativo SRL para identificar los puntos críticos en la facturación y despacho de mercancía.</li>
+                    <li><strong>Diseñar</strong> una arquitectura de software escalable y una interfaz de usuario intuitiva que facilite la adopción del sistema por parte del personal operativo.</li>
+                    <li><strong>Desarrollar</strong> los módulos funcionales de inventario, facturación, gestión de usuarios y seguimiento logístico utilizando React y Firebase.</li>
+                    <li><strong>Implementar</strong> mecanismos de seguridad y validación de datos, incluyendo roles de usuario y confirmación de entregas, para asegurar la integridad de la información.</li>
+                </ul>
+            </div>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- CAPÍTULO 2 -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-bold border-b border-gray-300 pb-2 mb-6 text-blue-800">CAPÍTULO 2: METODOLOGÍA Y TECNOLOGÍA</h2>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">2.1 Metodología de Trabajo</h3>
+                <p class="mb-2">Para la realización de este proyecto se utiliza la metodología ágil <strong>Scrum</strong>.</p>
+                <ul class="list-disc list-inside ml-4 space-y-1">
+                    <li><strong>Sprints:</strong> Ciclos de desarrollo iterativos.</li>
+                    <li><strong>Reuniones:</strong> Dailies y Retrospectivas.</li>
+                    <li><strong>Entregables:</strong> Versiones incrementales funcionales.</li>
+                </ul>
+            </div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">2.2 Ambientes de Trabajo</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="border p-4 rounded bg-gray-50">
+                        <h4 class="font-bold mb-2 text-indigo-700">Frontend & Desktop</h4>
+                        <ul class="text-sm space-y-1">
+                            <li>JavaScript (ES6+)</li>
+                            <li>React.js (Vite)</li>
+                            <li>Tailwind CSS</li>
+                            <li>Electron.js</li>
+                        </ul>
+                    </div>
+                    <div class="border p-4 rounded bg-gray-50">
+                        <h4 class="font-bold mb-2 text-indigo-700">Backend & DB</h4>
+                        <ul class="text-sm space-y-1">
+                            <li>Node.js (Cloud Functions)</li>
+                            <li>Firebase Firestore (NoSQL)</li>
+                            <li>Firebase Storage</li>
+                            <li>Firebase Authentication</li>
+                        </ul>
+                    </div>
+                    <div class="border p-4 rounded bg-gray-50">
+                        <h4 class="font-bold mb-2 text-indigo-700">Librerías Clave</h4>
+                        <ul class="text-sm space-y-1">
+                            <li>Firebase SDK</li>
+                            <li>React Router</li>
+                            <li>Recharts</li>
+                            <li>Lucide React</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">2.3 Diagrama de Clases (UML)</h3>
+                <div class="mermaid">
+classDiagram
+    class Company {
+        +String id
+        +String name
+        +String rnc
+        +String address
+        +String phone
+        +String email
+        +String logoUrl
+        +Settings settings
+    }
+
+    class User {
+        +String uid
+        +String email
+        +String displayName
+        +String role
+        +String photoURL
+        +Boolean active
+        +login()
+        +logout()
+        +createOrder()
+    }
+
+    class Customer {
+        +String id
+        +String name
+        +String identification
+        +String email
+        +String phone
+        +String address
+        +String type
+        +Number creditLimit
+        +getOrders()
+    }
+
+    class Product {
+        +String id
+        +String name
+        +String description
+        +String sku
+        +String barcode
+        +Number price
+        +Number cost
+        +Number stock
+        +String categoryId
+        +String supplierId
+        +String imageUrl
+        +Boolean trackStock
+        +updateStock()
+    }
+
+    class Category {
+        +String id
+        +String name
+        +String description
+    }
+
+    class Supplier {
+        +String id
+        +String name
+        +String rnc
+        +String contactName
+        +String phone
+        +String email
+    }
+
+    class Order {
+        +String id
+        +String orderNumber
+        +String ncf
+        +Date createdAt
+        +String status
+        +String paymentMethod
+        +Number subtotal
+        +Number tax
+        +Number discount
+        +Number total
+        +String customerId
+        +String sellerId
+        +String shiftId
+        +calculateTotals()
+        +generateInvoice()
+    }
+
+    class OrderItem {
+        +String productId
+        +String name
+        +Number quantity
+        +Number price
+        +Number taxRate
+        +Number discount
+        +Number total
+    }
+
+    class Shipment {
+        +String id
+        +String orderId
+        +String driverId
+        +String status
+        +String trackingNumber
+        +String deliveryAddress
+        +String deliveryNotes
+        +Date shippedAt
+        +Date deliveredAt
+        +String proofPhotoUrl
+        +updateStatus()
+    }
+
+    class Coupon {
+        +String id
+        +String code
+        +String type
+        +Number value
+        +Date startAt
+        +Date endAt
+        +Number usageLimit
+        +Boolean active
+        +validate()
+    }
+
+    class Expense {
+        +String id
+        +String description
+        +Number amount
+        +Date date
+        +String category
+        +String supplierId
+        +String createdBy
+    }
+
+    class Shift {
+        +String id
+        +String userId
+        +Date startTime
+        +Date endTime
+        +Number initialCash
+        +Number finalCash
+        +Number expectedCash
+        +String status
+        +closeShift()
+    }
+
+    Company "1" -- "*" User : emplea
+    Company "1" -- "*" Product : posee
+    Company "1" -- "*" Customer : atiende
+    
+    User "1" -- "*" Order : procesa
+    User "1" -- "*" Shift : abre
+    User "1" -- "*" Expense : registra
+    
+    Customer "1" -- "*" Order : realiza
+    
+    Product "*" -- "1" Category : pertenece_a
+    Product "*" -- "1" Supplier : suministrado_por
+    
+    Order "1" *-- "*" OrderItem : contiene
+    OrderItem "*" -- "1" Product : referencia
+    
+    Order "1" -- "0..1" Shipment : requiere
+    User "1" -- "*" Shipment : entrega (Repartidor)
+    
+    Order "1" -- "0..1" Coupon : aplica
+    
+    Shift "1" -- "*" Order : incluye
+    
+    Expense "*" -- "0..1" Supplier : paga_a
+                </div>
+            </div>
+
+            <div class="page-break"></div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">2.4 Análisis y Diagrama de Casos de Uso</h3>
+                
+                <div class="mb-4">
+                    <h4 class="font-bold text-gray-800 mb-2">Actores Principales</h4>
+                    <ul class="list-disc list-inside ml-4 space-y-1 text-sm">
+                        <li><strong>Administrador:</strong> Acceso total, configuración y reportes.</li>
+                        <li><strong>Vendedor:</strong> Ventas, pedidos, cupones y clientes.</li>
+                        <li><strong>Repartidor (Driver):</strong> Visualiza envíos y marca entregas.</li>
+                        <li><strong>Gerente:</strong> Supervisa, anula facturas y gestiona inventario.</li>
+                    </ul>
+                </div>
+
+                <div class="mermaid">
+useCaseDiagram
+    actor "Administrador" as Admin
+    actor "Vendedor" as Seller
+    actor "Repartidor" as Driver
+
+    package "Sistema Zenda ERP" {
+        useCase "Gestionar Usuarios" as UC1
+        useCase "Ver Reportes Financieros" as UC2
+        useCase "Crear Factura/Pedido" as UC3
+        useCase "Aplicar Cupón" as UC4
+        useCase "Gestionar Inventario" as UC5
+        useCase "Marcar Envío como Entregado" as UC6
+        useCase "Cierre de Caja" as UC7
+    }
+
+    Admin --> UC1
+    Admin --> UC2
+    Admin --> UC5
+    Admin --> UC7
+    
+    Seller --> UC3
+    Seller --> UC4
+    Seller --> UC7
+
+    Driver --> UC6
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">2.5 Diagrama de Infraestructura</h3>
+                <div class="mermaid">
+graph TD
+    subgraph "Cliente (Batey Creativo SRL)"
+        PC[PC Escritorio - Electron/Web-]
+        Mobile[Dispositivo Móvil Web]
+    end
+
+    subgraph "Internet"
+        Cloud[Nube / Internet]
+    end
+
+    subgraph "Google Firebase Platform"
+        Auth[Firebase Authentication]
+        Hosting[Firebase Hosting]
+        DB[Firestore Database]
+        Func[Cloud Functions]
+        Storage[Cloud Storage]
+    end
+
+    PC -->|HTTPS| Hosting
+    Mobile -->|HTTPS| Hosting
+    PC -->|WebSocket/HTTPS| DB
+    Mobile -->|WebSocket/HTTPS| DB
+    PC -->|API Call| Func
+    PC -->|Auth Token| Auth
+    PC -->|Upload/Download| Storage
+                </div>
+            </div>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- CAPÍTULO 3 -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-bold border-b border-gray-300 pb-2 mb-6 text-blue-800">CAPÍTULO 3: ANÁLISIS ESTRATÉGICO</h2>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">3.1 Análisis FODA</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-green-50 p-4 rounded border border-green-200">
+                        <h4 class="font-bold text-green-800 mb-2">Fortalezas</h4>
+                        <ul class="list-disc list-inside text-sm">
+                            <li>Sincronización en Tiempo Real.</li>
+                            <li>Multiplataforma (Web/Desktop).</li>
+                            <li>Interfaz Moderna (UX/UI).</li>
+                            <li>Flexibilidad de roles.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded border border-red-200">
+                        <h4 class="font-bold text-red-800 mb-2">Debilidades</h4>
+                        <ul class="list-disc list-inside text-sm">
+                            <li>Dependencia de Conectividad.</li>
+                            <li>Curva de Aprendizaje.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded border border-blue-200">
+                        <h4 class="font-bold text-blue-800 mb-2">Oportunidades</h4>
+                        <ul class="list-disc list-inside text-sm">
+                            <li>Expansión Móvil (App Nativa).</li>
+                            <li>Integración IA.</li>
+                            <li>E-commerce público.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded border border-yellow-200">
+                        <h4 class="font-bold text-yellow-800 mb-2">Amenazas</h4>
+                        <ul class="list-disc list-inside text-sm">
+                            <li>Fallas de Internet.</li>
+                            <li>Cambios en precios de Plataforma.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4 class="font-bold text-gray-800 mb-4">Matriz FODA (Estrategias)</h4>
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th class="w-1/5 bg-gray-100"></th>
+                            <th class="w-2/5 bg-green-100 text-green-900">Fortalezas</th>
+                            <th class="w-2/5 bg-red-100 text-red-900">Debilidades</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="font-bold bg-blue-100 text-blue-900">Oportunidades</td>
+                            <td class="bg-white">
+                                <strong>Estrategia FO (Ofensiva):</strong><br>
+                                Utilizar la sincronización en tiempo real para ofrecer una App Móvil a los repartidores que actualice el estado al instante.
+                            </td>
+                            <td class="bg-white">
+                                <strong>Estrategia DO (Reorientación):</strong><br>
+                                Desarrollar un modo offline más robusto (PWA) para mitigar la dependencia de conectividad antes de expandirse a zonas con mala cobertura.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="font-bold bg-yellow-100 text-yellow-900">Amenazas</td>
+                            <td class="bg-white">
+                                <strong>Estrategia FA (Defensiva):</strong><br>
+                                Aprovechar la arquitectura flexible para crear respaldos locales o híbridos en caso de cambios en la plataforma nube.
+                            </td>
+                            <td class="bg-white">
+                                <strong>Estrategia DA (Supervivencia):</strong><br>
+                                Capacitar intensivamente al personal (reduciendo la curva de aprendizaje) para que sepan operar el sistema eficientemente y minimizar el impacto de fallas operativas.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-blue-700">3.2 Análisis Costo-Beneficio y Riesgo</h3>
+                
+                <div class="mb-6">
+                    <h4 class="font-bold text-gray-800 mb-2">Análisis Costo-Beneficio</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border p-4 rounded">
+                            <h5 class="font-bold text-gray-700">Costos</h5>
+                            <ul class="list-disc list-inside text-sm text-gray-600">
+                                <li>Desarrollo de software.</li>
+                                <li>Costos operativos Firebase.</li>
+                                <li>Hardware existente.</li>
+                            </ul>
+                        </div>
+                        <div class="border p-4 rounded">
+                            <h5 class="font-bold text-gray-700">Beneficios</h5>
+                            <ul class="list-disc list-inside text-sm text-gray-600">
+                                <li>Reducción de Mermas.</li>
+                                <li>Ahorro de Tiempo.</li>
+                                <li>Toma de Decisiones ágil.</li>
+                                <li>Imagen Corporativa.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="mt-4 text-sm italic text-gray-600 bg-gray-100 p-2 rounded">
+                        <strong>Conclusión:</strong> El retorno de inversión (ROI) se estima positivo a corto plazo debido a la reducción de pérdidas de inventario y el aumento en la velocidad de procesamiento de ventas.
+                    </p>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-gray-800 mb-4">Análisis de Riesgos</h4>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th>Riesgo</th>
+                                <th>Probabilidad</th>
+                                <th>Impacto</th>
+                                <th>Mitigación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Pérdida de Datos</td>
+                                <td class="text-green-600 font-semibold">Baja</td>
+                                <td class="text-red-600 font-semibold">Alto</td>
+                                <td>Backups automáticos diarios en Firestore y reglas de seguridad estrictas.</td>
+                            </tr>
+                            <tr>
+                                <td>Caída de Internet</td>
+                                <td class="text-yellow-600 font-semibold">Media</td>
+                                <td class="text-yellow-600 font-semibold">Medio</td>
+                                <td>Implementación de cola de peticiones offline (Offline Queue).</td>
+                            </tr>
+                            <tr>
+                                <td>Acceso No Autorizado</td>
+                                <td class="text-green-600 font-semibold">Baja</td>
+                                <td class="text-red-600 font-semibold">Alto</td>
+                                <td>Autenticación robusta y reglas de seguridad.</td>
+                            </tr>
+                            <tr>
+                                <td>Bugs Críticos</td>
+                                <td class="text-yellow-600 font-semibold">Media</td>
+                                <td class="text-red-600 font-semibold">Alto</td>
+                                <td>Ambiente de pruebas (Staging), CI/CD y monitoreo.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

@@ -1,0 +1,89 @@
+{
+  "name": "zenda-erp",
+  "private": true,
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "El Mejor Amigo de Tus Finanzas.",
+  "author": {
+    "name": "By Batey Creativo Studio",
+    "email": "Bateycreativo@hotmail.com"
+  },
+  "main": "electron.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite --host",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
+    "build": "vite build",
+    "preview": "vite preview",
+    "package": "npm run build && electron-builder",
+    "test": "vitest --run --globals",
+    "monitor:escpos": "node scripts/monitor-escpos.js",
+    "audit": "pnpm audit --prod"
+  },
+  "dependencies": {
+    "@mui/x-charts": "^8.20.0",
+    "escpos": "^3.0.0-alpha.6",
+    "escpos-usb": "^3.0.0-alpha.4",
+    "html5-qrcode": "^2.3.8",
+    "lucide-react": "^0.471.2",
+    "opencode-ai": "^1.2.6",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-hot-toast": "^2.6.0",
+    "react-qr-code": "^2.0.18",
+    "recharts": "^3.5.1",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.5.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-basic-ssl": "^2.1.4",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.15",
+    "concurrently": "^8.2.2",
+    "electron": "^39.2.1",
+    "electron-builder": "^24.6.4",
+    "eslint": "^8.45.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3",
+    "jsdom": "^22.1.0",
+    "postcss": "^8.4.29",
+    "puppeteer": "^24.31.0",
+    "tailwindcss": "^3.3.3",
+    "vite": "^7.2.2",
+    "vitest": "^4.0.10",
+    "wait-on": "^7.0.1"
+  },
+  "build": {
+    "appId": "com.personalizarte.pos",
+    "productName": "Zenda ERP",
+    "files": [
+      "dist/**/*",
+      "electron.js",
+      "preload.js",
+      "menu.js"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png"
+    }
+  },
+  "packageManager": "pnpm@10.30.0+sha512.2b5753de015d480eeb88f5b5b61e0051f05b4301808a82ec8b840c9d2adf7748eb352c83f5c1593ca703ff1017295bc3fdd3119abb9686efc96b9fcb18200937"
+}

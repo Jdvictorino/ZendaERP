@@ -1,0 +1,18 @@
+/* RegistrationFlow — step transition animations */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.reg-animate-in {
+  animation: slideInRight 0.28s ease both;
+}
+
+.reg-animate-back {
+  animation: slideInLeft 0.28s ease both;
+}

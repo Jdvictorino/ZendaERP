@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" preserveAspectRatio="xMidYMid meet">
+  <rect width="192" height="192" rx="42" fill="#6366f1" />
+  <g transform="translate(96 96) scale(0.075) translate(-784.3 -547.4)">
+    <g transform="matrix(1,0,0,1,-6751.856447,-2573.292383)">
+      <g transform="matrix(1,0,0,1,6318.063655,0)">
+        <g transform="matrix(-1.17369,0,0,-1.17369,2728.380706,6614.461831)">
+          <path d="M619.071,2830.158L950.85,2989.156L1880.087,2515.61L864.503,2515.61L619.071,2830.158Z" style="fill:white;"/>
+        </g>
+      </g>
+      <g transform="matrix(1,0,0,1,6318.063655,0)">
+        <g transform="matrix(1.17369,0,0,1.17369,-327.548791,-368.508613)">
+          <path d="M694.657,3433.995L1649.864,2943.615L1943.075,2506.513L997.599,2985.707L694.657,3433.995Z" style="fill:white;"/>
+        </g>
+      </g>
+      <g transform="matrix(1,0,0,1,6318.063655,0)">
+        <g transform="matrix(1.17369,0,0,1.17369,-292.804102,-379.252532)">
+          <path d="M619.071,2830.158L964.387,2975.619L1880.087,2515.61L864.503,2515.61L619.071,2830.158Z" style="fill:white;"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
