@@ -157,6 +157,8 @@ ZendaERP/
 │       └── DeliveryConfirmViewSQL.jsx
 │
 ├── backend/
+│   ├── .env                          # Variables de entorno del backend y DB
+│   ├── .env.example                  # Plantilla de variables de entorno del backend
 │   ├── prisma/
 │   │   ├── schema.prisma             # 20 modelos, PostgreSQL
 │   │   └── migrations/               # Migraciones versionadas
@@ -184,12 +186,16 @@ ZendaERP/
 ├── docs/
 │   └── GUIA_DESPLIEGUE.md            # Guía paso a paso de despliegue en VPS
 ├── scripts/
+│   ├── captureScreenshots.mjs        # Script auxiliar de capturas
 │   └── monitor-escpos.js             # Monitor de impresora térmica ESC/POS
+├── test/                             # Pruebas unitarias con Vitest
+├── .env.local                        # Variables de entorno del frontend (Vite)
 ├── electron.js                       # Proceso principal Electron
 ├── preload.js                        # Puente IPC seguro Electron ↔ React
 ├── menu.js                           # Menú nativo de la aplicación de escritorio
 ├── Dockerfile                        # Imagen node:22-alpine para el backend
 ├── compose.yaml                      # Docker Compose: API + PostgreSQL
+├── compose.debug.yaml                # Docker Compose para depuración
 ├── vite.config.js                    # Dev server port 5177, proxy /api → 3001
 ├── tailwind.config.js                # Sistema de colores brand (indigo)
 └── vitest.config.js                  # Configuración de pruebas unitarias
@@ -273,9 +279,9 @@ viewer      → Solo Dashboard (solo lectura)
 - **PostgreSQL** v15 o superior
 - **pnpm** v10 (`npm i -g pnpm`)
 
-### Variables de Entorno del Backend
+### Variables de Entorno del Backend (`backend/.env`)
 
-Crear `backend/.env` basado en `backend/.env.example`:
+Crear el archivo `backend/.env` basado en la plantilla `backend/.env.example`:
 
 ```env
 # Base de datos
@@ -292,7 +298,9 @@ JWT_EXPIRES_IN="24h"
 REFRESH_TOKEN_EXPIRES_IN="7d"
 
 # Administrador de plataforma (SaaS)
+PLATFORM_ADMIN_API_KEY="tu_api_key_de_plataforma"
 PLATFORM_OWNER_EMAIL="admin@tudominio.com"
+PLATFORM_OWNER_PASSWORD="password_de_administrador"
 ADMIN_PASSWORD="contraseña_inicial_seed"
 
 # Billing enforcement
@@ -300,6 +308,8 @@ BILLING_ENFORCEMENT_ENABLED=true
 BILLING_BLOCK_MODE=auto
 BILLING_ENFORCEMENT_SCHEDULER_ENABLED=true
 BILLING_ENFORCEMENT_INTERVAL_MINUTES=30
+BILLING_GRACE_DAYS=5
+BILLING_REMINDER_DAYS=7,3,1
 
 # PayPal (suscripciones)
 PAYPAL_MODE=sandbox
@@ -320,9 +330,9 @@ SMTP_PASS="contraseña_smtp"
 SMTP_FROM="Zenda ERP <notificaciones@example.com>"
 ```
 
-### Variables de Entorno del Frontend
+### Variables de Entorno del Frontend (`.env.local`)
 
-En la raíz del proyecto, crear `.env.local`:
+En la raíz del proyecto (`ZendaERP/`), crear o editar el archivo `.env.local`:
 
 ```env
 VITE_API_URL="http://localhost:3001/api"
