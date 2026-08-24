@@ -15,7 +15,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
     },
-    icon: path.join(__dirname, 'build/icon.png')
+    icon: path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png')
   });
 
   if (isDev) {

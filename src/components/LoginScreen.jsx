@@ -25,7 +25,7 @@ const LoginScreen = ({ onLogin, error, onOpenRegister, onOpenForgot }) => {
                 <div className="text-center mb-12">
                     <div className="inline-flex items-center justify-center w-full mb-8">
                         <img
-                            src="/icon.svg"
+                            src={`${import.meta.env.BASE_URL}icon.svg`}
                             alt="Zenda ERP"
                             className="h-20 w-auto drop-shadow-[0_18px_24px_rgba(15,23,42,0.25)]"
                         />

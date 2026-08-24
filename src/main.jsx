@@ -21,8 +21,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 )
 
-// Registrar Service Worker para PWA (después del render para no bloquear)
-if ('serviceWorker' in navigator) {
+// Registrar Service Worker para PWA (solo en servidor HTTP/HTTPS, no en file://)
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
       console.warn('SW registration failed:', err);

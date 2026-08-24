@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#6366f1"/>
-  <g transform="translate(256 256) scale(0.2) translate(-784.3 -547.4)">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
+  <rect width="1024" height="1024" rx="224" fill="#6366f1" />
+  <g transform="translate(512 512) scale(0.4) translate(-784.3 -547.4)">
     <g transform="matrix(1,0,0,1,-6751.856447,-2573.292383)">
       <g transform="matrix(1,0,0,1,6318.063655,0)">
         <g transform="matrix(-1.17369,0,0,-1.17369,2728.380706,6614.461831)">

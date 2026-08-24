@@ -72,17 +72,20 @@
     "directories": {
       "buildResources": "build"
     },
+    "npmRebuild": false,
     "win": {
       "target": "nsis",
-      "icon": "build/icon.png"
+      "icon": "build/icon.ico"
     },
     "mac": {
       "target": "dmg",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "category": "public.app-category.business"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "build/icon.png"
+      "icon": "build",
+      "category": "Office"
     }
   },
   "packageManager": "pnpm@10.30.0+sha512.2b5753de015d480eeb88f5b5b61e0051f05b4301808a82ec8b840c9d2adf7748eb352c83f5c1593ca703ff1017295bc3fdd3119abb9686efc96b9fcb18200937"

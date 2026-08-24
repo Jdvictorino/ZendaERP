@@ -23,7 +23,7 @@ const Sidebar = ({ setView, currentView, isMasterUser, currentRole: providedRole
     return (
         <aside className="hidden lg:flex w-64 bg-[#0f172a] text-white flex-col border-r border-gray-800/50 shadow-2xl">
             <div className="h-16 flex items-center justify-center md:justify-start md:px-6 border-b border-gray-800/50">
-                <img src="/icon.svg" alt="Zenda ERP" className="h-9 w-9 rounded-xl shadow-lg shadow-brand-500/20" />
+                <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="Zenda ERP" className="h-9 w-9 rounded-xl shadow-lg shadow-brand-500/20" />
                 <span className="hidden md:inline ml-3 text-lg font-bold tracking-tight">Zenda ERP</span>
             </div>
             <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">

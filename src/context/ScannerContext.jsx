@@ -102,7 +102,7 @@ export const ScannerProvider = ({ children }) => {
             }
         };
 
-        if (sid) {
+        if (sid && window.location.protocol.startsWith('http')) {
             connectSSE();
         }
 
