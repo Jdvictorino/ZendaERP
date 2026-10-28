@@ -582,4 +582,4 @@ Plataformas soportadas:
 
 ---
 
-_Desarrollado y mantenido por **Batey Creativo Studio** · [Bateycreativo@hotmail.com](mailto:Bateycreativo@hotmail.com)_
+_Desarrollado y mantenido por **Batey Creativo Studio**
