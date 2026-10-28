@@ -28,6 +28,7 @@ import monitoringRoutes from './routes/monitoring.js';
 import ecfRoutes from './routes/ecf.js';
 import emailRoutes from './routes/email.js';
 import adminObservabilityRoutes from './routes/adminObservability.js';
+import updatesRoutes from './routes/updates.js';
 import { observabilityMiddleware, observabilityErrorCapture, log } from './middleware/observability.js';
 import { runBillingEnforcement } from './services/billingEnforcementService.js';
 
@@ -127,6 +128,7 @@ app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/ecf', ecfRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/admin/observability', adminObservabilityRoutes);
+app.use('/api/updates', updatesRoutes);
 
 // Observability — captura de errores (antes del handler global)
 app.use(observabilityErrorCapture);

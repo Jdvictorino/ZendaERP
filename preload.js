@@ -33,4 +33,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   escposPrint: (blocks, printerName) => ipcRenderer.invoke('escpos-print', { blocks, printerName }),
   getPrinters: () => ipcRenderer.invoke('get-printers'),
   openCashDrawer: () => ipcRenderer.invoke('open-cash-drawer'),
+  checkForUpdates: (token, apiUrl) => ipcRenderer.send('updates:check', { token, apiUrl }),
+  onUpdateReady: (callback) => {
+    const listener = (event, info) => callback(info);
+    ipcRenderer.on('updates:ready', listener);
+    return () => ipcRenderer.removeListener('updates:ready', listener);
+  },
+  installUpdate: () => ipcRenderer.send('updates:install'),
 });

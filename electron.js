@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 const createCustomMenu = require('./menu');
 
 const isDev = !app.isPackaged;
@@ -25,6 +26,23 @@ function createWindow() {
     win.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
 }
+
+// --- ACTUALIZACIONES AUTOMÁTICAS (OTA) ---
+// El servidor decide por empresa (panel de plataforma) si responde con una versión nueva.
+// Se descarga en segundo plano y se instala al cerrar la app, o antes si el usuario lo pide.
+ipcMain.on('updates:check', (event, { token, apiUrl } = {}) => {
+  if (isDev || !token || !apiUrl) return;
+  autoUpdater.setFeedURL({ provider: 'generic', url: `${apiUrl.replace(/\/$/, '')}/updates` });
+  autoUpdater.requestHeaders = { Authorization: `Bearer ${token}`, 'X-App-Version': app.getVersion() };
+  // 404 = la empresa no tiene actualizaciones activadas; no es un error para el usuario
+  autoUpdater.checkForUpdates().catch((error) => console.info('Sin actualización disponible:', error.message));
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('updates:ready', { version: info.version }));
+});
+
+ipcMain.on('updates:install', () => autoUpdater.quitAndInstall());
 
 // --- MANEJADORES DE COMUNICACIÓN ---
 ipcMain.on('get-user-data-path', (event) => {

@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 
 // --- Importaciones de API y Componentes ---
-import api, { auth as authApi, settings as settingsApi, clearTokens, setTokens } from './api/client.js';
+import api, { auth as authApi, settings as settingsApi, clearTokens, setTokens, getAccessToken } from './api/client.js';
 import { initTheme } from './utils/theme.js';
 import LoginScreen from './components/LoginScreen.jsx';
 import RegistrationFlow from './components/registration/RegistrationFlow.jsx';
@@ -168,6 +168,23 @@ export default function App() {
             ACTIVITY_EVENTS.forEach(evt => window.removeEventListener(evt, registerActivity));
         };
     }, [user, registerActivity, scheduleInactivityTimer, clearInactivityTimer]);
+
+    // App de escritorio: buscar actualización OTA al iniciar sesión (el servidor decide si a esta empresa le toca)
+    const userId = user?.id;
+    useEffect(() => {
+        if (!userId || !window.electronAPI?.checkForUpdates) return;
+        window.electronAPI.checkForUpdates(getAccessToken(), import.meta.env.VITE_API_URL);
+        return window.electronAPI.onUpdateReady(({ version }) => {
+            toast((t) => (
+                <span className="flex items-center gap-3">
+                    <span>Versión {version} lista. Se instalará al cerrar la app.</span>
+                    <button className="font-semibold text-brand-600 dark:text-brand-400" onClick={() => { toast.dismiss(t.id); window.electronAPI.installUpdate(); }}>
+                        Reiniciar ahora
+                    </button>
+                </span>
+            ), { duration: Infinity, id: 'app-update' });
+        });
+    }, [userId]);
 
     const handleLogin = async (email, password) => {
         setAuthError(null);
