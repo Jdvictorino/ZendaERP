@@ -68,7 +68,11 @@ export default function App() {
         return <MobileScannerView />;
     }
 
-    if (typeof window !== 'undefined' && window.location.pathname === '/platform-billing') {
+    if (
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/platform-billing' ||
+         window.location.hostname === 'admin.zendaerp.online')
+    ) {
         return <PlatformBillingControlView />;
     }
 
