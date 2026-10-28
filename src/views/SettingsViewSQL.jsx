@@ -11,6 +11,7 @@ import NcfModal from '../components/modals/NcfModal.jsx';
 import EcfConfigPanel from '../components/ecf/EcfConfigPanel.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
+import { confirmDialog } from '../utils/confirmDialog.jsx';
 
 const sanitizeForBackend = (value) => {
     if (value === null) return null;
@@ -254,14 +255,14 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
         <div className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 font-display">Configuración</h2>
-                    <p className="text-slate-500 dark:text-slate-400">Administra preferencias globales, terminales de caja, secuencias de comprobantes y conexión DGII.</p>
+                    <h2 className="page-title">Configuración</h2>
+                    <p className="page-subtitle">Administra preferencias globales, terminales de caja, secuencias de comprobantes y conexión DGII.</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 items-start">
                 {/* Navigation Sidebar */}
-                <div className="flex flex-col gap-1 rounded-xl bg-white p-2 shadow-sm dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                <div className="card flex flex-col gap-1 p-2">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
                         return (
@@ -271,7 +272,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                                     activeTab === tab.id
-                                        ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 font-semibold'
+                                        ? 'bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400 font-semibold'
                                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-slate-200'
                                 }`}
                             >
@@ -299,7 +300,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <div>
                                         <label className="block text-slate-700 text-sm font-medium mb-2 dark:text-slate-300">Divisa Principal</label>
-                                        <select 
+                                        <select aria-label="Divisa Principal" 
                                             name="currency" 
                                             value={formData.currency} 
                                             onChange={handleFormChange} 
@@ -319,9 +320,10 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                 type="button" 
                                                 onClick={() => isMasterUser && setFormData({ ...formData, allowCustomization: !formData.allowCustomization })} 
                                                 disabled={!isMasterUser} 
-                                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${formData.allowCustomization ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                                role="switch" aria-checked={!!formData.allowCustomization} aria-label="Personalizar productos"
+                                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${formData.allowCustomization ? 'bg-brand-600' : 'bg-slate-300'}`}
                                             >
-                                                <span className={`inline-block w-5 h-5 bg-white rounded-full transform transition-transform ${formData.allowCustomization ? 'translate-x-5' : 'translate-x-1'}`} />
+                                                <span className={`inline-block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${formData.allowCustomization ? 'translate-x-5' : 'translate-x-1'}`} />
                                             </button>
                                             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Ver el botón "Personalizar" en las tarjetas de producto de venta directa.</span>
                                         </div>
@@ -350,9 +352,10 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                 }));
                                             }}
                                             disabled={!isMasterUser}
-                                            className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${soundSettings.enabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                            role="switch" aria-checked={!!soundSettings.enabled} aria-label="Sonidos de notificación"
+                                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${soundSettings.enabled ? 'bg-brand-600' : 'bg-slate-300'}`}
                                         >
-                                            <span className={`inline-block w-5 h-5 bg-white rounded-full transform transition-transform ${soundSettings.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                                            <span className={`inline-block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${soundSettings.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
                                         </button>
                                     </div>
 
@@ -362,6 +365,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                 <Volume2 className="text-slate-400" size={16} />
                                                 <input
                                                     type="range"
+                                                    aria-label="Volumen de notificaciones"
                                                     min="0"
                                                     max="100"
                                                     value={Math.round((soundSettings.volume ?? 0.7) * 100)}
@@ -380,7 +384,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                         }));
                                                     }}
                                                     disabled={!isMasterUser}
-                                                    className="flex-1 accent-indigo-600"
+                                                    className="flex-1 accent-brand-600"
                                                 />
                                                 <span className="w-12 text-sm text-slate-600 dark:text-slate-300 text-right font-medium">{Math.round((soundSettings.volume ?? 0.7) * 100)}%</span>
                                             </div>
@@ -411,7 +415,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <div>
                                         <label className="block text-slate-700 text-sm font-medium mb-1 dark:text-slate-300">Tolerancia de Cierre</label>
-                                        <input 
+                                        <input aria-label="Tolerancia de Cierre" 
                                             type="number" 
                                             step="0.01" 
                                             className="input-base" 
@@ -419,7 +423,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                             onChange={(e) => isMasterUser && setFormData({ ...formData, cash: { ...formData.cash, tolerance: Number(e.target.value || 0) } })}
                                             readOnly={!isMasterUser} 
                                         />
-                                        <p className="text-xs text-slate-400 mt-1">Margen máximo aceptable en cuadres de caja antes de disparar avisos.</p>
+                                        <p className="text-xs text-ink-muted mt-1">Margen máximo aceptable en cuadres de caja antes de disparar avisos.</p>
                                     </div>
 
                                     <div>
@@ -429,9 +433,10 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                 type="button" 
                                                 onClick={() => isMasterUser && setFormData({ ...formData, cash: { ...formData.cash, requireSupervisorBeyondTolerance: !formData.cash.requireSupervisorBeyondTolerance } })} 
                                                 disabled={!isMasterUser} 
-                                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${formData.cash.requireSupervisorBeyondTolerance ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                                role="switch" aria-checked={!!formData.cash.requireSupervisorBeyondTolerance} aria-label="Requerir supervisor fuera de tolerancia"
+                                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${formData.cash.requireSupervisorBeyondTolerance ? 'bg-brand-600' : 'bg-slate-300'}`}
                                             >
-                                                <span className={`inline-block w-5 h-5 bg-white rounded-full transform transition-transform ${formData.cash.requireSupervisorBeyondTolerance ? 'translate-x-5' : 'translate-x-1'}`} />
+                                                <span className={`inline-block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${formData.cash.requireSupervisorBeyondTolerance ? 'translate-x-5' : 'translate-x-1'}`} />
                                             </button>
                                             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Requerir PIN supervisor si se excede la tolerancia.</span>
                                         </div>
@@ -443,7 +448,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                     <div className="space-y-3">
                                         {(formData.cash.registers || []).map((r, idx) => (
                                             <div key={r.id || idx} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center rounded-lg border border-slate-100 p-3 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
-                                                <input 
+                                                <input aria-label="Código Terminal (Ej. REG-1)" 
                                                     className="input-base md:col-span-2" 
                                                     placeholder="Código Terminal (Ej. REG-1)" 
                                                     value={r.id || ''}
@@ -455,7 +460,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                     }}
                                                     readOnly={!isMasterUser} 
                                                 />
-                                                <input 
+                                                <input aria-label="Nombre de la Terminal" 
                                                     className="input-base md:col-span-2" 
                                                     placeholder="Nombre de la Terminal" 
                                                     value={r.name || ''}
@@ -480,7 +485,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                                 setFormData({ ...formData, cash: { ...formData.cash, registers: regs } });
                                                             }} 
                                                             disabled={!isMasterUser} 
-                                                            className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                                            className="h-4 w-4 rounded text-brand-600 focus:ring-brand-500"
                                                         />
                                                         <label htmlFor={`reg-enabled-${idx}`} className="text-xs text-slate-500 dark:text-slate-400 font-medium">Activo</label>
                                                     </div>
@@ -504,7 +509,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                         {isMasterUser && (
                                             <button 
                                                 type="button" 
-                                                className="inline-flex items-center gap-1 text-xs text-indigo-600 font-semibold hover:text-indigo-800 mt-2" 
+                                                className="inline-flex items-center gap-1 text-xs text-brand-600 font-semibold hover:text-brand-800 mt-2" 
                                                 onClick={() => setFormData({ 
                                                     ...formData, 
                                                     cash: { 
@@ -524,7 +529,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                         <div>
                                             <label className="block text-slate-700 text-sm font-medium mb-1 dark:text-slate-300">Modo de Impresión</label>
-                                            <select 
+                                            <select aria-label="Modo de Impresión" 
                                                 className="input-base" 
                                                 value={formData.cash.printing?.mode || 'html'} 
                                                 onChange={(e) => isMasterUser && setFormData({ 
@@ -544,7 +549,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                         <div>
                                             <label className="block text-slate-700 text-sm font-medium mb-1 dark:text-slate-300">Nombre del Dispositivo Impresora</label>
                                             {systemPrinters.length > 0 ? (
-                                                <select 
+                                                <select aria-label="Usar Predeterminada del Sistema" 
                                                     className="input-base" 
                                                     value={formData.cash.printing?.printerName || ''} 
                                                     onChange={(e) => isMasterUser && setFormData({ 
@@ -560,7 +565,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                     {systemPrinters.map(p => <option key={p} value={p}>{p}</option>)}
                                                 </select>
                                             ) : (
-                                                <input 
+                                                <input aria-label="Introduce el nombre exacto de la impresora térmica" 
                                                     className="input-base" 
                                                     value={formData.cash.printing?.printerName || ''} 
                                                     onChange={(e) => isMasterUser && setFormData({ 
@@ -610,8 +615,8 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                         onClick={() => setFormData(prev => ({ ...prev, orderMode: mode }))}
                                                         className={`flex-1 min-w-[150px] px-4 py-3 rounded-xl border text-sm font-semibold transition-all shadow-sm ${
                                                             formData.orderMode === mode
-                                                                ? 'bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-700'
-                                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
+                                                                ? 'bg-brand-600 border-brand-600 text-white dark:bg-brand-700'
+                                                                : 'bg-surface border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
                                                         }`}
                                                     >
                                                         {mode === 'craft' ? '🏪 Modo Tienda Craft' : '📦 Modo Distribuidor'}
@@ -626,11 +631,11 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                         <div className="flex flex-col gap-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 p-4 border border-slate-100 dark:border-slate-800">
                                             <div className="flex items-center gap-3">
                                                 <span className="text-sm text-slate-700 font-medium dark:text-slate-300">Modo de pedidos activo:</span>
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-800 dark:bg-brand-950 dark:text-brand-400">
                                                     {formData.orderMode === 'craft' ? '🏪 Modo Tienda Craft' : '📦 Modo Distribuidor'}
                                                 </span>
                                             </div>
-                                            <span className="text-xs text-slate-400 mt-1">El propietario de la licencia SaaS administra la disponibilidad de los modos de negocio avanzados.</span>
+                                            <span className="text-xs text-ink-muted mt-1">El propietario de la licencia SaaS administra la disponibilidad de los modos de negocio avanzados.</span>
                                         </div>
                                     )}
                                 </div>
@@ -697,16 +702,16 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                         <button
                                                             type="button"
                                                             className="text-red-500 hover:text-red-700 text-xs font-semibold p-2"
-                                                            onClick={() => {
+                                                            onClick={async () => {
                                                                 const name = formData.customerCategories[idx];
-                                                                if (!window.confirm(`¿Seguro que deseas eliminar la categoría "${name}"?`)) return;
+                                                                if (!(await confirmDialog(`¿Eliminar la categoría "${name}"?`, { confirmText: 'Eliminar' }))) return;
                                                                 const arr = [...(formData.customerCategories || [])];
                                                                 arr.splice(idx, 1);
                                                                 
                                                                 const discounts = { ...(formData.pricing?.categoryDiscounts || {}) };
                                                                 if (discounts.hasOwnProperty(name)) delete discounts[name];
                                                                 
-                                                                if (arr.length > 0 && window.confirm('¿Reemplazar esta categoría en clientes existentes por otra?')) {
+                                                                if (arr.length > 0 && await confirmDialog('¿Quieres reasignar los clientes de esta categoría a otra?', { title: 'Reasignar clientes', confirmText: 'Reasignar', cancelText: 'No', danger: false })) {
                                                                     const dest = window.prompt(`Ingresa el nombre de la nueva categoría destino exacto: (${arr.join(', ')})`, arr[0]);
                                                                     if (dest && arr.includes(dest)) {
                                                                         setPendingMigrations(prev => [...prev.filter(m => m.from !== name), { from: name, to: dest }]);
@@ -728,7 +733,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                             {isMasterUser && (
                                                 <button
                                                     type="button"
-                                                    className="inline-flex items-center gap-1 text-xs text-indigo-600 font-semibold hover:text-indigo-800 mt-1"
+                                                    className="inline-flex items-center gap-1 text-xs text-brand-600 font-semibold hover:text-brand-800 mt-1"
                                                     onClick={() => {
                                                         const base = 'Nueva Categoría';
                                                         let name = base;
@@ -791,7 +796,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                             <input 
                                                 id="applyMigrations" 
                                                 type="checkbox" 
-                                                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500" 
+                                                className="h-4 w-4 rounded text-brand-600 focus:ring-brand-500" 
                                                 checked={applyMigrations} 
                                                 onChange={(e) => setApplyMigrations(!!e.target.checked)} 
                                             />
@@ -807,7 +812,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                         <li key={`${m.from}->${m.to}-${i}`}>{m.from} → {m.to}</li>
                                                     ))}
                                                 </ul>
-                                                <button type="button" className="text-indigo-600 dark:text-indigo-400 font-semibold mt-2 hover:underline" onClick={() => setPendingMigrations([])}>Limpiar cola de migraciones</button>
+                                                <button type="button" className="text-brand-600 dark:text-brand-400 font-semibold mt-2 hover:underline" onClick={() => setPendingMigrations([])}>Limpiar cola de migraciones</button>
                                             </div>
                                         )}
                                         
@@ -849,9 +854,9 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                 const remaining = Number(seq.end || 0) - Number(seq.next || seq.start || 1) + 1;
                                                 const exhausted = Number(seq.next || 0) > Number(seq.end || 0);
                                                 return (
-                                                    <div key={seq.code} className="rounded-xl border border-amber-200 bg-white p-3 text-xs dark:border-amber-800/40 dark:bg-slate-900">
+                                                    <div key={seq.code} className="rounded-xl border border-amber-200 bg-surface p-3 text-xs dark:border-amber-800/40 dark:bg-slate-900">
                                                         <p className="font-semibold text-slate-900 dark:text-slate-100">{seq.name}</p>
-                                                        <div className="mt-1 text-slate-500 space-y-0.5">
+                                                        <div className="mt-1 text-ink-muted space-y-0.5">
                                                             <p>Próximo NCF: <span className="font-mono text-slate-800 dark:text-slate-300 font-semibold">{seq.prefix}{String(seq.next).padStart(8, '0')}</span></p>
                                                             <p>Rango Fin: <span className="font-mono text-slate-600 dark:text-slate-400">{seq.prefix}{String(seq.end).padStart(8, '0')}</span></p>
                                                         </div>
@@ -887,21 +892,21 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                     return (
                                                         <tr key={seq.code} className="hover:bg-slate-50/40 dark:hover:bg-slate-900/10">
                                                             <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{seq.name}</td>
-                                                            <td className="p-3 font-mono text-xs font-bold text-slate-500">{seq.prefix}</td>
+                                                            <td className="p-3 font-mono text-xs font-bold text-ink-muted">{seq.prefix}</td>
                                                             <td className="p-3 text-right">{seq.start}</td>
                                                             <td className="p-3 text-right">{seq.end}</td>
-                                                            <td className="p-3 text-right font-bold text-indigo-600 dark:text-indigo-400">{seq.next}</td>
+                                                            <td className="p-3 text-right font-bold text-brand-600 dark:text-brand-400">{seq.next}</td>
                                                             <td className="p-3">
                                                                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                                                     exhausted 
                                                                         ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400' 
                                                                         : seq.active 
-                                                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' 
+                                                                            ? 'bg-success-100 text-success-700 dark:bg-success-950/40 dark:text-success-400' 
                                                                             : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                                                                 }`}>
                                                                     {exhausted ? 'Agotado' : seq.active ? 'Activo' : 'Inactivo'}
                                                                 </span>
-                                                                <p className="mt-1 text-[10px] text-slate-400 font-medium">
+                                                                <p className="mt-1 text-xs text-slate-400 font-medium">
                                                                     {remaining > 0 ? `${remaining} disponibles` : 'Renovar secuencia'}
                                                                 </p>
                                                             </td>
@@ -941,7 +946,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                                     <div>
                                         <label className="block text-slate-700 text-sm font-semibold mb-2 dark:text-slate-300">Servidor SMTP (Host)</label>
-                                        <input 
+                                        <input aria-label="Servidor SMTP (Host)" 
                                             type="text" 
                                             className="input-base" 
                                             placeholder="smtp.gmail.com"
@@ -956,7 +961,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
 
                                     <div>
                                         <label className="block text-slate-700 text-sm font-semibold mb-2 dark:text-slate-300">Puerto SMTP</label>
-                                        <input 
+                                        <input aria-label="Puerto SMTP" 
                                             type="number" 
                                             className="input-base" 
                                             placeholder="587"
@@ -973,7 +978,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                         <label className="flex items-center gap-2 text-slate-700 text-sm font-semibold dark:text-slate-300 cursor-pointer">
                                             <input 
                                                 type="checkbox" 
-                                                className="rounded border-slate-300 text-indigo-600 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                                                className="rounded border-slate-300 text-brand-600 focus:border-brand-300 focus:ring focus:ring-brand-200 focus:ring-opacity-50"
                                                 checked={!!formData.smtp?.secure}
                                                 onChange={(e) => isMasterUser && setFormData({ 
                                                     ...formData, 
@@ -987,7 +992,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
 
                                     <div>
                                         <label className="block text-slate-700 text-sm font-semibold mb-2 dark:text-slate-300">Usuario SMTP (Correo)</label>
-                                        <input 
+                                        <input aria-label="Usuario SMTP (Correo)" 
                                             type="text" 
                                             className="input-base font-mono" 
                                             placeholder="facturas@miempresa.com"
@@ -1002,7 +1007,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
 
                                     <div>
                                         <label className="block text-slate-700 text-sm font-semibold mb-2 dark:text-slate-300">Contraseña SMTP</label>
-                                        <input 
+                                        <input aria-label="Contraseña SMTP" 
                                             type="password" 
                                             className="input-base font-mono" 
                                             placeholder="••••••••••••••••"
@@ -1017,7 +1022,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
 
                                     <div>
                                         <label className="block text-slate-700 text-sm font-semibold mb-2 dark:text-slate-300">Remitente (From Email)</label>
-                                        <input 
+                                        <input aria-label="Remitente (From Email)" 
                                             type="text" 
                                             className="input-base" 
                                             placeholder="Mi Empresa &lt;facturas@miempresa.com&gt;"
@@ -1050,7 +1055,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                         Ingresa una dirección de correo para enviar un mensaje de prueba con tus credenciales SMTP activas.
                                     </p>
                                     <div className="flex gap-2 max-w-md">
-                                        <input
+                                        <input aria-label="correo-prueba@destinatario.com"
                                             type="email"
                                             value={testEmail}
                                             onChange={(e) => setTestEmail(e.target.value)}

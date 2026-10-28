@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button.jsx';
@@ -126,17 +126,17 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
     };
     
     const modalContent = (
-        <div className={fullPage ? 'bg-white rounded-2xl shadow-card p-6 w-full' : 'bg-white rounded-2xl shadow-card p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto'}>
+        <div className={fullPage ? 'modal-panel p-6 w-full' : 'modal-panel p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto'}>
             <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
                 <div className="flex items-center gap-2">
                     {fullPage && (
-                        <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+                        <button type="button" onClick={onClose} className="modal-close" aria-label="Salir">
                             <ArrowLeft size={22} strokeWidth={2.5} />
                         </button>
                     )}
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900">{supplier.id ? 'Modificar Proveedor' : 'Nuevo Proveedor'}</h3>
+                    <h3 className="text-lg font-semibold text-ink">{supplier.id ? 'Modificar Proveedor' : 'Nuevo Proveedor'}</h3>
                 </div>
-                {!fullPage && <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>}
+                {!fullPage && <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>}
             </div>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -156,50 +156,50 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
                     <div className="md:col-span-3">
                         {/* --- SECCIÓN DE INFORMACIÓN GENERAL --- */}
                         <fieldset className="border p-4 rounded-lg">
-                            <legend className="text-lg font-semibold text-indigo-600 px-2">Información General</legend>
+                            <legend className="text-lg font-semibold text-brand-600 px-2">Información General</legend>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-gray-700 mb-1">Nombre / Razón Social</label>
-                                    <input type="text" name="name" value={formData.name} onChange={handleChange} className={`input-base ${errors.name ? 'border-red-400' : ''}`} required />
-                                    {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                                    <label className="block text-ink-soft mb-1">Nombre / Razón Social</label>
+                                    <input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" aria-invalid={!!errors.name} aria-describedby={errors.name ? 'err-name' : undefined} required />
+                                    {errors.name && <p id="err-name" className="field-error">{errors.name}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-gray-700 mb-1">RNC / Cédula / Pasaporte (Opcional)</label>
-                                    <input type="text" name="identificationNumber" value={formData.identificationNumber} onChange={handleIdChange} className={`input-base ${errors.identificationNumber ? 'border-red-400' : ''}`} placeholder="Ej: 001-1234567-8 o 1-01-12345-1" />
-                                    {errors.identificationNumber && <p className="text-red-500 text-sm mt-1">{errors.identificationNumber}</p>}
+                                    <label className="block text-ink-soft mb-1">RNC / Cédula / Pasaporte (Opcional)</label>
+                                    <input type="text" name="identificationNumber" value={formData.identificationNumber} onChange={handleIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={errors.identificationNumber ? 'err-identificationNumber' : undefined} placeholder="Ej: 001-1234567-8 o 1-01-12345-1" />
+                                    {errors.identificationNumber && <p id="err-identificationNumber" className="field-error">{errors.identificationNumber}</p>}
                                 </div>
                             </div>
                             <div className="mt-4">
-                                <label className="block text-gray-700 mb-1">Dirección</label>
+                                <label className="block text-ink-soft mb-1">Dirección</label>
                                 <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="input-base" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
-                                    <label className="block text-gray-700 mb-1">Teléfono</label>
+                                    <label className="block text-ink-soft mb-1">Teléfono</label>
                                     <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-base" />
                                 </div>
                                 <div>
-                                    <label className="block text-gray-700 mb-1">Correo Electrónico</label>
-                                    <input type="email" name="email" value={formData.email} onChange={handleChange} className={`input-base ${errors.email ? 'border-red-400' : ''}`} />
-                                    {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                                    <label className="block text-ink-soft mb-1">Correo Electrónico</label>
+                                    <input type="email" name="email" value={formData.email} onChange={handleChange} className="input-base" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
+                                    {errors.email && <p id="err-email" className="field-error">{errors.email}</p>}
                                 </div>
                             </div>
                             <div className="mt-4">
-                                <label className="block text-gray-700 mb-1">Sitio Web / Tienda Online (Opcional)</label>
+                                <label className="block text-ink-soft mb-1">Sitio Web / Tienda Online (Opcional)</label>
                                 <input type="url" name="website" value={formData.website} onChange={handleChange} className="input-base" />
                             </div>
                         </fieldset>
                         
                         {/* --- NUEVA SECCIÓN DE DATOS BANCARIOS --- */}
                         <fieldset className="border p-4 rounded-lg mt-4">
-                            <legend className="text-lg font-semibold text-indigo-600 px-2">Datos Bancarios (Opcional)</legend>
+                            <legend className="text-lg font-semibold text-brand-600 px-2">Datos Bancarios (Opcional)</legend>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-gray-700 mb-1">Nombre del Banco</label>
+                                    <label className="block text-ink-soft mb-1">Nombre del Banco</label>
                                     <input type="text" name="bankName" value={formData.bankDetails.bankName} onChange={handleBankChange} className="input-base" />
                                 </div>
                                  <div>
-                                    <label className="block text-gray-700 mb-1">Tipo de Cuenta</label>
+                                    <label className="block text-ink-soft mb-1">Tipo de Cuenta</label>
                                     <select name="accountType" value={formData.bankDetails.accountType} onChange={handleBankChange} className="input-base">
                                         <option>Ahorros</option>
                                         <option>Corriente</option>
@@ -207,16 +207,16 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
                                 </div>
                             </div>
                             <div className="mt-4">
-                                <label className="block text-gray-700 mb-1">Nombre del Beneficiario</label>
+                                <label className="block text-ink-soft mb-1">Nombre del Beneficiario</label>
                                 <input type="text" name="beneficiaryName" value={formData.bankDetails.beneficiaryName} onChange={handleBankChange} className="input-base" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
-                                   <label className="block text-gray-700 mb-1">Número de Cuenta</label>
+                                   <label className="block text-ink-soft mb-1">Número de Cuenta</label>
                                    <input type="text" name="accountNumber" value={formData.bankDetails.accountNumber} onChange={handleBankChange} className="input-base" />
                                 </div>
                                 <div>
-                                   <label className="block text-gray-700 mb-1">Cédula o RNC del Beneficiario</label>
+                                   <label className="block text-ink-soft mb-1">Cédula o RNC del Beneficiario</label>
                                    <input type="text" name="beneficiaryId" value={formData.bankDetails.beneficiaryId} onChange={handleBankChange} className="input-base" />
                                 </div>
                             </div>
@@ -235,7 +235,7 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
     const zIndexClass = isQuickAdd ? "z-[60]" : "z-50";
 
     return (
-        <div className={fullPage ? 'w-full' : `fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center ${zIndexClass} p-4`}>
+        <div className={fullPage ? 'w-full' : `fixed inset-0 modal-backdrop flex items-center justify-center ${zIndexClass} p-4`}>
             {modalContent}
         </div>
     );

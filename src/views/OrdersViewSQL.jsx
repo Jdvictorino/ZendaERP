@@ -18,13 +18,17 @@ import BillingTypeModal from '../components/modals/BillingTypeModal.jsx';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ScannerLinkModal from '../components/modals/ScannerLinkModal.jsx';
 import { v4 as uuidv4 } from 'uuid';
+import Button from '../components/ui/Button.jsx';
+import Segmented from '../components/ui/Segmented.jsx';
 import api from '../api/client.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import { useScanner } from '../context/ScannerContext.jsx';
+import { PLACEHOLDER_IMG } from '../utils/placeholderImage.js';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
 
 const getColorClass = (colorName) => {
     const colors = {
-        rojo: 'bg-red-500', azul: 'bg-blue-500', verde: 'bg-green-500',
+        rojo: 'bg-red-500', azul: 'bg-blue-500', verde: 'bg-success-500',
         amarillo: 'bg-yellow-400', negro: 'bg-black', blanco: 'bg-white border border-gray-300',
         gris: 'bg-gray-400', morado: 'bg-purple-500', naranja: 'bg-orange-500', rosado: 'bg-pink-400',
     };
@@ -517,10 +521,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
 
     if (loadingProducts || loadingCustomers) {
         return (
-            <div className="flex justify-center items-center h-full p-12">
-                <Loader2 className="animate-spin text-gray-400" size={48} />
-                <p className="ml-4 text-gray-500">Cargando datos de pedidos...</p>
-            </div>
+            <PageSkeleton kpis={0} label="Cargando datos de pedidos..." />
         );
     }
 
@@ -529,17 +530,17 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
-                        <h2 className="text-3xl font-bold text-gray-800">Crear Nuevo Pedido</h2>
+                        <h2 className="page-title">Crear Nuevo Pedido</h2>
                     </div>
-                    <div className="flex gap-2 mb-4">
-                        <input 
+                    <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                        <input aria-label="Buscar productos" 
                             type="text" 
                             placeholder="Buscar productos..." 
                             value={searchTerm} 
                             onChange={e => setSearchTerm(e.target.value)} 
-                            className="flex-1 p-3 border rounded-lg shadow-sm" 
+                            className="input-base sm:flex-1 h-11"  
                         />
-                        <input 
+                        <input aria-label="Escanear código" 
                             type="text" 
                             placeholder="Escanear código..." 
                             value={barcodeScan} 
@@ -549,13 +550,13 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                         processScannedBarcode(barcodeScan.trim());
                                     }
                                 }} 
-                                className="w-56 p-3 border rounded-lg shadow-sm" 
+                                className="input-base sm:w-56 h-11"  
                             />
                             {isConnected ? (
-                                <div className="flex items-center bg-green-100 text-green-800 rounded-lg overflow-hidden shadow-sm shrink-0">
+                                <div className="flex items-center bg-success-100 text-success-800 rounded-lg overflow-hidden shadow-sm shrink-0">
                                     <button
                                         onClick={() => setShowScannerModal(true)}
-                                        className="flex items-center gap-2 px-3 py-3 hover:bg-green-200 transition-colors"
+                                        className="flex items-center gap-2 px-3 py-3 hover:bg-success-200 transition-colors"
                                         title="Escáner remoto activo"
                                     >
                                         <Smartphone size={20} />
@@ -563,7 +564,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                     </button>
                                     <button
                                         onClick={() => disconnectDevice()}
-                                        className="px-3 py-3 hover:bg-green-200 text-green-900 transition-colors border-l border-green-200/50"
+                                        className="px-3 py-3 hover:bg-success-200 text-success-900 transition-colors border-l border-success-200/50"
                                         title="Desvincular"
                                     >
                                         <XCircle size={20} />
@@ -575,32 +576,32 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                         initSession(); // Asegurar inicialización de sesión
                                         setShowScannerModal(true);
                                     }}
-                                    className="flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-3 rounded-lg hover:bg-indigo-200 transition-colors shrink-0"
+                                    className="flex items-center gap-2 h-11 px-4 rounded-lg border border-line bg-surface text-ink font-semibold text-sm shadow-sm hover:bg-surface-muted transition-colors shrink-0"
                                 >
                                     <Smartphone size={20} />
                                     <span>Vincular Celular</span>
                                 </button>
                             )}
                         </div>
-                    <div className="bg-white p-4 rounded-lg shadow-md">
+                    <div className="card p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
                             {filteredProducts.map(p => {
                                 const productVariants = p.variants || [];
                                 const currentImage = displayImages[p.id] || p.imageUrl;
                                 return (
-                                    <div key={p.id} className="border rounded-lg p-4 flex flex-col items-center text-center min-h-[18rem] shadow-sm hover:shadow-md transition-shadow duration-150">
+                                    <div key={p.id} className="rounded-lg border border-line p-4 flex flex-col items-center text-center min-h-[18rem] hover:border-brand-300 dark:hover:border-brand-700 transition-colors">
                                         <img 
-                                            src={currentImage || 'https://placehold.co/120x120/e2e8f0/a0aec0?text=Img'} 
+                                            src={currentImage || PLACEHOLDER_IMG} 
                                             alt={p.name} 
-                                            className="w-28 h-28 object-cover rounded-md mb-2 shadow-sm"
+                                            className="w-28 h-28 object-cover rounded-lg mb-3"
                                         />
-                                        <h4 className="font-semibold text-sm break-words">{p.name}</h4>
-                                        <p className="text-gray-600 text-sm">{formatCurrency(p.salePrice, companyProfile?.currency)}</p>
+                                        <h4 className="font-semibold text-sm text-ink break-words">{p.name}</h4>
+                                        <p className="text-ink text-sm font-medium tabular-nums">{formatCurrency(p.salePrice, companyProfile?.currency)}</p>
                                         {productVariants.length > 0 && (
                                             <div className="flex justify-center gap-2 mt-2">
                                                 <div 
                                                     onClick={() => handleVariantClick(p.id, p.imageUrl)} 
-                                                    className="w-5 h-5 rounded-full cursor-pointer bg-white border border-gray-300" 
+                                                    className="w-5 h-5 rounded-full cursor-pointer bg-surface border border-line" 
                                                     title="Default"
                                                 />
                                                 {productVariants.map(variant => (
@@ -613,17 +614,16 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                                 ))}
                                             </div>
                                         )}
-                                        <p className="text-sm text-gray-500 mt-1">Disponibles: {p.stock}</p>
-                                        <div className="mt-3 flex gap-2 w-full px-2">
+                                        <p className="text-xs text-ink-muted mt-1">Disponibles: {p.stock}</p>
+                                        <div className="mt-auto pt-3 flex gap-2 w-full">
                                             {companyProfile?.allowCustomization !== false && (
-                                                <button 
-                                                    onClick={() => setCustomizingItem({ product: p, variants: productVariants })} 
-                                                    className="flex-1 bg-gray-500 text-white text-sm py-2 rounded-md hover:bg-gray-600"
+                                                <Button size="sm" variant="secondary" className="flex-1"
+                                                    onClick={() => setCustomizingItem({ product: p, variants: productVariants })}
                                                 >
                                                     Personalizar
-                                                </button>
+                                                </Button>
                                             )}
-                                            <button 
+                                            <Button size="sm" className="flex-1 gap-1.5"
                                                 onClick={() => {
                                                     const quickItem = {
                                                         name: p.name,
@@ -638,12 +638,11 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                                         variantInfo: null
                                                     };
                                                     handleAddToCart(quickItem);
-                                                }} 
-                                                className="flex-1 bg-blue-600 text-white text-sm py-2 rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
+                                                }}
                                             >
                                                 <ShoppingCart size={16} />
                                                 <span>Añadir</span>
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 );
@@ -653,34 +652,21 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 </div>
 
                 <div className="lg:col-span-1">
-                    <div className="bg-white p-6 rounded-lg shadow-md sticky top-8">
-                        <h3 className="text-2xl font-bold border-b pb-4 mb-4">Resumen del Pedido</h3>
+                    <div className="card p-6 sticky top-8">
+                        <h3 className="text-lg font-semibold text-ink border-b border-line pb-4 mb-4">Resumen del Pedido</h3>
 
                         <div className="mb-4">
-                            <div className="flex gap-4 mb-2 border-b pb-2">
-                                <label>
-                                    <input 
-                                        type="radio" 
-                                        name="customerType" 
-                                        value="existing" 
-                                        checked={customerType === 'existing'} 
-                                        onChange={(e) => setCustomerType(e.target.value)} 
-                                    /> Cliente Registrado
-                                </label>
-                                <label>
-                                    <input 
-                                        type="radio" 
-                                        name="customerType" 
-                                        value="guest" 
-                                        checked={customerType === 'guest'} 
-                                        onChange={(e) => setCustomerType(e.target.value)} 
-                                    /> Cliente Temporal
-                                </label>
-                            </div>
+                            <Segmented
+                                label="Tipo de cliente"
+                                className="mb-3"
+                                value={customerType}
+                                onChange={setCustomerType}
+                                options={[{ value: 'existing', label: 'Cliente registrado' }, { value: 'guest', label: 'Cliente temporal' }]}
+                            />
                             {customerType === 'existing' ? (
                                 <div className="flex items-center gap-2">
                                     <div className="relative flex-1">
-                                        <input
+                                        <input aria-label="Buscar por nombre, cédula/RNC o código"
                                             type="text"
                                             value={customerSearchTerm}
                                             onChange={(e) => handleCustomerSearchChange(e.target.value)}
@@ -689,7 +675,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                                 dropdownBlurTimeout.current = setTimeout(() => setIsCustomerDropdownOpen(false), 150);
                                             }}
                                             placeholder="Buscar por nombre, cédula/RNC o código"
-                                            className="w-full p-2 pr-10 border rounded-md"
+                                            className="input-base pr-10"
                                             autoComplete="off"
                                             spellCheck={false}
                                         />
@@ -707,7 +693,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                         )}
                                         {isCustomerDropdownOpen && customerOptions.length > 0 && (
                                             <ul
-                                                className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg"
+                                                className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-surface border border-line rounded-md shadow-lg"
                                                 onMouseDown={(e) => e.preventDefault()}
                                             >
                                                 {customerOptions.map((customer) => (
@@ -719,10 +705,10 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                                                 if (dropdownBlurTimeout.current) clearTimeout(dropdownBlurTimeout.current);
                                                                 handleCustomerSelect(customer);
                                                             }}
-                                                            className="w-full text-left px-3 py-2 hover:bg-indigo-50"
+                                                            className="w-full text-left px-3 py-2 hover:bg-brand-50 dark:hover:bg-brand-950/40"
                                                         >
-                                                            <p className="font-medium text-gray-900">{customer.name || 'Cliente sin nombre'}</p>
-                                                            <p className="text-xs text-gray-500">
+                                                            <p className="font-medium text-ink">{customer.name || 'Cliente sin nombre'}</p>
+                                                            <p className="text-xs text-ink-muted">
                                                                 {(customer.customerCode && `Código: ${customer.customerCode}`) || 'Sin código'}
                                                                 {customer.rnc ? ` · RNC: ${customer.rnc}` : ''}
                                                             </p>
@@ -732,28 +718,29 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                             </ul>
                                         )}
                                         {isCustomerDropdownOpen && customerOptions.length === 0 && (
-                                            <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-md px-3 py-2 text-sm text-gray-500">
+                                            <div className="absolute z-20 left-0 right-0 mt-1 bg-surface border border-line rounded-md shadow-md px-3 py-2 text-sm text-ink-muted">
                                                 No se encontraron clientes.
                                             </div>
                                         )}
                                     </div>
                                     <button 
                                         onClick={() => setShowAddCustomerModal(true)} 
-                                        className="p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600"
+                                        aria-label="Nuevo cliente" title="Nuevo cliente"
+                                        className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg border border-line bg-surface text-ink-muted hover:text-brand-600 hover:bg-surface-muted"
                                     >
-                                        <UserPlus size={20}/>
+                                        <UserPlus size={18}/>
                                     </button>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    <input 
+                                    <input aria-label="Nombre del cliente" 
                                         type="text" 
                                         placeholder="Nombre del cliente" 
                                         value={guestCustomer.name} 
                                         onChange={e => setGuestCustomer({...guestCustomer, name: e.target.value})} 
                                         className="w-full p-2 border rounded-md" 
                                     />
-                                    <input 
+                                    <input aria-label="Teléfono (opcional)" 
                                         type="tel" 
                                         placeholder="Teléfono (opcional)" 
                                         value={guestCustomer.phone} 
@@ -764,75 +751,66 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                             )}
                         </div>
 
-                        <div className="mb-4 border-t pt-4">
-                            <label className="block font-medium mb-2">Tipo de entrega</label>
-                            <div className="flex gap-4 items-center">
-                                <label>
-                                    <input 
-                                        type="radio" 
-                                        name="deliveryType" 
-                                        value="pickup" 
-                                        checked={deliveryType === 'pickup'} 
-                                        onChange={(e) => setDeliveryType(e.target.value)} 
-                                    /> Entrega en tienda
-                                </label>
-                                <label>
-                                    <input 
-                                        type="radio" 
-                                        name="deliveryType" 
-                                        value="shipping" 
-                                        checked={deliveryType === 'shipping'} 
-                                        onChange={(e) => setDeliveryType(e.target.value)} 
-                                    /> Envío a domicilio
-                                </label>
-                            </div>
+                        <div className="mb-4 border-t border-line pt-4">
+                            <p className="text-sm font-medium text-ink mb-2">Tipo de entrega</p>
+                            <Segmented
+                                label="Tipo de entrega"
+                                value={deliveryType}
+                                onChange={setDeliveryType}
+                                options={[{ value: 'pickup', label: 'Entrega en tienda' }, { value: 'shipping', label: 'Envío a domicilio' }]}
+                            />
                             {deliveryType === 'shipping' && customerType === 'guest' && (
                                 <div className="mt-3 space-y-2">
-                                    <input 
+                                    <input aria-label="Dirección (calle)" 
                                         type="text" 
                                         placeholder="Dirección (calle)" 
                                         value={guestAddress.street} 
                                         onChange={e => setGuestAddress(prev => ({ ...prev, street: e.target.value }))} 
-                                        className="w-full p-2 border rounded-md" 
+                                        className="input-base"  
                                     />
                                     <div className="flex gap-2">
-                                        <input 
+                                        <input aria-label="Ciudad" 
                                             type="text" 
                                             placeholder="Ciudad" 
                                             value={guestAddress.city} 
                                             onChange={e => setGuestAddress(prev => ({ ...prev, city: e.target.value }))} 
-                                            className="flex-1 p-2 border rounded-md" 
+                                            className="input-base flex-1"  
                                         />
-                                        <input 
+                                        <input aria-label="Código postal" 
                                             type="text" 
                                             placeholder="Código postal" 
                                             value={guestAddress.postalCode} 
                                             onChange={e => setGuestAddress(prev => ({ ...prev, postalCode: e.target.value }))} 
-                                            className="w-36 p-2 border rounded-md" 
+                                            className="input-base w-36"  
                                         />
                                     </div>
-                                    <input 
+                                    <input aria-label="Teléfono" 
                                         type="tel" 
                                         placeholder="Teléfono" 
                                         value={guestAddress.phone} 
                                         onChange={e => setGuestAddress(prev => ({ ...prev, phone: e.target.value }))} 
-                                        className="w-full p-2 border rounded-md" 
+                                        className="input-base"  
                                     />
                                 </div>
                             )}
                         </div>
 
                         <div className="space-y-2 mb-4 pr-2" style={{ maxHeight: `${Math.min(400 + cart.length * 70, 600)}px`, overflowY: 'auto' }}>
-                            {cart.length === 0 && <p className="text-center text-gray-500 py-4">El carrito está vacío.</p>}
+                            {cart.length === 0 && (
+                                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                                    <ShoppingCart size={28} className="text-gray-300 dark:text-gray-600" />
+                                    <p className="text-sm text-ink-muted">El carrito está vacío. Añade productos desde el catálogo.</p>
+                                </div>
+                            )}
                             {cart.map(item => (
-                                <div key={item.cartId} className="flex justify-between items-start bg-gray-50 p-2 rounded-md">
+                                <div key={item.cartId} className="flex justify-between items-start bg-surface-muted p-3 rounded-lg">
                                     <div className="flex items-start gap-3">
                                         <img
                                             src={
                                                 item.variantInfo?.imageUrl ||
                                                 (item.customImageUrls && item.customImageUrls[0]) ||
                                                 item.imageUrl ||
-                                                'https://placehold.co/64x64/e2e8f0/a0aec0?text=Img'
+                                                PLACEHOLDER_IMG
                                             }
                                             alt={item.name}
                                             className="w-12 h-12 object-cover rounded-md"
@@ -840,51 +818,51 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                         <div>
                                             <p className="font-semibold">{item.name}</p>
                                             {(companyProfile?.allowCustomization !== false && (item.customImageUrls?.length > 0 || item.uploadedImageFiles?.length > 0 || item.variantInfo)) && (
-                                                <p className="text-sm text-blue-600">Personalizado</p>
+                                                <p className="text-xs font-medium text-brand-600 dark:text-brand-400">Personalizado</p>
                                             )}
                                             <div className="flex items-center gap-2 mt-1">
-                                                <button onClick={() => handleCartUpdate(item.cartId, item.quantity - 1)} className="p-1 bg-gray-200 rounded-full"><Minus size={12}/></button>
-                                                <span>{item.quantity}</span>
-                                                <button onClick={() => handleCartUpdate(item.cartId, item.quantity + 1)} className="p-1 bg-gray-200 rounded-full"><Plus size={12}/></button>
+                                                <button onClick={() => handleCartUpdate(item.cartId, item.quantity - 1)} aria-label="Disminuir cantidad" className="w-7 h-7 flex items-center justify-center rounded-md border border-line bg-surface hover:bg-surface-muted"><Minus size={12}/></button>
+                                                <span className="w-6 text-center text-sm tabular-nums">{item.quantity}</span>
+                                                <button onClick={() => handleCartUpdate(item.cartId, item.quantity + 1)} aria-label="Aumentar cantidad" className="w-7 h-7 flex items-center justify-center rounded-md border border-line bg-surface hover:bg-surface-muted"><Plus size={12}/></button>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="text-right flex flex-col items-end">
-                                        <p className="font-bold">{formatCurrency(item.price * item.quantity, companyProfile?.currency)}</p>
+                                        <p className="font-semibold tabular-nums">{formatCurrency(item.price * item.quantity, companyProfile?.currency)}</p>
                                         <div className="flex gap-2 mt-1 items-center">
                                             {companyProfile?.allowCustomization !== false && (
-                                                <button onClick={() => setEditingCartItem(item)} className="text-indigo-600 hover:underline text-sm">Editar</button>
+                                                <button onClick={() => setEditingCartItem(item)} className="text-brand-600 hover:underline text-sm">Editar</button>
                                             )}
-                                            <button onClick={() => handleCartUpdate(item.cartId, 0)} className="text-red-500 hover:text-red-700 mt-1"><XCircle size={16}/></button>
+                                            <button onClick={() => handleCartUpdate(item.cartId, 0)} aria-label="Quitar del carrito" className="text-gray-400 hover:text-danger-600 mt-1"><XCircle size={16}/></button>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="border-t pt-4 mt-4 space-y-2">
+                        <div className="border-t border-line pt-4 mt-4 space-y-2 text-sm text-ink-muted tabular-nums">
                             <div className="flex justify-between"><span>Subtotal Gravado:</span><span>{formatCurrency(taxSummary.montoGravado, companyProfile?.currency)}</span></div>
                             <div className="flex justify-between"><span>Subtotal Exento:</span><span>{formatCurrency(taxSummary.montoExento, companyProfile?.currency)}</span></div>
                             <div className="flex justify-between items-center">
                                 <label>Descuento:</label>
                                 <div className="flex gap-1">
-                                    <input
+                                    <input aria-label="Descuento"
                                         type="number"
                                         value={discount}
                                         onChange={e => {
                                             if (!canEditManualDiscount) return;
                                             setDiscount(parseFloat(e.target.value) || 0);
                                         }}
-                                        className="w-20 p-1 border rounded-md"
+                                        className="input-base w-20 h-8 text-right"
                                         disabled={!canEditManualDiscount}
                                     />
-                                    <select
+                                    <select aria-label="Tipo de descuento"
                                         value={discountType}
                                         onChange={e => {
                                             if (!canEditManualDiscount) return;
                                             setDiscountType(e.target.value);
                                         }}
-                                        className="p-1 border rounded-md"
+                                        className="input-base w-16 h-8 px-2"
                                         disabled={!canEditManualDiscount}
                                     >
                                         <option value="percentage">%</option>
@@ -893,7 +871,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                 </div>
                             </div>
                             {automaticDiscountInfo && (
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-ink-muted">
                                     Descuento automático: {automaticDiscountInfo.value}% {automaticDiscountInfo.source === 'categoría' ? `por la categoría ${automaticDiscountInfo.detail}` : 'definido para el cliente'}.
                                 </p>
                             )}
@@ -901,21 +879,18 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                 <p className="text-xs text-gray-400">Solo administradores o gerentes pueden ajustar el descuento manual.</p>
                             )}
                             {taxSummary.discountAmount > 0 && (
-                                <div className="flex justify-between text-red-600">
+                                <div className="flex justify-between text-danger-600">
                                     <span>Ahorro:</span>
                                     <span>-{formatCurrency(taxSummary.discountAmount, companyProfile?.currency)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between"><span>ITBIS (18%):</span><span>{formatCurrency(taxSummary.itbis, companyProfile?.currency)}</span></div>
-                            <div className="flex justify-between font-bold text-xl pt-2 border-t"><span>Total:</span><span>{formatCurrency(orderTotal, companyProfile?.currency)}</span></div>
+                            <div className="flex justify-between items-baseline text-ink font-semibold text-2xl pt-3 mt-1 border-t border-line"><span className="text-base">Total</span><span>{formatCurrency(orderTotal, companyProfile?.currency)}</span></div>
                         </div>
-                        <button 
-                            onClick={submitOrder} 
-                            disabled={cart.length === 0 || isSubmitting} 
-                            className="mt-4 w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-400"
-                        >
-                            {isSubmitting ? 'Procesando...' : 'Procesar Pedido'}
-                        </button>
+                        <Button size="lg" className="mt-5 w-full" onClick={submitOrder} disabled={cart.length === 0 || isSubmitting}>
+                            {isSubmitting ? 'Procesando…' : 'Procesar pedido'}
+                        </Button>
+                        {cart.length === 0 && <p className="mt-2 text-xs text-center text-ink-muted">Añade al menos un producto para continuar.</p>}
                     </div>
                 </div>
             </div>

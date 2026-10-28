@@ -73,32 +73,32 @@ const SendEmailModal = ({ isOpen, onClose, defaultEmail = '', docName = 'Documen
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-card w-full max-w-lg overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[70] p-4">
+            <div className="modal-panel w-full max-w-lg overflow-hidden animate-slide-up">
                 {/* Header */}
                 <div className="flex justify-between items-center px-6 py-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
                         <Mail size={22} />
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Enviar Documento por Email</h3>
+                        <h3 className="text-lg font-semibold text-ink">Enviar Documento por Email</h3>
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        aria-label="Cerrar" className="modal-close"
                         disabled={loading}
                     >
-                        <X size={20} />
+                        <X size={18} />
                     </button>
                 </div>
 
                 {/* Form */}
                 <form onSubmit={handleSend} className="p-6 space-y-4">
                     {/* Tarjeta Adjunto */}
-                    <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 p-3 rounded-xl">
-                        <div className="p-2 bg-indigo-500 rounded-lg text-white">
+                    <div className="flex items-center gap-3 bg-brand-50 dark:bg-brand-950/40 border border-brand-100 dark:border-brand-900/60 p-3 rounded-xl">
+                        <div className="p-2 bg-brand-500 rounded-lg text-white">
                             <FileText size={18} />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <p className="text-xs text-indigo-500 dark:text-indigo-400 font-semibold uppercase tracking-wider">Documento a enviar</p>
+                            <p className="text-xs text-brand-500 dark:text-brand-400 font-semibold uppercase tracking-wider">Documento a enviar</p>
                             <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{filename}</p>
                         </div>
                     </div>
@@ -113,7 +113,7 @@ const SendEmailModal = ({ isOpen, onClose, defaultEmail = '', docName = 'Documen
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="correo@cliente.com"
-                            className="input-base w-full focus:ring-2 focus:ring-indigo-500"
+                            className="input-base w-full focus:ring-2 focus:ring-brand-500"
                             required
                             disabled={loading}
                         />
@@ -161,7 +161,7 @@ const SendEmailModal = ({ isOpen, onClose, defaultEmail = '', docName = 'Documen
                         <Button 
                             type="submit" 
                             disabled={loading}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            className="bg-brand-600 hover:bg-brand-700 text-white"
                         >
                             {loading ? (
                                 <>

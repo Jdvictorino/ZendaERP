@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 
 const ExpenseModal = ({ expense, onClose, onSave, suppliers }) => {
@@ -88,48 +88,48 @@ const ExpenseModal = ({ expense, onClose, onSave, suppliers }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+            <div className="modal-panel p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900">{expense?.id ? 'Modificar Gasto' : 'Registrar Compra / Gasto con NCF'}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>
+                    <h3 className="text-lg font-semibold text-ink">{expense?.id ? 'Modificar Gasto' : 'Registrar Compra / Gasto con NCF'}</h3>
+                    <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <fieldset className="border p-4 rounded-lg">
-                        <legend className="font-semibold text-indigo-600 px-2">Información del Proveedor</legend>
+                        <legend className="font-semibold text-brand-600 px-2">Información del Proveedor</legend>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-2">
-                                <label className="block text-gray-700 mb-1">Seleccionar Proveedor (Opcional)</label>
+                                <label className="block text-ink-soft mb-1">Seleccionar Proveedor (Opcional)</label>
                                 <select onChange={handleSupplierChange} value={formData.supplierId} className="input-base">
                                     <option value="">-- Seleccionar de la lista --</option>
                                     {(suppliers || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-gray-700 mb-1">RNC o Cédula</label>
+                                <label className="block text-ink-soft mb-1">RNC o Cédula</label>
                                 <input type="text" name="rncCedula" value={formData.rncCedula} onChange={handleChange} className="input-base" required />
                             </div>
                             <div className="md:col-span-3">
-                                <label className="block text-gray-700 mb-1">Nombre o Razón Social</label>
+                                <label className="block text-ink-soft mb-1">Nombre o Razón Social</label>
                                 <input type="text" name="supplierName" value={formData.supplierName} onChange={handleChange} className="input-base" required />
                             </div>
                         </div>
                     </fieldset>
                     
                     <fieldset className="border p-4 rounded-lg">
-                        <legend className="font-semibold text-indigo-600 px-2">Detalles del Comprobante</legend>
+                        <legend className="font-semibold text-brand-600 px-2">Detalles del Comprobante</legend>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <input type="text" name="ncf" value={formData.ncf} onChange={handleChange} placeholder="Número de Comprobante (NCF)" className="input-base" required />
                             <input type="text" name="ncfModificado" value={formData.ncfModificado} onChange={handleChange} placeholder="NCF Modificado (si aplica)" className="input-base" />
-                            <div><label className="block text-gray-700 text-sm">Fecha Comprobante</label><input type="date" name="invoiceDate" value={formData.invoiceDate} onChange={handleChange} className="input-base" required /></div>
-                            <div><label className="block text-gray-700 text-sm">Monto en Bienes</label><input type="number" name="montoBienes" value={formData.montoBienes} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
-                            <div><label className="block text-gray-700 text-sm">Monto en Servicios</label><input type="number" name="montoServicios" value={formData.montoServicios} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
-                            <div><label className="block text-gray-700 text-sm">ITBIS Facturado</label><input type="number" name="itbisFacturado" value={formData.itbisFacturado} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
-                            <div><label className="block text-gray-700 text-sm">ITBIS Retenido</label><input type="number" name="itbisRetenido" value={formData.itbisRetenido} onChange={handleChange} className="input-base" min="0" step="0.01" /></div>
-                            <div><label className="block text-gray-700 text-sm">Retención Renta (ISR)</label><input type="number" name="rentaRetenida" value={formData.rentaRetenida} onChange={handleChange} className="input-base" min="0" step="0.01" /></div>
-                            <div><label className="block text-gray-700 text-sm">Propina Legal</label><input type="number" name="propinaLegal" value={formData.propinaLegal} onChange={handleChange} className="input-base" min="0" step="0.01" /></div>
-                            <div className="md:col-span-2"><label className="block text-gray-700 text-sm">Tipo de Gasto (para 606)</label><select name="tipoGasto" value={formData.tipoGasto} onChange={handleChange} className="input-base">{tiposDeGasto.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}</select></div>
-                            <div><label className="block text-gray-700 text-sm">Forma de Pago</label><select name="formaPago" value={formData.formaPago} onChange={handleChange} className="input-base">{formasDePago.map(f => <option key={f.code} value={f.code}>{f.name}</option>)}</select></div>
+                            <div><label className="block text-ink-soft text-sm">Fecha Comprobante</label><input type="date" name="invoiceDate" value={formData.invoiceDate} onChange={handleChange} className="input-base" required /></div>
+                            <div><label className="block text-ink-soft text-sm">Monto en Bienes</label><input type="number" name="montoBienes" value={formData.montoBienes} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
+                            <div><label className="block text-ink-soft text-sm">Monto en Servicios</label><input type="number" name="montoServicios" value={formData.montoServicios} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
+                            <div><label className="block text-ink-soft text-sm">ITBIS Facturado</label><input type="number" name="itbisFacturado" value={formData.itbisFacturado} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
+                            <div><label className="block text-ink-soft text-sm">ITBIS Retenido</label><input type="number" name="itbisRetenido" value={formData.itbisRetenido} onChange={handleChange} className="input-base" min="0" step="0.01" /></div>
+                            <div><label className="block text-ink-soft text-sm">Retención Renta (ISR)</label><input type="number" name="rentaRetenida" value={formData.rentaRetenida} onChange={handleChange} className="input-base" min="0" step="0.01" /></div>
+                            <div><label className="block text-ink-soft text-sm">Propina Legal</label><input type="number" name="propinaLegal" value={formData.propinaLegal} onChange={handleChange} className="input-base" min="0" step="0.01" /></div>
+                            <div className="md:col-span-2"><label className="block text-ink-soft text-sm">Tipo de Gasto (para 606)</label><select name="tipoGasto" value={formData.tipoGasto} onChange={handleChange} className="input-base">{tiposDeGasto.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}</select></div>
+                            <div><label className="block text-ink-soft text-sm">Forma de Pago</label><select name="formaPago" value={formData.formaPago} onChange={handleChange} className="input-base">{formasDePago.map(f => <option key={f.code} value={f.code}>{f.name}</option>)}</select></div>
                         </div>
                     </fieldset>
 

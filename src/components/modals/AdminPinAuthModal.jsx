@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import { hashPin } from '../../utils/crypto.js';
 import toast from 'react-hot-toast';
@@ -41,18 +42,18 @@ export default function AdminPinAuthModal({ adminUser, currentUserProfile, onClo
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4">
-      <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-sm">
+    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[80] p-4">
+      <div className="modal-panel p-6 w-full max-w-sm">
         <div className="flex justify-between items-start mb-3">
-          <h3 className="text-lg md:text-xl font-semibold text-gray-900">Validación de Administrador</h3>
-          <button onClick={() => onClose(false)} className="text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+          <h3 className="text-lg font-semibold text-ink">Validación de Administrador</h3>
+          <button onClick={() => onClose(false)} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-ink-soft mb-4">
           Esta acción requiere privilegios de administrador. Por favor, introduce tu PIN para continuar.
         </p>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">PIN de Admin</label>
+            <label className="block text-sm text-ink-soft mb-1">PIN de Admin</label>
             <input 
               type="password" 
               autoFocus

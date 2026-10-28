@@ -1,19 +1,26 @@
 import React from 'react';
+import { X, AlertTriangle } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 
-const ConfirmationModal = ({ show, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", confirmColor = "bg-red-600 hover:bg-red-700" }) => {
+/** danger: acción destructiva (botón rojo). Sin danger, el botón usa el color de marca. */
+const ConfirmationModal = ({ show, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", danger = true }) => {
     if (!show) return null;
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-sm">
-                <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-900">{title}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[90] p-4">
+            <div className="modal-panel p-6 w-full max-w-sm">
+                <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${danger ? 'bg-danger-50 text-danger-600 dark:bg-danger-950/40 dark:text-danger-400' : 'bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400'}`}>
+                        <AlertTriangle size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-semibold text-ink">{title}</h3>
+                        <p className="mt-1 text-sm text-ink-muted">{message}</p>
+                    </div>
+                    <button onClick={onClose} aria-label="Cerrar" className="modal-close -mt-1 -mr-1"><X size={18} /></button>
                 </div>
-                <p className="text-gray-600 mb-4">{message}</p>
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 mt-6">
                     <Button variant="secondary" onClick={onClose}>{cancelText}</Button>
-                    <Button onClick={onConfirm} className={confirmColor}>{confirmText}</Button>
+                    <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>{confirmText}</Button>
                 </div>
             </div>
         </div>

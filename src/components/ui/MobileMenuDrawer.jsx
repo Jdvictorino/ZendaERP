@@ -49,7 +49,7 @@ const MobileMenuDrawer = ({ isOpen, onClose, navItems, currentView, onNavigate }
                 className={`flex items-center gap-4 p-4 rounded-2xl w-full transition-all active:scale-[0.97] ${
                   isActive 
                     ? 'bg-brand-50 dark:bg-brand-900/20 border border-brand-200/50 dark:border-brand-800/30 shadow-sm' 
-                    : 'bg-white dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    : 'bg-surface dark:bg-gray-800/50 border border-line dark:border-gray-800 hover:bg-surface-muted dark:hover:bg-gray-800'
                 }`}
               >
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
@@ -61,19 +61,19 @@ const MobileMenuDrawer = ({ isOpen, onClose, navItems, currentView, onNavigate }
                 </div>
                 <div className="flex-1 text-left">
                   <span className={`text-sm font-bold tracking-tight ${
-                    isActive ? 'text-brand-700 dark:text-brand-400' : 'text-gray-900 dark:text-gray-100'
+                    isActive ? 'text-brand-700 dark:text-brand-400' : 'text-ink dark:text-gray-100'
                   }`}>
                     {item.label}
                   </span>
                   {hasChildren && (
-                    <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 mt-0.5">
+                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mt-0.5">
                       {item.children.length} sub-módulos
                     </p>
                   )}
                 </div>
                 {hasChildren ? (
                   isExpanded ? (
-                    <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
+                    <ChevronDown size={16} className="text-ink-muted dark:text-gray-400" />
                   ) : (
                     <ChevronRight size={16} className="text-gray-300 dark:text-gray-600" />
                   )
@@ -84,7 +84,7 @@ const MobileMenuDrawer = ({ isOpen, onClose, navItems, currentView, onNavigate }
               
               {/* Sub-items */}
               {hasChildren && isExpanded && (
-                <div className="ml-6 pl-4 border-l-2 border-gray-100 dark:border-gray-800 space-y-1 animate-fadeIn">
+                <div className="ml-6 pl-4 border-l-2 border-line dark:border-gray-800 space-y-1 animate-fadeIn">
                   {item.children.map(child => {
                     const childActive = currentView === child.id;
                     return (
@@ -97,7 +97,7 @@ const MobileMenuDrawer = ({ isOpen, onClose, navItems, currentView, onNavigate }
                         className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm transition-all active:scale-[0.97] ${
                           childActive
                             ? 'bg-brand-50 dark:bg-brand-900/10 text-brand-700 dark:text-brand-400 font-bold'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30'
+                            : 'text-ink-soft dark:text-gray-400 hover:bg-surface-muted dark:hover:bg-gray-800/30'
                         }`}
                       >
                         {childActive && (

@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-28T20:10:58.945Z",
+        "reason": "user confirmed: Inter es la tipografía de marca de ZendaERP (2026-10-28)"
+      },
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-10-28T20:44:27.780Z",
+        "reason": "Claude: Arial solo aparece en plantillas HTML de impresión y correo (recibos, cierre de caja, email), donde se requiere una fuente segura; la UI usa Inter"
+      }
+    ]
+  }
+}

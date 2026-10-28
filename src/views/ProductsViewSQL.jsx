@@ -22,6 +22,7 @@ import { isValidEAN13, generateUniqueEAN13 } from '../utils/ean.js';
 import { generateUniqueSKU } from '../utils/sku.js';
 import Button from '../components/ui/Button.jsx';
 import Card, { CardHeader, CardBody } from '../components/ui/Card.jsx';
+import { badgeClass } from '../components/ui/Badge.jsx';
 import { getInventoryAlerts, summarizeByLocation } from '../utils/inventory.js';
 
 // ============================================
@@ -29,6 +30,7 @@ import { getInventoryAlerts, summarizeByLocation } from '../utils/inventory.js';
 // ============================================
 import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
 
 const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     // ============================================
@@ -248,10 +250,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     // ============================================
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-full p-12">
-                <Loader2 className="animate-spin text-gray-400" size={48} />
-                <p className="ml-4 text-gray-500">Cargando productos...</p>
-            </div>
+            <PageSkeleton kpis={0} label="Cargando productos..." />
         );
     }
 
@@ -295,7 +294,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     return (
         <div>
             <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-6 gap-4">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                <h2 className="page-title">
                     Inventario de productos
                 </h2>
                 <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2 w-full md:w-auto">
@@ -318,7 +317,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
             <Card>
                 <CardBody>
                     {filteredProducts.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500">
+                        <div className="text-center py-12 text-ink-muted">
                             <Package size={48} className="mx-auto mb-4 opacity-50" />
                             <p>No hay productos para mostrar</p>
                         </div>
@@ -326,58 +325,56 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                         <div className="overflow-x-auto">
                             {/* Desktop Table View */}
                             <table className="hidden lg:table min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50 dark:bg-gray-800">
+                                <thead className="bg-surface-muted dark:bg-gray-800">
                                     <tr>
-                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-16">Img</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Precio</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Stock</th>
-                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase w-16">Img</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Producto</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">SKU</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Código</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Precio</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Stock</th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                                <tbody className="bg-surface dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
                                     {filteredProducts.map(product => (
-                                        <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                        <tr key={product.id} className="hover:bg-surface-muted dark:hover:bg-gray-800 transition-colors">
                                             <td className="px-4 py-3 text-center">
                                                 {product.imageUrl || product.photoUrl || product.image || product.photoURL ? (
                                                     <img src={product.imageUrl || product.photoUrl || product.image || product.photoURL} alt={product.name} className="w-10 h-10 object-cover rounded-md border inline-block" />
                                                 ) : (
-                                                    <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700">
+                                                    <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 inline-flex items-center justify-center rounded-md border border-line dark:border-gray-700">
                                                         <Package size={20} className="text-gray-400" />
                                                     </div>
                                                 )}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="font-medium text-gray-900 dark:text-gray-100">{product.name}</div>
+                                                <div className="font-medium text-ink dark:text-gray-100">{product.name}</div>
                                             </td>
-                                            <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">{product.sku || '-'}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{product.code || product.barcode}</td>
+                                            <td className="px-4 py-3 text-sm text-ink-soft dark:text-gray-400 font-mono">{product.sku || '-'}</td>
+                                            <td className="px-4 py-3 text-sm text-ink-muted dark:text-gray-400">{product.code || product.barcode}</td>
                                             <td className="px-4 py-3 text-right text-sm font-medium dark:text-gray-100">{formatCurrency(product.salePrice || 0, currency)}</td>
                                             <td className="px-4 py-3 text-right">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                    product.stock <= (product.minStock || 0) ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                                                }`}>
+                                                <span className={badgeClass(product.stock <= (product.minStock || 0) ? 'danger' : 'success')}>
                                                     {product.stock || 0}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <div className="flex justify-center gap-1">
-                                                    <Button size="sm" variant="ghost" onClick={() => setEditingProduct(product)} title="Editar">
+                                                    <Button size="sm" variant="ghost" onClick={() => setEditingProduct(product)} title="Editar" aria-label="Editar">
                                                         <Settings size={16} />
                                                     </Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => setShowStockModal(product)} title="Ajustar Stock">
+                                                    <Button size="sm" variant="ghost" onClick={() => setShowStockModal(product)} title="Ajustar Stock" aria-label="Ajustar Stock">
                                                         <PackagePlus size={16} />
                                                     </Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => printLabel(product)} title="Imprimir Etiqueta">
+                                                    <Button size="sm" variant="ghost" onClick={() => printLabel(product)} title="Imprimir Etiqueta" aria-label="Imprimir Etiqueta">
                                                         <Printer size={16} />
                                                     </Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => toggleStatus(product)} title={product.status === 'active' ? 'Desactivar' : 'Activar'}>
-                                                        <Power size={16} className={product.status === 'active' ? 'text-green-500' : 'text-gray-400'} />
+                                                    <Button size="sm" variant="ghost" onClick={() => toggleStatus(product)} title={product.status === 'active' ? 'Desactivar' : 'Activar'} aria-label={product.status === 'active' ? 'Desactivar' : 'Activar'}>
+                                                        <Power size={16} className={product.status === 'active' ? 'text-success-500' : 'text-gray-400'} />
                                                     </Button>
                                                     {isMasterUser && (
-                                                        <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(product)} title="Eliminar">
+                                                        <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(product)} title="Eliminar" aria-label="Eliminar">
                                                             <Trash2 size={16} className="text-red-500" />
                                                         </Button>
                                                     )}
@@ -396,9 +393,9 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                                             {/* Imagen del producto */}
                                             <div className="flex-shrink-0">
                                                 {product.imageUrl || product.photoUrl || product.image || product.photoURL ? (
-                                                    <img src={product.imageUrl || product.photoUrl || product.image || product.photoURL} alt={product.name} className="w-16 h-16 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm" />
+                                                    <img src={product.imageUrl || product.photoUrl || product.image || product.photoURL} alt={product.name} className="w-16 h-16 object-cover rounded-xl border border-line dark:border-gray-700 shadow-sm" />
                                                 ) : (
-                                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700">
+                                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 flex items-center justify-center rounded-xl border border-line dark:border-gray-700">
                                                         <Package size={28} className="text-gray-300 dark:text-gray-600" />
                                                     </div>
                                                 )}
@@ -407,18 +404,16 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                                             {/* Info principal */}
                                             <div className="flex-grow min-w-0">
                                                 <div className="flex justify-between items-start">
-                                                    <h4 className="font-bold text-gray-900 dark:text-gray-100 truncate">{product.name}</h4>
+                                                    <h4 className="font-bold text-ink dark:text-gray-100 truncate">{product.name}</h4>
                                                     <span className="font-bold text-brand-600 dark:text-brand-400">
                                                         {formatCurrency(product.salePrice || 0, currency)}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                                                    <span className="text-xs font-mono text-ink-muted bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                         {product.sku || product.code || 'S/C'}
                                                     </span>
-                                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                                                        product.stock <= (product.minStock || 0) ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                                                    }`}>
+                                                    <span className={badgeClass(product.stock <= (product.minStock || 0) ? 'danger' : 'success')}>
                                                         Stock: {product.stock || 0}
                                                     </span>
                                                 </div>
@@ -428,10 +423,10 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                                         {/* Acciones móviles */}
                                         <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-50 dark:border-gray-800">
                                             <div className="flex gap-1">
-                                                <button onClick={() => setShowStockModal(product)} className="p-2 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
+                                                <button onClick={() => setShowStockModal(product)} aria-label="Ajustar stock" className="p-2 text-ink-muted hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
                                                     <PackagePlus size={18} />
                                                 </button>
-                                                <button onClick={() => printLabel(product)} className="p-2 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
+                                                <button onClick={() => printLabel(product)} aria-label="Imprimir etiqueta" className="p-2 text-ink-muted hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
                                                     <Printer size={18} />
                                                 </button>
                                             </div>
@@ -470,19 +465,19 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
 
             {/* Modal de importación de productos desde Excel */}
             {showImportView && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+                    <div className="modal-panel w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center p-4 border-b">
                             <h3 className="text-xl font-bold">Importar Productos desde Excel</h3>
                             <button 
                                 onClick={() => setShowImportView(false)} 
-                                className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+                                aria-label="Cerrar" className="modal-close"
                             >
-                                <X size={24} />
+                                <X size={18} />
                             </button>
                         </div>
                         <div className="p-4">
-                            <ProductsImportView onImportComplete={() => { refetch(); setShowImportView(false); }} />
+                            <ProductsImportView embedded onImportComplete={() => { refetch(); setShowImportView(false); }} />
                         </div>
                     </div>
                 </div>

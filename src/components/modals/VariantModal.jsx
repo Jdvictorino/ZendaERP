@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Upload, Trash2, Palette } from 'lucide-react';
+import { Loader2, Upload, Trash2, Palette, X } from 'lucide-react';
 import { products as productsApi } from '../../api/client.js';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Button from '../ui/Button.jsx';
+import { PLACEHOLDER_IMG } from '../../utils/placeholderImage.js';
+import { confirmDialog } from '../../utils/confirmDialog.jsx';
 
 const VariantModal = ({ product, onClose, companyProfile }) => {
     const [newVariant, setNewVariant] = useState({
@@ -72,7 +74,7 @@ const VariantModal = ({ product, onClose, companyProfile }) => {
     };
     
     const handleDeleteVariant = async (variantId) => {
-        if (!window.confirm("¿Estás seguro de que quieres eliminar esta variante?")) return;
+        if (!(await confirmDialog('¿Eliminar esta variante?', { confirmText: 'Eliminar' }))) return;
         try {
             await productsApi.deleteVariant(product.id, variantId);
             toast.success('¡Variante eliminada!');
@@ -84,14 +86,14 @@ const VariantModal = ({ product, onClose, companyProfile }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+            <div className="modal-panel p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center mb-4 border-b pb-4">
                     <div>
-                        <h3 className="text-2xl font-bold flex items-center gap-2"><Palette /> Gestionar Variantes</h3>
-                        <p className="text-gray-600">{product.name}</p>
+                        <h3 className="text-lg font-semibold text-ink flex items-center gap-2"><Palette /> Gestionar Variantes</h3>
+                        <p className="text-ink-soft">{product.name}</p>
                     </div>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                    <button onClick={onClose} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 overflow-y-auto">
@@ -99,7 +101,7 @@ const VariantModal = ({ product, onClose, companyProfile }) => {
                     <div className="p-4 border rounded-lg">
                         <h4 className="text-lg font-semibold mb-4">Añadir Nueva Variante</h4>
                         <form onSubmit={handleSaveVariant} className="space-y-4">
-                            <img src={newVariant.imageUrl || 'https://placehold.co/150x150/e2e8f0/a0aec0?text=Foto'} alt="Previsualización" className="w-32 h-32 object-cover rounded-lg mx-auto mb-2"/>
+                            <img src={newVariant.imageUrl || PLACEHOLDER_IMG} alt="Previsualización" className="w-32 h-32 object-cover rounded-lg mx-auto mb-2"/>
                             <input type="file" required onChange={handleImageChange} className="text-sm" />
                             <input name="name" value={newVariant.name} onChange={handleChange} placeholder="Nombre (ej. Rojo, Azul)" className="input-base" required />
                             <div className="grid grid-cols-2 gap-4">

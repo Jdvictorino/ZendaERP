@@ -1,4 +1,5 @@
 import { formatCurrency } from './formatCurrency.js';
+import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 
 let pdfLibrariesPromise = null;
@@ -466,7 +467,7 @@ const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(79, 70, 229); // indigo-600
+    doc.setTextColor(79, 70, 229); // brand-600
     doc.text('Comprobante Fiscal Electrónico (e-CF)', textX, currentY + 10);
 
     doc.setFont('helvetica', 'normal');
@@ -511,7 +512,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         await ensurePdfLibraries();
     } catch (error) {
         console.error('Failed to load PDF generation scripts:', error);
-        alert('No se pudieron cargar las librerías para generar el PDF.');
+        toast.error('No se pudieron cargar las librerías para generar el PDF.');
         return;
     }
 
@@ -633,7 +634,7 @@ export const generateAccountStatementPDF = async ({ entries = [], companyProfile
         await ensurePdfLibraries();
     } catch (error) {
         console.error('Failed to load PDF generation scripts:', error);
-        alert('No se pudieron cargar las librerías para generar el PDF.');
+        toast.error('No se pudieron cargar las librerías para generar el PDF.');
         return;
     }
 

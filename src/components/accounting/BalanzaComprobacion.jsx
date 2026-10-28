@@ -43,18 +43,18 @@ export default function BalanzaComprobacion({ entries = [], currency = 'DOP' }) 
         <div className="flex items-center gap-3">
           {rows.length > 0 && (
             isBalanced
-              ? <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full"><CheckCircle2 size={14} /> Cuadrada</span>
+              ? <span className="flex items-center gap-1.5 text-xs font-semibold text-success-600 bg-success-50 px-3 py-1 rounded-full"><CheckCircle2 size={14} /> Cuadrada</span>
               : <span className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 px-3 py-1 rounded-full"><AlertTriangle size={14} /> Descuadre</span>
           )}
           <button onClick={() => exportBalanzaCsv(rows, currency)} disabled={!rows.length}
-            className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-40">
+            className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-800 font-medium disabled:opacity-40">
             <Download size={14} /> Exportar
           </button>
         </div>
       } />
       <CardBody className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 uppercase text-xs tracking-wide text-gray-500">
+          <thead className="bg-surface-muted uppercase text-xs tracking-wide text-ink-muted">
             <tr>
               <th className="p-3">Código</th>
               <th className="p-3">Cuenta</th>
@@ -70,14 +70,14 @@ export default function BalanzaComprobacion({ entries = [], currency = 'DOP' }) 
             {grouped.map(({ type, items }) => (
               <React.Fragment key={type}>
                 <tr className="bg-gray-100">
-                  <td colSpan={5} className="p-2 pl-3 text-xs font-bold uppercase tracking-wider text-gray-600">
+                  <td colSpan={5} className="p-2 pl-3 text-xs font-bold uppercase tracking-wider text-ink-soft">
                     {ACCOUNT_TYPE_LABELS[type] || type}
                   </td>
                 </tr>
                 {items.map(r => (
-                  <tr key={r.account.code} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="p-3 font-mono text-indigo-600">{r.account.code}</td>
-                    <td className="p-3 font-medium text-gray-800">{r.account.name}</td>
+                  <tr key={r.account.code} className="border-b border-gray-50 hover:bg-surface-muted">
+                    <td className="p-3 font-mono text-brand-600">{r.account.code}</td>
+                    <td className="p-3 font-medium text-ink">{r.account.name}</td>
                     <td className="p-3 text-right">{r.totalDebit > 0 ? formatCurrency(r.totalDebit, currency) : '—'}</td>
                     <td className="p-3 text-right">{r.totalCredit > 0 ? formatCurrency(r.totalCredit, currency) : '—'}</td>
                     <td className={`p-3 text-right font-semibold ${r.balance >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
@@ -89,14 +89,14 @@ export default function BalanzaComprobacion({ entries = [], currency = 'DOP' }) 
             ))}
           </tbody>
           {rows.length > 0 && (
-            <tfoot className="bg-indigo-50 font-bold text-sm">
+            <tfoot className="bg-brand-50 font-bold text-sm">
               <tr>
-                <td colSpan={2} className="p-3 text-right text-gray-700">Gran Total:</td>
-                <td className="p-3 text-right text-indigo-700">{formatCurrency(grandDebit, currency)}</td>
-                <td className="p-3 text-right text-indigo-700">{formatCurrency(grandCredit, currency)}</td>
+                <td colSpan={2} className="p-3 text-right text-ink-soft">Gran Total:</td>
+                <td className="p-3 text-right text-brand-700">{formatCurrency(grandDebit, currency)}</td>
+                <td className="p-3 text-right text-brand-700">{formatCurrency(grandCredit, currency)}</td>
                 <td className="p-3 text-right">
                   {isBalanced
-                    ? <span className="text-emerald-600">✅ 0.00</span>
+                    ? <span className="text-success-600">✅ 0.00</span>
                     : <span className="text-red-600">⚠️ {formatCurrency(Math.abs(grandDebit - grandCredit), currency)}</span>
                   }
                 </td>

@@ -23,13 +23,13 @@ export const ECF_TYPE_MAP = Object.fromEntries(
 
 // Estados DGII con sus etiquetas y colores
 export const ECF_STATUSES = {
-  pendiente: { label: 'Pendiente', color: '#f59e0b', bgColor: '#fef3c7', icon: 'clock' },
-  enviado: { label: 'Enviado', color: '#3b82f6', bgColor: '#dbeafe', icon: 'send' },
-  en_proceso: { label: 'En Proceso', color: '#8b5cf6', bgColor: '#ede9fe', icon: 'loader' },
-  aceptado: { label: 'Aceptado', color: '#10b981', bgColor: '#d1fae5', icon: 'check-circle' },
-  aceptado_condicional: { label: 'Aceptado Condicional', color: '#f97316', bgColor: '#ffedd5', icon: 'alert-circle' },
-  rechazado: { label: 'Rechazado', color: '#ef4444', bgColor: '#fee2e2', icon: 'x-circle' },
-  error: { label: 'Error', color: '#dc2626', bgColor: '#fecaca', icon: 'alert-triangle' },
+  pendiente: { label: 'Pendiente', tone: 'warning', color: '#f59e0b', bgColor: '#fef3c7', icon: 'clock' },
+  enviado: { label: 'Enviado', tone: 'info', color: '#3b82f6', bgColor: '#dbeafe', icon: 'send' },
+  en_proceso: { label: 'En Proceso', tone: 'brand', color: '#8b5cf6', bgColor: '#ede9fe', icon: 'loader' },
+  aceptado: { label: 'Aceptado', tone: 'success', color: '#10b981', bgColor: '#d1fae5', icon: 'check-circle' },
+  aceptado_condicional: { label: 'Aceptado Condicional', tone: 'warning', color: '#f97316', bgColor: '#ffedd5', icon: 'alert-circle' },
+  rechazado: { label: 'Rechazado', tone: 'danger', color: '#ef4444', bgColor: '#fee2e2', icon: 'x-circle' },
+  error: { label: 'Error', tone: 'danger', color: '#dc2626', bgColor: '#fecaca', icon: 'alert-triangle' },
 };
 
 // Formas de pago según la DGII
@@ -76,10 +76,10 @@ export const NCF_TO_ECF_MAP = {
 
 // Estados de secuencia
 export const SEQUENCE_STATUSES = {
-  activa: { label: 'Activa', color: '#10b981' },
-  agotada: { label: 'Agotada', color: '#ef4444' },
-  vencida: { label: 'Vencida', color: '#f59e0b' },
-  inactiva: { label: 'Inactiva', color: '#6b7280' },
+  activa: { label: 'Activa', tone: 'success', color: '#10b981' },
+  agotada: { label: 'Agotada', tone: 'danger', color: '#ef4444' },
+  vencida: { label: 'Vencida', tone: 'warning', color: '#f59e0b' },
+  inactiva: { label: 'Inactiva', tone: 'neutral', color: '#6b7280' },
 };
 
 export default {

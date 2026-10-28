@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Eye, RefreshCw, RotateCcw, FileText, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, RefreshCw, RotateCcw, FileText, ExternalLink, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Card, { CardBody } from '../ui/Card.jsx';
 import Button from '../ui/Button.jsx';
 import api from '../../api/client.js';
 import { ECF_STATUSES, ECF_TYPES, ECF_TYPE_MAP } from '../../utils/ecfConstants.js';
+import { badgeClass } from '../ui/Badge.jsx';
 
 const StatusBadge = ({ status }) => {
   const config = ECF_STATUSES[status] || ECF_STATUSES.pendiente;
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-      style={{ backgroundColor: config.bgColor, color: config.color }}>
+    <span className={badgeClass(config.tone)}>
       {config.label}
     </span>
   );
@@ -134,10 +134,10 @@ const EcfDocumentsTable = () => {
                   <td className="px-4 py-3"><div className="text-slate-700 dark:text-slate-300 text-sm">{doc.nombreComprador || '—'}</div>{doc.rncComprador && <div className="text-xs text-slate-400">{doc.rncComprador}</div>}</td>
                   <td className="px-4 py-3 text-right font-medium text-slate-900 dark:text-slate-100">RD$ {parseFloat(doc.montoTotal).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
                   <td className="px-4 py-3 text-center"><StatusBadge status={doc.dgiiStatus} /></td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{new Date(doc.fechaEmision).toLocaleDateString('es-DO')}</td>
+                  <td className="px-4 py-3 text-ink-muted text-xs">{new Date(doc.fechaEmision).toLocaleDateString('es-DO')}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => handleViewDetail(doc)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-500" title="Ver"><Eye size={16} /></button>
+                      <button onClick={() => handleViewDetail(doc)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-brand-500" title="Ver"><Eye size={16} /></button>
                       {doc.trackId && ['enviado','en_proceso'].includes(doc.dgiiStatus) && (
                         <button onClick={() => handleCheckStatus(doc)} disabled={actionLoading === doc.id} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-blue-500" title="Consultar">
                           <RefreshCw size={16} className={actionLoading === doc.id ? 'animate-spin' : ''} />
@@ -157,7 +157,7 @@ const EcfDocumentsTable = () => {
         </div>
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-700">
-            <span className="text-sm text-slate-500">{total} documentos</span>
+            <span className="text-sm text-ink-muted">{total} documentos</span>
             <div className="flex items-center gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30"><ChevronLeft size={18} /></button>
               <span className="text-sm text-slate-600 dark:text-slate-300">{page}/{totalPages}</span>
@@ -168,31 +168,31 @@ const EcfDocumentsTable = () => {
       </Card>
 
       {showDetail && selectedDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowDetail(false)}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop p-4" onClick={() => setShowDetail(false)}>
+          <div className="modal-panel max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Detalle e-CF</h3>
-              <button onClick={() => setShowDetail(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+              <button onClick={() => setShowDetail(false)} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
             </div>
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
-                <div><span className="text-slate-500">e-NCF:</span><br/><span className="font-mono font-medium">{selectedDoc.eNcf}</span></div>
-                <div><span className="text-slate-500">Tipo:</span><br/>{ECF_TYPE_MAP[selectedDoc.tipoEcf]?.name || selectedDoc.tipoEcf}</div>
-                <div><span className="text-slate-500">Estado:</span><br/><StatusBadge status={selectedDoc.dgiiStatus} /></div>
-                <div><span className="text-slate-500">TrackId:</span><br/><span className="font-mono text-xs">{selectedDoc.trackId || '—'}</span></div>
-                <div><span className="text-slate-500">RNC Emisor:</span><br/>{selectedDoc.rncEmisor}</div>
-                <div><span className="text-slate-500">RNC Comprador:</span><br/>{selectedDoc.rncComprador || '—'}</div>
-                <div><span className="text-slate-500">Monto:</span><br/>RD$ {parseFloat(selectedDoc.montoTotal).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</div>
-                <div><span className="text-slate-500">Código Seguridad:</span><br/><span className="font-mono">{selectedDoc.securityCode || '—'}</span></div>
+                <div><span className="text-ink-muted">e-NCF:</span><br/><span className="font-mono font-medium">{selectedDoc.eNcf}</span></div>
+                <div><span className="text-ink-muted">Tipo:</span><br/>{ECF_TYPE_MAP[selectedDoc.tipoEcf]?.name || selectedDoc.tipoEcf}</div>
+                <div><span className="text-ink-muted">Estado:</span><br/><StatusBadge status={selectedDoc.dgiiStatus} /></div>
+                <div><span className="text-ink-muted">TrackId:</span><br/><span className="font-mono text-xs">{selectedDoc.trackId || '—'}</span></div>
+                <div><span className="text-ink-muted">RNC Emisor:</span><br/>{selectedDoc.rncEmisor}</div>
+                <div><span className="text-ink-muted">RNC Comprador:</span><br/>{selectedDoc.rncComprador || '—'}</div>
+                <div><span className="text-ink-muted">Monto:</span><br/>RD$ {parseFloat(selectedDoc.montoTotal).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</div>
+                <div><span className="text-ink-muted">Código Seguridad:</span><br/><span className="font-mono">{selectedDoc.securityCode || '—'}</span></div>
               </div>
               {selectedDoc.dgiiMessage && (
                 <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3">
-                  <span className="text-slate-500 text-xs">Mensaje DGII:</span>
+                  <span className="text-ink-muted text-xs">Mensaje DGII:</span>
                   <p className="text-slate-700 dark:text-slate-300 mt-1">{selectedDoc.dgiiMessage}</p>
                 </div>
               )}
               {selectedDoc.qrCodeUrl && (
-                <a href={selectedDoc.qrCodeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-indigo-500 hover:text-indigo-600 text-xs break-all">
+                <a href={selectedDoc.qrCodeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-brand-500 hover:text-brand-600 text-xs break-all">
                   <ExternalLink size={12} /> Verificar en DGII
                 </a>
               )}

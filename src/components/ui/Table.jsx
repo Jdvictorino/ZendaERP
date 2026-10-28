@@ -18,7 +18,7 @@ export function Table({ children, className = '' }) {
  */
 export function TableHeader({ children, className = '' }) {
   return (
-    <thead className={`bg-gray-50 dark:bg-gray-800 ${className}`}>
+    <thead className={`bg-surface-muted dark:bg-gray-800 ${className}`}>
       {children}
     </thead>
   );
@@ -29,7 +29,7 @@ export function TableHeader({ children, className = '' }) {
  */
 export function TableRow({ children, className = '', hover = true }) {
   return (
-    <tr className={`border-b border-gray-200 dark:border-gray-700 ${hover ? 'hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors' : ''} ${className}`}>
+    <tr className={`border-b border-line dark:border-gray-700 ${hover ? 'hover:bg-surface-muted dark:hover:bg-gray-800 transition-colors' : ''} ${className}`}>
       {children}
     </tr>
   );

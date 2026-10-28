@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import toast from 'react-hot-toast';
 import { createCoupon, updateCoupon } from '../../utils/offers.js';
@@ -102,52 +102,52 @@ const CouponModal = ({ show, onClose, editing = null, fullPage = false }) => {
   if (!show) return null;
 
   return (
-    <div className={fullPage ? 'w-full' : 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4'}>
-      <div className={fullPage ? 'bg-white rounded-2xl shadow-card p-6 w-full' : 'bg-white rounded-2xl shadow-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto'}>
+    <div className={fullPage ? 'w-full' : 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4'}>
+      <div className={fullPage ? 'modal-panel p-6 w-full' : 'modal-panel p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto'}>
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
             {fullPage && (
-              <button type="button" onClick={() => onClose(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+              <button type="button" onClick={() => onClose(false)} className="modal-close" aria-label="Salir">
                 <ArrowLeft size={22} strokeWidth={2.5} />
               </button>
             )}
             <h3 className="text-lg font-semibold">{editing ? 'Editar Cupón' : 'Nuevo Cupón'}</h3>
           </div>
-          {!fullPage && <button className="text-2xl text-gray-500" onClick={onClose}>&times;</button>}
+          {!fullPage && <button  onClick={onClose} aria-label="Cerrar" className="modal-close"><X size={18} /></button>}
         </div>
 
         <form onSubmit={handleSave} className="space-y-3">
           <div>
-            <label className="block text-sm text-gray-700">Código</label>
+            <label className="block text-sm text-ink-soft">Código</label>
             <input name="code" value={form.code} onChange={handleChange} className="input-base" placeholder="EJ: PROMO10" required />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-700">Tipo</label>
+              <label className="block text-sm text-ink-soft">Tipo</label>
               <select name="type" value={form.type} onChange={handleChange} className="input-base">
                 <option value="percentage">Porcentaje</option>
                 <option value="fixed">Importe fijo</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-700">Valor</label>
+              <label className="block text-sm text-ink-soft">Valor</label>
               <input name="value" type="number" value={form.value} onChange={handleChange} className="input-base" min="0" step="0.01" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700">Aplica a</label>
+            <label className="block text-sm text-ink-soft">Aplica a</label>
             <select name="appliesTo" value={form.appliesTo} onChange={handleChange} className="input-base">
               <option value="all">Todo el carrito</option>
               <option value="product">Productos específicos</option>
               <option value="category">Categorías específicas</option>
             </select>
-            <p className="text-xs text-gray-500 mt-1">Si eliges productos o categorías, introduce una lista separada por comas en los campos correspondientes.</p>
+            <p className="text-xs text-ink-muted mt-1">Si eliges productos o categorías, introduce una lista separada por comas en los campos correspondientes.</p>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700">Productos (selección múltiple)</label>
+            <label className="block text-sm text-ink-soft">Productos (selección múltiple)</label>
             {products && products.length > 0 ? (
               <select name="productIds" multiple value={form.productIds} onChange={handleChange} className="input-base h-32">
                 {products.map(p => (
@@ -157,11 +157,11 @@ const CouponModal = ({ show, onClose, editing = null, fullPage = false }) => {
             ) : (
               <input name="productIds" value={Array.isArray(form.productIds) ? form.productIds.join(',') : form.productIds} onChange={handleChange} className="input-base" />
             )}
-            <p className="text-xs text-gray-500 mt-1">También puedes pegar IDs separados por comas si lo prefieres.</p>
+            <p className="text-xs text-ink-muted mt-1">También puedes pegar IDs separados por comas si lo prefieres.</p>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700">Categorías (selección múltiple)</label>
+            <label className="block text-sm text-ink-soft">Categorías (selección múltiple)</label>
             {categories && categories.length > 0 ? (
               <select name="categoryIds" multiple value={form.categoryIds} onChange={handleChange} className="input-base h-32">
                 {categories.map(c => (
@@ -171,27 +171,27 @@ const CouponModal = ({ show, onClose, editing = null, fullPage = false }) => {
             ) : (
               <input name="categoryIds" value={Array.isArray(form.categoryIds) ? form.categoryIds.join(',') : form.categoryIds} onChange={handleChange} className="input-base" />
             )}
-            <p className="text-xs text-gray-500 mt-1">También puedes pegar IDs separados por comas si lo prefieres.</p>
+            <p className="text-xs text-ink-muted mt-1">También puedes pegar IDs separados por comas si lo prefieres.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-700">Inicio</label>
+              <label className="block text-sm text-ink-soft">Inicio</label>
               <input name="startAt" value={form.startAt} onChange={handleChange} type="datetime-local" className="input-base" />
             </div>
             <div>
-              <label className="block text-sm text-gray-700">Fin</label>
+              <label className="block text-sm text-ink-soft">Fin</label>
               <input name="endAt" value={form.endAt} onChange={handleChange} type="datetime-local" className="input-base" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-700">Límite de usos (total)</label>
+              <label className="block text-sm text-ink-soft">Límite de usos (total)</label>
               <input name="usageLimit" value={form.usageLimit} onChange={handleChange} type="number" className="input-base" />
             </div>
             <div>
-              <label className="block text-sm text-gray-700">Límite por usuario</label>
+              <label className="block text-sm text-ink-soft">Límite por usuario</label>
               <input name="perUserLimit" value={form.perUserLimit} onChange={handleChange} type="number" className="input-base" />
             </div>
           </div>
@@ -199,7 +199,7 @@ const CouponModal = ({ show, onClose, editing = null, fullPage = false }) => {
           <div className="flex items-center gap-3">
             <label className="inline-flex items-center gap-2">
               <input type="checkbox" name="active" checked={!!form.active} onChange={handleChange} />
-              <span className="text-sm text-gray-700">Activo</span>
+              <span className="text-sm text-ink-soft">Activo</span>
             </label>
           </div>
 

@@ -2,11 +2,11 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Card, { CardBody } from '../ui/Card.jsx';
 
-const BarChartAnalysis = ({ data, title, dataKey = 'value', xAxisKey = 'label', height = 300, currency = 'USD', color = '#6366f1' }) => {
+const BarChartAnalysis = ({ data, title, dataKey = 'value', xAxisKey = 'label', height = 300, currency = 'USD', color = '#4f46e5' }) => {
     return (
         <Card>
             <CardBody>
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">{title}</h3>
+                <h3 className="text-base font-semibold text-ink mb-4">{title}</h3>
                 <ResponsiveContainer width="100%" height={height}>
                     <BarChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -31,7 +31,7 @@ const BarChartAnalysis = ({ data, title, dataKey = 'value', xAxisKey = 'label', 
                             }}
                         />
                         <Legend />
-                        <Bar dataKey={dataKey} fill={color} radius={[8, 8, 0, 0]} />
+                        <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} maxBarSize={48} />
                     </BarChart>
                 </ResponsiveContainer>
             </CardBody>

@@ -8,15 +8,15 @@ import api from '../../api/client.js';
 
 // --- Componente: Modal para Gestionar Categorías ---
 const ManageCategoriesModal = ({ onClose, categories, handleDeleteCategory, isMasterUser }) => (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-        <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-md">
+    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[60] p-4">
+        <div className="modal-panel p-6 w-full max-w-md">
             <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
-                <h3 className="text-lg md:text-xl font-semibold text-gray-900">Gestionar Categorías</h3>
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>
+                <h3 className="text-lg font-semibold text-ink">Gestionar Categorías</h3>
+                <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto">
                 {(categories || []).map(cat => (
-                    <div key={cat.id} className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-2 bg-gray-50 rounded-lg gap-2">
+                    <div key={cat.id} className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-2 bg-surface-muted rounded-lg gap-2">
                         <span>{cat.name}</span>
                         {isMasterUser && (
                             <Button variant="danger" size="sm" onClick={() => handleDeleteCategory(cat)} aria-label="Eliminar Categoría"><Trash2 size={16} /></Button>
@@ -141,45 +141,45 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
 
     return (
         <>
-            <div className={fullPage ? 'w-full' : 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4'}>
-                <div className={fullPage ? 'bg-white rounded-2xl shadow-card p-6 w-full' : 'bg-white rounded-2xl shadow-card p-6 w-full max-w-md max-h-[90vh] overflow-y-auto'}>
+            <div className={fullPage ? 'w-full' : 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4'}>
+                <div className={fullPage ? 'modal-panel p-6 w-full' : 'modal-panel p-6 w-full max-w-md max-h-[90vh] overflow-y-auto'}>
                     <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
                         <div className="flex items-center gap-2">
                             {fullPage && (
-                                <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+                                <button type="button" onClick={onClose} className="modal-close" aria-label="Salir">
                                     <ArrowLeft size={22} strokeWidth={2.5} />
                                 </button>
                             )}
-                            <h3 className="text-lg md:text-2xl font-semibold text-gray-900">{product?.id ? 'Modificar Producto' : 'Nuevo Producto Base'}</h3>
+                            <h3 className="text-lg font-semibold text-ink">{product?.id ? 'Modificar Producto' : 'Nuevo Producto Base'}</h3>
                         </div>
-                        {!fullPage && <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>}
+                        {!fullPage && <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>}
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-gray-700 mb-1">Nombre</label>
+                            <label className="block text-ink-soft mb-1">Nombre</label>
                             <input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-gray-700 mb-1">Precio Compra</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
+                            <div><label className="block text-ink-soft mb-1">Precio Compra</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
                             <div>
-                                <label className="block text-gray-700 mb-1">Precio Venta</label>
+                                <label className="block text-ink-soft mb-1">Precio Venta</label>
                                 <input type="number" name="salePrice" value={formData.salePrice} onChange={handleChange} className="input-base" required min="0" step="0.01" />
-                                <p className="text-xs text-gray-500 mt-1">Precio final (ITBIS incluido).</p>
+                                <p className="text-xs text-ink-muted mt-1">Precio final (ITBIS incluido).</p>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-gray-700 mb-1">Stock Inicial</label>
+                                <label className="block text-ink-soft mb-1">Stock Inicial</label>
                                 <input type="number" name="stock" value={formData.stock} onChange={handleChange} className="input-base" required min="0" />
                             </div>
                             <div>
-                                <label className="block text-gray-700 mb-1">Alerta Stock Mínimo</label>
+                                <label className="block text-ink-soft mb-1">Alerta Stock Mínimo</label>
                                 <input type="number" name="stockThreshold" value={formData.stockThreshold} onChange={handleChange} className="input-base" required min="0" />
                             </div>
                         </div>
                         
                         <div>
-                            <label className="block text-gray-700 mb-1">Estado Fiscal</label>
+                            <label className="block text-ink-soft mb-1">Estado Fiscal</label>
                             <select name="taxStatus" value={formData.taxStatus} onChange={handleChange} className="input-base">
                                 <option>Gravado (18%)</option>
                                 <option>Exento</option>
@@ -187,20 +187,20 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                         </div>
 
                         <div>
-                            <label className="block text-gray-700 mb-1">Categoría</label>
+                            <label className="block text-ink-soft mb-1">Categoría</label>
                             <div className="flex items-center gap-2">
                                 <select name="categoryId" value={formData.categoryId} onChange={handleChange} className="input-base">
                                     <option value="">-- Sin Categoría --</option>
                                     {(categories || []).filter(c => c && c.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    <option value="add_new" className="font-bold text-indigo-600">+ Añadir Nueva Categoría</option>
+                                    <option value="add_new" className="font-bold text-brand-600">+ Añadir Nueva Categoría</option>
                                 </select>
                                 <Button type="button" variant="secondary" size="sm" onClick={() => setShowManageCategories(true)} title="Gestionar Categorías"><Settings size={20} /></Button>
                             </div>
                         </div>
                         
                         {showAddCategory && (
-                            <div className="p-3 border rounded-lg bg-gray-50">
-                                <label className="block text-sm font-medium text-gray-700">Nombre de la Nueva Categoría</label>
+                            <div className="p-3 border rounded-lg bg-surface-muted">
+                                <label className="block text-sm font-medium text-ink-soft">Nombre de la Nueva Categoría</label>
                                 <div className="mt-1 flex gap-2">
                                     <input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="input-base" placeholder="Ej: Tazas Personalizadas"/>
                                     <Button type="button" variant="primary" size="sm" onClick={handleNewCategorySave}><Check size={20}/></Button>
@@ -210,16 +210,16 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                         )}
                         
                         <div>
-                            <label className="block text-gray-700 mb-1">Proveedor</label>
+                            <label className="block text-ink-soft mb-1">Proveedor</label>
                             <select name="supplierId" value={formData.supplierId} onChange={handleChange} className="input-base">
                                 <option value="">-- Sin Proveedor --</option>
                                 {(suppliers || []).filter(s => s && s.id).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                <option value="add_new" className="font-bold text-indigo-600">+ Añadir Nuevo Proveedor</option>
+                                <option value="add_new" className="font-bold text-brand-600">+ Añadir Nuevo Proveedor</option>
                             </select>
                         </div>
 
                         <div>
-                            <label htmlFor="imageUrl" className="block text-gray-700 mb-1">Imagen de Muestra</label>
+                            <label htmlFor="imageUrl" className="block text-ink-soft mb-1">Imagen de Muestra</label>
                             <input type="file" id="imageUrl" name="imageUrl" onChange={handleImageChange} className="input-base" accept="image/*" />
                             {formData.imageUrl && <img src={formData.imageUrl} alt="Preview" className="mt-4 w-24 h-24 object-cover rounded-md"/>}
                         </div>

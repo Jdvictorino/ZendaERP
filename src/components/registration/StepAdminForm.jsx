@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, User } from 'lucide-react';
+import { Eye, EyeOff, User, Check, X } from 'lucide-react';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import AddressFields from '../common/AddressFields.jsx';
 import { calcPasswordStrength, isPasswordStrong } from '../../utils/password.js';
 
-const PWD_COLORS = ['bg-red-500', 'bg-red-400', 'bg-yellow-400', 'bg-yellow-300', 'bg-emerald-400', 'bg-emerald-500'];
+const PWD_COLORS = ['bg-red-500', 'bg-red-400', 'bg-yellow-400', 'bg-yellow-300', 'bg-success-400', 'bg-success-500'];
 const PWD_LABELS = ['Muy débil', 'Débil', 'Aceptable', 'Buena', 'Fuerte', 'Muy fuerte'];
 
 const criteria = [
@@ -90,14 +90,14 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
     <form onSubmit={handleSubmit} className={`space-y-6 ${animClass}`} noValidate>
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-1">Paso 1 de 3</p>
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Datos del Administrador</h2>
-        <p className="text-sm text-gray-500 mt-1">El administrador tendrá acceso total al sistema. Completa todos los campos requeridos.</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-1">Paso 1 de 3</p>
+        <h2 className="text-2xl md:text-3xl font-bold text-ink">Datos del Administrador</h2>
+        <p className="text-sm text-ink-muted mt-1">El administrador tendrá acceso total al sistema. Completa todos los campos requeridos.</p>
       </div>
 
       {/* Foto + Datos Personales */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Información Personal</h3></div>
+      <div className="card mb-6 overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Información Personal</h3></div>
           <div className="p-5">
           <div className="flex flex-col md:flex-row gap-6">
             {/* Foto */}
@@ -108,22 +108,22 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
             {/* Campos */}
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Nombres <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Nombres <span className="text-red-500">*</span></label>
                 <input name="firstName" value={form.firstName} onChange={handleChange}
                   className="input-base" placeholder="Ej: Juan Carlos" required />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Apellidos <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Apellidos <span className="text-red-500">*</span></label>
                 <input name="lastName" value={form.lastName} onChange={handleChange}
                   className="input-base" placeholder="Ej: Pérez García" required />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Cédula / Pasaporte</label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Cédula / Pasaporte</label>
                 <input name="idNumber" value={form.idNumber} onChange={handleChange}
                   className="input-base" placeholder="000-0000000-0" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Género</label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Género</label>
                 <select name="gender" value={form.gender} onChange={handleChange} className="input-base">
                   <option value="M">Masculino</option>
                   <option value="F">Femenino</option>
@@ -131,14 +131,14 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Cargo</label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Cargo</label>
                 <input name="cargo" value={form.cargo} onChange={handleChange}
                   className="input-base" placeholder="Administrador" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Empresa</label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Empresa</label>
                 <input name="empresa" value={form.empresa} readOnly
-                  className="input-base bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  className="input-base bg-surface-muted text-ink-muted cursor-not-allowed" />
               </div>
             </div>
           </div>
@@ -146,16 +146,16 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
       </div>
 
       {/* Dirección */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Dirección</h3></div>
+      <div className="card mb-6 overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Dirección</h3></div>
           <div className="p-5">
           <AddressFields address={form.address} onChange={handleAddress} />
         </div>
       </div>
 
       {/* Contacto */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Contacto</h3></div>
+      <div className="card mb-6 overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Contacto</h3></div>
           <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="reg-label">Teléfono</label>
@@ -171,8 +171,8 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
       </div>
 
       {/* Credenciales */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Credenciales de Acceso</h3></div>
+      <div className="card mb-6 overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Credenciales de Acceso</h3></div>
           <div className="p-5 space-y-4">
           <div>
             <label className="reg-label">Correo electrónico <span className="text-red-500">*</span></label>
@@ -196,7 +196,7 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
                 <div className={`pwd-bar-fill ${PWD_COLORS[pwdStrength] || 'bg-gray-200'}`}
                   style={{ width: `${(pwdStrength / 5) * 100}%` }} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">{PWD_LABELS[Math.max(0, pwdStrength - 1)] || 'Muy débil'}</p>
+              <p className="text-xs text-ink-muted mt-1">{PWD_LABELS[Math.max(0, pwdStrength - 1)] || 'Muy débil'}</p>
             </div>
             <div>
               <label className="reg-label">Confirmar contraseña <span className="text-red-500">*</span></label>
@@ -209,8 +209,8 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
                   {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
                 {form.confirmPassword.length > 0 && (
-                  <span className={`absolute right-9 top-1/2 -translate-y-1/2 font-bold text-sm ${pwdMatch ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {pwdMatch ? '✓' : '✕'}
+                  <span className={`absolute right-9 top-1/2 -translate-y-1/2 font-bold text-sm ${pwdMatch ? 'text-success-500' : 'text-red-500'}`}>
+                    {pwdMatch ? <Check size={16} aria-label="Las contraseñas coinciden" /> : <X size={16} aria-label="Las contraseñas no coinciden" />}
                   </span>
                 )}
               </div>
@@ -221,12 +221,12 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
           {touched && (
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-1">
               {criteria.map((c) => (
-                <li key={c.label} className={`flex items-center gap-1.5 text-xs ${c.test(form.password) ? 'text-emerald-600' : 'text-gray-400'}`}>
+                <li key={c.label} className={`flex items-center gap-1.5 text-xs ${c.test(form.password) ? 'text-success-600' : 'text-gray-400'}`}>
                   <span className="text-base leading-none">{c.test(form.password) ? '●' : '○'}</span>
                   {c.label}
                 </li>
               ))}
-              <li className={`flex items-center gap-1.5 text-xs ${pwdMatch ? 'text-emerald-600' : 'text-gray-400'}`}>
+              <li className={`flex items-center gap-1.5 text-xs ${pwdMatch ? 'text-success-600' : 'text-gray-400'}`}>
                 <span className="text-base leading-none">{pwdMatch ? '●' : '○'}</span>
                 Las contraseñas coinciden
               </li>

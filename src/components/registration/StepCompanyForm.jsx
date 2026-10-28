@@ -86,14 +86,14 @@ export default function StepCompanyForm({ initialData = {}, onNext, onBack, anim
     <form onSubmit={handleSubmit} className={`space-y-6 ${animClass}`} noValidate>
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-1">Paso 2 de 3</p>
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Datos de la Empresa</h2>
-        <p className="text-sm text-gray-500 mt-1">Esta información aparecerá en tus facturas y comprobantes. Puedes actualizarla luego desde Configuración.</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-1">Paso 2 de 3</p>
+        <h2 className="text-2xl md:text-3xl font-bold text-ink">Datos de la Empresa</h2>
+        <p className="text-sm text-ink-muted mt-1">Esta información aparecerá en tus facturas y comprobantes. Puedes actualizarla luego desde Configuración.</p>
       </div>
 
       {/* Logo + Info general */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Identidad Comercial</h3></div>
+      <div className="card mb-6 overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Identidad Comercial</h3></div>
           <div className="p-5">
           <div className="flex flex-col md:flex-row gap-6">
             {/* Logo */}
@@ -104,17 +104,17 @@ export default function StepCompanyForm({ initialData = {}, onNext, onBack, anim
             {/* Fields */}
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre comercial <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Nombre comercial <span className="text-red-500">*</span></label>
                 <input name="name" value={form.name} onChange={handleChange}
                   className="input-base text-lg font-semibold" placeholder="Mi Empresa S.R.L." required />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">RNC <span className="text-gray-400">(opcional)</span></label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">RNC <span className="text-gray-400">(opcional)</span></label>
                 <input name="rnc" value={form.rnc} onChange={handleChange}
                   className="input-base" placeholder="1-00-00000-0" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Moneda principal</label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Moneda principal</label>
                 <select name="currency" value={form.currency} onChange={handleChange} className="input-base">
                   {CURRENCIES.map(c => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -122,7 +122,7 @@ export default function StepCompanyForm({ initialData = {}, onNext, onBack, anim
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo de actividad comercial <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-ink-soft mb-1">Tipo de actividad comercial <span className="text-red-500">*</span></label>
                 <select name="businessType" value={form.businessType} onChange={handleChange} className="input-base" required>
                     <optgroup label="Modo Tienda Craft (recomendado)">
                         <option value="restaurante">Restaurante / Comida rápida</option>
@@ -149,8 +149,8 @@ export default function StepCompanyForm({ initialData = {}, onNext, onBack, anim
       </div>
 
       {/* Contacto */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Contacto</h3></div>
+      <div className="card mb-6 overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Contacto</h3></div>
           <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="reg-label">Teléfono</label>
@@ -166,8 +166,8 @@ export default function StepCompanyForm({ initialData = {}, onNext, onBack, anim
       </div>
 
       {/* Dirección */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wide">Dirección Fiscal</h3></div>
+      <div className="card mb-6 overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Dirección Fiscal</h3></div>
           <div className="p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">

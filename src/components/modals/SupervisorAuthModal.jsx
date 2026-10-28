@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import { hashPin } from '../../utils/crypto.js';
 import toast from 'react-hot-toast';
@@ -35,15 +36,15 @@ export default function SupervisorAuthModal({ supervisors = [], onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4">
-      <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-sm">
+    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[80] p-4">
+      <div className="modal-panel p-6 w-full max-w-sm">
         <div className="flex justify-between items-start mb-3">
-          <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Autorización de Supervisor</h3>
-          <button onClick={() => onClose(false)} className="text-2xl text-gray-500">&times;</button>
+          <h3 className="text-lg font-semibold text-ink">Autorización de Supervisor</h3>
+          <button onClick={() => onClose(false)} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Supervisor</label>
+            <label className="block text-sm text-ink-soft mb-1">Supervisor</label>
             <select className="input-base" value={selectedId} onChange={e => setSelectedId(e.target.value)}>
               <option value="">Selecciona...</option>
               {supervisors.map(u => (
@@ -52,7 +53,7 @@ export default function SupervisorAuthModal({ supervisors = [], onClose }) {
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">PIN</label>
+            <label className="block text-sm text-ink-soft mb-1">PIN</label>
             <input type="password" className="input-base" value={pin} onChange={e => setPin(e.target.value)} placeholder="****" />
           </div>
         </div>

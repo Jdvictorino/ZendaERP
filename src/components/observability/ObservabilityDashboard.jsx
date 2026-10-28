@@ -21,6 +21,7 @@ import {
   Timer,
   TrendingUp,
   Zap,
+  X,
 } from 'lucide-react';
 import { platformBilling } from '../../api/client.js';
 import Button from '../ui/Button.jsx';
@@ -193,8 +194,8 @@ export default function ObservabilityDashboard({ sessionToken }) {
   if (loading) {
     return (
       <div className="card p-12 text-center flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={36} />
-        <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Cargando métricas y observabilidad del sistema...</p>
+        <Loader2 className="animate-spin text-brand-600 dark:text-brand-400" size={36} />
+        <p className="text-ink-muted dark:text-gray-400 text-sm font-medium">Cargando métricas y observabilidad del sistema...</p>
       </div>
     );
   }
@@ -231,7 +232,7 @@ export default function ObservabilityDashboard({ sessionToken }) {
   return (
     <div className="space-y-6">
       {/* Header bar with subtabs and controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/80 dark:bg-gray-900/80 border border-gray-100 dark:border-gray-800 shadow-sm backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/80 dark:bg-gray-900/80 border border-line dark:border-gray-800 shadow-sm backdrop-blur-md">
         {/* Subtab navigation */}
         <div className="flex flex-wrap items-center gap-1.5">
           {[
@@ -246,8 +247,8 @@ export default function ObservabilityDashboard({ sessionToken }) {
               onClick={() => setActiveSubTab(tab.id)}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                 activeSubTab === tab.id
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
+                  : 'text-ink-soft dark:text-gray-300 hover:bg-surface-muted dark:hover:bg-gray-800'
               }`}
             >
               <tab.icon size={14} />
@@ -262,18 +263,18 @@ export default function ObservabilityDashboard({ sessionToken }) {
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition-colors ${
               autoRefresh
-                ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700'
+                ? 'bg-success-50 dark:bg-success-950/30 text-success-600 dark:text-success-400 border-success-200 dark:border-success-800'
+                : 'bg-surface-muted dark:bg-gray-800 text-ink-muted border-line dark:border-gray-700'
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></span>
+            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-success-500 animate-pulse' : 'bg-gray-400'}`}></span>
             {autoRefresh ? 'En vivo (10s)' : 'Pausado'}
           </button>
 
           <Button
             onClick={() => loadOverview(true)}
             variant="ghost"
-            className="!p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="!p-2 text-ink-soft dark:text-gray-300 hover:bg-surface-muted dark:hover:bg-gray-800"
             title="Refrescar datos"
           >
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
@@ -288,25 +289,25 @@ export default function ObservabilityDashboard({ sessionToken }) {
         <div className="space-y-6">
           {/* Top KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="card p-5 border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-gray-900 shadow-sm">
-              <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-2">
+            <div className="card p-5 border border-brand-100 dark:border-brand-900/40 bg-gradient-to-br from-brand-50/50 to-white dark:from-brand-950/20 dark:to-gray-900 shadow-sm">
+              <div className="flex items-center justify-between text-brand-600 dark:text-brand-400 mb-2">
                 <span className="text-xs font-black uppercase tracking-wider text-gray-400">Rendimiento (RPM)</span>
                 <Zap size={20} />
               </div>
-              <div className="text-3xl font-black text-gray-900 dark:text-white">{overview?.rpm || 0}</div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Peticiones / minuto (prom. 5m)</p>
+              <div className="text-3xl font-black text-ink dark:text-white">{overview?.rpm || 0}</div>
+              <p className="text-xs text-ink-muted dark:text-gray-400 mt-1">Peticiones / minuto (prom. 5m)</p>
               <div className="mt-3">
                 <Sparkline data={overview?.timeline || []} color="#6366f1" dataKey="rpm" />
               </div>
             </div>
 
-            <div className="card p-5 border border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/50 to-white dark:from-emerald-950/20 dark:to-gray-900 shadow-sm">
-              <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-2">
+            <div className="card p-5 border border-success-100 dark:border-success-900/40 bg-gradient-to-br from-success-50/50 to-white dark:from-success-950/20 dark:to-gray-900 shadow-sm">
+              <div className="flex items-center justify-between text-success-600 dark:text-success-400 mb-2">
                 <span className="text-xs font-black uppercase tracking-wider text-gray-400">Latencia (P95)</span>
                 <Timer size={20} />
               </div>
-              <div className="text-3xl font-black text-gray-900 dark:text-white">{overview?.latency?.p95 || 0} <span className="text-sm font-normal text-gray-400">ms</span></div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Avg: {overview?.latency?.avg || 0}ms | P99: {overview?.latency?.p99 || 0}ms</p>
+              <div className="text-3xl font-black text-ink dark:text-white">{overview?.latency?.p95 || 0} <span className="text-sm font-normal text-gray-400">ms</span></div>
+              <p className="text-xs text-ink-muted dark:text-gray-400 mt-1">Avg: {overview?.latency?.avg || 0}ms | P99: {overview?.latency?.p99 || 0}ms</p>
               <div className="mt-3">
                 <Sparkline data={overview?.timeline || []} color="#10b981" dataKey="p95" />
               </div>
@@ -317,8 +318,8 @@ export default function ObservabilityDashboard({ sessionToken }) {
                 <span className="text-xs font-black uppercase tracking-wider text-gray-400">Tasa de Errores</span>
                 <AlertTriangle size={20} />
               </div>
-              <div className="text-3xl font-black text-gray-900 dark:text-white">{overview?.errorRate || 0}%</div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{overview?.totalErrors || 0} errores totales en sesión</p>
+              <div className="text-3xl font-black text-ink dark:text-white">{overview?.errorRate || 0}%</div>
+              <p className="text-xs text-ink-muted dark:text-gray-400 mt-1">{overview?.totalErrors || 0} errores totales en sesión</p>
               <div className="mt-3">
                 <Sparkline data={overview?.timeline || []} color="#f59e0b" dataKey="errors" />
               </div>
@@ -329,11 +330,11 @@ export default function ObservabilityDashboard({ sessionToken }) {
                 <span className="text-xs font-black uppercase tracking-wider text-gray-400">Uptime & Servidor</span>
                 <Clock3 size={20} />
               </div>
-              <div className="text-2xl font-black text-gray-900 dark:text-white">{formatUptime(overview?.uptime || 0)}</div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{overview?.activeCompanies || 0} empresas activas monitorizadas</p>
+              <div className="text-2xl font-black text-ink dark:text-white">{formatUptime(overview?.uptime || 0)}</div>
+              <p className="text-xs text-ink-muted dark:text-gray-400 mt-1">{overview?.activeCompanies || 0} empresas activas monitorizadas</p>
               <div className="mt-4 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Sistema Operativo Normal</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-success-500 animate-ping"></span>
+                <span className="text-xs font-bold text-success-600 dark:text-success-400">Sistema Operativo Normal</span>
               </div>
             </div>
           </div>
@@ -341,9 +342,9 @@ export default function ObservabilityDashboard({ sessionToken }) {
           {/* Middle Grid: Top Tenants & Recent Error Groups */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top Tenants by traffic */}
-            <div className="card p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
-              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <Building2 className="text-indigo-600 dark:text-indigo-400" size={18} />
+            <div className="card p-5">
+              <h3 className="text-base font-bold text-ink dark:text-gray-100 mb-4 flex items-center gap-2">
+                <Building2 className="text-brand-600 dark:text-brand-400" size={18} />
                 Empresas con Mayor Carga (Última Hora)
               </h3>
 
@@ -358,21 +359,21 @@ export default function ObservabilityDashboard({ sessionToken }) {
                         setSelectedCompanyId(t.companyId);
                         setActiveSubTab('tenant');
                       }}
-                      className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 transition-colors cursor-pointer flex items-center justify-between"
+                      className="p-3 rounded-xl border border-line dark:border-gray-800 hover:bg-brand-50/50 dark:hover:bg-brand-950/30 transition-colors cursor-pointer flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-lg bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center">
                           #{idx + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{t.companyName}</p>
+                          <p className="text-sm font-bold text-ink dark:text-gray-100">{t.companyName}</p>
                           <p className="text-xs text-gray-400">ID: {t.companyId}</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-4 text-right">
                         <div>
-                          <p className="text-sm font-black text-gray-900 dark:text-gray-100">{t.requestCount} req</p>
+                          <p className="text-sm font-black text-ink dark:text-gray-100">{t.requestCount} req</p>
                           <p className="text-xs text-gray-400">P95: {t.latency.p95}ms</p>
                         </div>
                         {t.errorCount > 0 ? (
@@ -380,7 +381,7 @@ export default function ObservabilityDashboard({ sessionToken }) {
                             {t.errorCount} err
                           </span>
                         ) : (
-                          <span className="px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                          <span className="px-2 py-1 rounded-md bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 text-xs font-bold">
                             100% OK
                           </span>
                         )}
@@ -392,14 +393,14 @@ export default function ObservabilityDashboard({ sessionToken }) {
             </div>
 
             {/* Recent Errors */}
-            <div className="card p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
-              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <div className="card p-5">
+              <h3 className="text-base font-bold text-ink dark:text-gray-100 mb-4 flex items-center gap-2">
                 <AlertTriangle className="text-amber-500" size={18} />
                 Grupo de Errores Recientes (5xx)
               </h3>
 
               {!overview?.recentErrors || overview.recentErrors.length === 0 ? (
-                <div className="text-center py-12 text-emerald-600 dark:text-emerald-400 flex flex-col items-center gap-2">
+                <div className="text-center py-12 text-success-600 dark:text-success-400 flex flex-col items-center gap-2">
                   <ShieldCheck size={32} />
                   <p className="text-sm font-bold">¡Cero errores de servidor registrados!</p>
                 </div>
@@ -408,16 +409,16 @@ export default function ObservabilityDashboard({ sessionToken }) {
                   {overview.recentErrors.map((err) => (
                     <div key={err.key} className="p-3 rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50/30 dark:bg-red-950/10 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-red-600 text-white">
+                        <span className="px-2 py-0.5 rounded text-xs font-black uppercase bg-red-600 text-white">
                           HTTP {err.statusCode}
                         </span>
                         <span className="text-xs text-gray-400">
                           {err.count} apariciones | {err.affectedCompanies} empresa(s)
                         </span>
                       </div>
-                      <p className="text-xs font-mono text-gray-800 dark:text-gray-200 line-clamp-2">{err.message}</p>
-                      <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1">
-                        <span>Ruta: <code className="text-indigo-600 dark:text-indigo-400">{err.lastMethod} {err.lastPath}</code></span>
+                      <p className="text-xs font-mono text-ink dark:text-gray-200 line-clamp-2">{err.message}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-400 pt-1">
+                        <span>Ruta: <code className="text-brand-600 dark:text-brand-400">{err.lastMethod} {err.lastPath}</code></span>
                         <span>Último: {new Date(err.lastSeen).toLocaleTimeString()}</span>
                       </div>
                     </div>
@@ -435,9 +436,9 @@ export default function ObservabilityDashboard({ sessionToken }) {
       {activeSubTab === 'tenant' && (
         <div className="space-y-6">
           {/* Company selector */}
-          <div className="card p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center gap-4">
-            <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-              <Building2 size={18} className="text-indigo-600" />
+          <div className="card p-4 flex flex-col sm:flex-row items-center gap-4">
+            <label className="text-sm font-bold text-ink-soft dark:text-gray-300 flex items-center gap-2">
+              <Building2 size={18} className="text-brand-600" />
               Seleccionar Empresa:
             </label>
             <select
@@ -464,30 +465,30 @@ export default function ObservabilityDashboard({ sessionToken }) {
             <div className="space-y-6">
               {/* Tenant KPIs */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="card p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                <div className="card p-4">
                   <p className="text-xs text-gray-400 font-bold uppercase">Requests (1h)</p>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{tenantMetrics.requestCount}</p>
+                  <p className="text-2xl font-black text-ink dark:text-white mt-1">{tenantMetrics.requestCount}</p>
                 </div>
-                <div className="card p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                <div className="card p-4">
                   <p className="text-xs text-gray-400 font-bold uppercase">Latencia P95</p>
-                  <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{tenantMetrics.latency?.p95 || 0} ms</p>
+                  <p className="text-2xl font-black text-brand-600 dark:text-brand-400 mt-1">{tenantMetrics.latency?.p95 || 0} ms</p>
                 </div>
-                <div className="card p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                <div className="card p-4">
                   <p className="text-xs text-gray-400 font-bold uppercase">Errores</p>
                   <p className="text-2xl font-black text-red-600 dark:text-red-400 mt-1">{tenantMetrics.errorCount}</p>
                 </div>
-                <div className="card p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                <div className="card p-4">
                   <p className="text-xs text-gray-400 font-bold uppercase">Latencia Promedio</p>
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{tenantMetrics.latency?.avg || 0} ms</p>
+                  <p className="text-2xl font-black text-success-600 dark:text-success-400 mt-1">{tenantMetrics.latency?.avg || 0} ms</p>
                 </div>
               </div>
 
               {/* Top endpoints table */}
-              <div className="card p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
-                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Endpoints más frecuentados por esta empresa</h4>
+              <div className="card p-5">
+                <h4 className="text-sm font-bold text-ink dark:text-gray-100 mb-3">Endpoints más frecuentados por esta empresa</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500">
+                    <thead className="bg-surface-muted dark:bg-gray-800 text-ink-muted">
                       <tr>
                         <th className="p-2.5">Endpoint</th>
                         <th className="p-2.5">Requests</th>
@@ -497,15 +498,15 @@ export default function ObservabilityDashboard({ sessionToken }) {
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {tenantMetrics.topEndpoints?.map((ep, i) => (
-                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                          <td className="p-2.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold">{ep.endpoint}</td>
+                        <tr key={i} className="hover:bg-surface-muted dark:hover:bg-gray-800/50">
+                          <td className="p-2.5 font-mono text-brand-600 dark:text-brand-400 font-bold">{ep.endpoint}</td>
                           <td className="p-2.5 font-bold">{ep.count}</td>
                           <td className="p-2.5 font-semibold">{ep.avgMs} ms</td>
                           <td className="p-2.5">
                             {ep.errors > 0 ? (
                               <span className="text-red-500 font-bold">{ep.errors}</span>
                             ) : (
-                              <span className="text-emerald-500">0</span>
+                              <span className="text-success-500">0</span>
                             )}
                           </td>
                         </tr>
@@ -525,10 +526,10 @@ export default function ObservabilityDashboard({ sessionToken }) {
       {activeSubTab === 'traces' && (
         <div className="space-y-4">
           {/* Filters */}
-          <div className="card p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex flex-wrap items-center gap-3">
+          <div className="card p-4 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <Filter size={16} className="text-gray-400" />
-              <span className="text-xs font-bold uppercase text-gray-500">Filtros:</span>
+              <span className="text-xs font-bold uppercase text-ink-muted">Filtros:</span>
             </div>
 
             <select
@@ -577,10 +578,10 @@ export default function ObservabilityDashboard({ sessionToken }) {
           </div>
 
           {/* Traces table */}
-          <div className="card p-0 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden">
+          <div className="card p-0 overflow-hidden">
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 backdrop-blur-sm text-gray-500 font-bold uppercase text-[10px] tracking-wider">
+                <thead className="bg-surface-muted dark:bg-gray-800/80 sticky top-0 backdrop-blur-sm text-ink-muted font-bold uppercase text-xs tracking-wider">
                   <tr>
                     <th className="p-3">Hora</th>
                     <th className="p-3">Método</th>
@@ -598,26 +599,26 @@ export default function ObservabilityDashboard({ sessionToken }) {
                     </tr>
                   ) : (
                     traces.map((tr) => (
-                      <tr key={tr.id} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 font-mono">
+                      <tr key={tr.id} className="hover:bg-brand-50/30 dark:hover:bg-brand-950/20 font-mono">
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {new Date(tr.timestamp).toLocaleTimeString()}
                         </td>
                         <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                          <span className={`px-2 py-0.5 rounded text-xs font-black uppercase ${
                             tr.method === 'GET' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
-                            tr.method === 'POST' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                            tr.method === 'POST' ? 'bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300' :
                             tr.method === 'PUT' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
                             'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
                           }`}>
                             {tr.method}
                           </span>
                         </td>
-                        <td className="p-3 font-semibold text-gray-800 dark:text-gray-200 max-w-xs truncate" title={tr.path}>
+                        <td className="p-3 font-semibold text-ink dark:text-gray-200 max-w-xs truncate" title={tr.path}>
                           {tr.path}
                         </td>
                         <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded font-black text-[10px] ${
-                            tr.statusCode < 300 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                          <span className={`px-2 py-0.5 rounded font-black text-xs ${
+                            tr.statusCode < 300 ? 'bg-success-100 text-success-800 dark:bg-success-900/40 dark:text-success-300' :
                             tr.statusCode < 500 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' :
                             'bg-red-600 text-white'
                           }`}>
@@ -625,17 +626,17 @@ export default function ObservabilityDashboard({ sessionToken }) {
                           </span>
                         </td>
                         <td className="p-3 font-bold">
-                          <span className={tr.durationMs > 1000 ? 'text-red-500' : tr.durationMs > 300 ? 'text-amber-500' : 'text-emerald-600'}>
+                          <span className={tr.durationMs > 1000 ? 'text-red-500' : tr.durationMs > 300 ? 'text-amber-500' : 'text-success-600'}>
                             {tr.durationMs} ms
                           </span>
                         </td>
-                        <td className="p-3 text-gray-500 font-sans text-xs">
+                        <td className="p-3 text-ink-muted font-sans text-xs">
                           {tr.companyName || tr.companyId || '-'}
                         </td>
                         <td className="p-3 font-sans">
                           <button
                             onClick={() => setSelectedTrace(tr)}
-                            className="p-1 rounded text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            className="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-surface-muted dark:hover:bg-gray-800"
                           >
                             <Eye size={16} />
                           </button>
@@ -652,18 +653,18 @@ export default function ObservabilityDashboard({ sessionToken }) {
 
       {/* Trace details modal */}
       {selectedTrace && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="card p-6 bg-white dark:bg-gray-900 max-w-2xl w-full border border-gray-200 dark:border-gray-800 shadow-2xl space-y-4 font-mono text-xs">
+        <div className="fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+          <div className="modal-panel p-6 max-w-2xl w-full space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between border-b dark:border-gray-800 pb-3 font-sans">
-              <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <Activity className="text-indigo-600" size={18} />
+              <h3 className="font-bold text-base text-ink dark:text-gray-100 flex items-center gap-2">
+                <Activity className="text-brand-600" size={18} />
                 Detalle de Traza HTTP #{selectedTrace.id}
               </h3>
-              <button onClick={() => setSelectedTrace(null)} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+              <button onClick={() => setSelectedTrace(null)} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-950/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-              <div><span className="text-gray-400">Método:</span> <strong className="text-indigo-600">{selectedTrace.method}</strong></div>
+            <div className="grid grid-cols-2 gap-3 bg-surface-muted dark:bg-gray-950/50 p-4 rounded-xl border border-line dark:border-gray-800">
+              <div><span className="text-gray-400">Método:</span> <strong className="text-brand-600">{selectedTrace.method}</strong></div>
               <div><span className="text-gray-400">Status:</span> <strong>{selectedTrace.statusCode}</strong></div>
               <div><span className="text-gray-400">Ruta:</span> <strong>{selectedTrace.path}</strong></div>
               <div><span className="text-gray-400">Duración:</span> <strong>{selectedTrace.durationMs} ms</strong></div>
@@ -672,7 +673,7 @@ export default function ObservabilityDashboard({ sessionToken }) {
             </div>
 
             {selectedTrace.userEmail && (
-              <p className="font-sans text-xs text-gray-500">Usuario ejecutor: <strong>{selectedTrace.userEmail}</strong></p>
+              <p className="font-sans text-xs text-ink-muted">Usuario ejecutor: <strong>{selectedTrace.userEmail}</strong></p>
             )}
 
             {selectedTrace.error && (
@@ -695,7 +696,7 @@ export default function ObservabilityDashboard({ sessionToken }) {
       {activeSubTab === 'logs' && (
         <div className="space-y-4">
           {/* Controls */}
-          <div className="card p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex flex-wrap items-center gap-3">
+          <div className="card p-4 flex flex-wrap items-center gap-3">
             <select
               value={selectedCompanyId}
               onChange={(e) => setSelectedCompanyId(e.target.value)}
@@ -736,21 +737,21 @@ export default function ObservabilityDashboard({ sessionToken }) {
           {/* Terminal log viewer */}
           <div className="card p-4 bg-gray-950 text-gray-100 font-mono text-xs border border-gray-800 shadow-xl rounded-2xl max-h-[600px] overflow-y-auto space-y-2">
             {logs.length === 0 ? (
-              <p className="text-gray-500 text-center py-12">No hay logs almacenados en el buffer.</p>
+              <p className="text-ink-muted text-center py-12">No hay logs almacenados en el buffer.</p>
             ) : (
               logs.map((l) => (
                 <div key={l.id} className="flex flex-col sm:flex-row sm:items-start gap-2 border-b border-gray-900/60 pb-1.5 hover:bg-gray-900/40 p-1 rounded">
-                  <span className="text-gray-500 text-[11px] whitespace-nowrap">
+                  <span className="text-ink-muted text-xs whitespace-nowrap">
                     [{new Date(l.timestamp).toLocaleTimeString()}]
                   </span>
-                  <span className={`px-1.5 py-0.2 text-[10px] font-black rounded uppercase w-14 text-center shrink-0 ${
+                  <span className={`px-1.5 py-0.2 text-xs font-black rounded uppercase w-14 text-center shrink-0 ${
                     l.level === 'error' ? 'bg-red-500 text-white' :
                     l.level === 'warn' ? 'bg-amber-500 text-black' :
                     l.level === 'info' ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300'
                   }`}>
                     {l.level}
                   </span>
-                  <span className="text-indigo-400 font-bold shrink-0">[{l.source}]</span>
+                  <span className="text-brand-400 font-bold shrink-0">[{l.source}]</span>
                   <p className="break-all flex-1 text-gray-300">{l.message}</p>
                 </div>
               ))
@@ -765,17 +766,17 @@ export default function ObservabilityDashboard({ sessionToken }) {
       {activeSubTab === 'system' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="card p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
+            <div className="card p-5">
               <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-2 flex items-center gap-2">
-                <HardDrive size={16} className="text-indigo-500" />
+                <HardDrive size={16} className="text-brand-500" />
                 Uso de Memoria (RAM)
               </h4>
-              <p className="text-3xl font-black text-gray-900 dark:text-white">
+              <p className="text-3xl font-black text-ink dark:text-white">
                 {systemData?.system?.memoryUsagePercent || 0}%
               </p>
               <div className="w-full bg-gray-100 dark:bg-gray-800 h-2.5 rounded-full mt-3 overflow-hidden">
                 <div
-                  className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                  className="bg-brand-600 h-full rounded-full transition-all duration-500"
                   style={{ width: `${systemData?.system?.memoryUsagePercent || 0}%` }}
                 ></div>
               </div>
@@ -784,12 +785,12 @@ export default function ObservabilityDashboard({ sessionToken }) {
               </p>
             </div>
 
-            <div className="card p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
+            <div className="card p-5">
               <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-2 flex items-center gap-2">
-                <Database size={16} className="text-emerald-500" />
+                <Database size={16} className="text-success-500" />
                 Base de Datos PostgreSQL
               </h4>
-              <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
+              <p className="text-3xl font-black text-success-600 dark:text-success-400">
                 {systemData?.database?.status === 'connected' ? 'Conectado' : 'Error'}
               </p>
               <p className="text-xs text-gray-400 mt-3">
@@ -797,12 +798,12 @@ export default function ObservabilityDashboard({ sessionToken }) {
               </p>
             </div>
 
-            <div className="card p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
+            <div className="card p-5">
               <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-2 flex items-center gap-2">
                 <Server size={16} className="text-blue-500" />
                 Entorno Node.js
               </h4>
-              <p className="text-xl font-black text-gray-900 dark:text-white">
+              <p className="text-xl font-black text-ink dark:text-white">
                 {systemData?.node?.version || 'N/A'}
               </p>
               <p className="text-xs text-gray-400 mt-3">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { ArrowLeft } from 'lucide-react';
 
 const asText = (value) => {
@@ -252,7 +253,7 @@ const ShipmentModal = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!shipmentItems.length) {
-      alert('Selecciona un pedido válido para cargar los artículos del envío.');
+      toast.error('Selecciona un pedido válido para cargar los artículos del envío.');
       return;
     }
     const items = shipmentItems.map(item => {
@@ -296,35 +297,35 @@ const ShipmentModal = ({
 
   return (
     <div style={fullPage ? { width: '100%' } : { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
-      <form onSubmit={handleSubmit} className={fullPage ? 'bg-white rounded-2xl shadow-2xl w-full flex flex-col border border-slate-100' : 'bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col border border-slate-100'} style={fullPage ? undefined : { maxHeight: '90vh' }}>
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white z-10">
+      <form onSubmit={handleSubmit} className={fullPage ? 'bg-surface rounded-2xl shadow-2xl w-full flex flex-col border border-line' : 'bg-surface rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col border border-line'} style={fullPage ? undefined : { maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between p-6 border-b border-line sticky top-0 bg-surface z-10">
           <div className="flex items-center gap-2">
             {fullPage && (
-              <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+              <button type="button" onClick={onClose} className="modal-close" aria-label="Salir">
                 <ArrowLeft size={22} strokeWidth={2.5} />
               </button>
             )}
             <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">Logística</p>
-            <h3 className="text-2xl font-semibold text-slate-800">{shipment ? 'Editar envío' : 'Crear envío'}</h3>
+            <h3 className="text-2xl font-semibold text-ink">{shipment ? 'Editar envío' : 'Crear envío'}</h3>
             </div>
           </div>
-          {!fullPage && <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-800">Cerrar</button>}
+          {!fullPage && <button type="button" onClick={onClose} className="text-ink-muted hover:text-slate-800">Cerrar</button>}
         </div>
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Código del pedido
               <input
               value={orderId}
               onChange={e => setOrderId(e.target.value)}
               placeholder="Ej. PED-1001"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
               autoComplete="off"
             />
             {!isEditing && suggestionList.length > 0 && (
-              <div className="mt-2 rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="mt-2 rounded-lg border border-line bg-surface shadow-sm">
                 <p className="px-3 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Pedidos disponibles</p>
                 <ul>
                   {suggestionList.map(({ order, value, label }) => (
@@ -332,10 +333,10 @@ const ShipmentModal = ({
                       <button
                         type="button"
                         onClick={() => applyOrderDetails(order)}
-                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50"
+                        className="w-full px-3 py-2 text-left text-sm text-ink-soft hover:bg-brand-50"
                       >
-                        <span className="font-medium text-slate-900">{value}</span>
-                        <span className="ml-2 text-slate-500">{order.customerName ? `· ${order.customerName}` : ''}</span>
+                        <span className="font-medium text-ink">{value}</span>
+                        <span className="ml-2 text-ink-muted">{order.customerName ? `· ${order.customerName}` : ''}</span>
                       </button>
                     </li>
                   ))}
@@ -343,22 +344,22 @@ const ShipmentModal = ({
               </div>
             )}
           </label>
-          <label className="text-sm font-medium text-slate-600">
+          <label className="text-sm font-medium text-ink-soft">
             Courier
-            <input value={courier} onChange={e => setCourier(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+            <input value={courier} onChange={e => setCourier(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
           </label>
-          <label className="text-sm font-medium text-slate-600">
+          <label className="text-sm font-medium text-ink-soft">
             Costo de envío
-            <input type="number" value={postage} onChange={e => setPostage(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+            <input type="number" value={postage} onChange={e => setPostage(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
           </label>
-          <label className="text-sm font-medium text-slate-600">
+          <label className="text-sm font-medium text-ink-soft">
             Tracking / guía del courier
-            <input value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} placeholder="Número asignado por la agencia" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+            <input value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} placeholder="Número asignado por la agencia" className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
           </label>
-          <label className="text-sm font-medium text-slate-600">
+          <label className="text-sm font-medium text-ink-soft">
             Repartidor asignado
             {drivers && drivers.length > 0 ? (
-              <select value={assignedDriver} onChange={e => setAssignedDriver(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none">
+              <select value={assignedDriver} onChange={e => setAssignedDriver(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none">
                 <option value="">-- Ninguno --</option>
                 {drivers.map(d => <option key={d.uid || d.id} value={d.uid || d.id}>{d.firstName ? `${d.firstName} ${d.lastName || ''}` : d.email || d.uid}</option>)}
               </select>
@@ -372,87 +373,87 @@ const ShipmentModal = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Nombre del destinatario
-              <input value={name} onChange={e => setName(e.target.value)} required className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input value={name} onChange={e => setName(e.target.value)} required className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Teléfono
-              <input value={phone} onChange={e => setPhone(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input value={phone} onChange={e => setPhone(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
-            <label className="text-sm font-medium text-slate-600 md:col-span-2">
+            <label className="text-sm font-medium text-ink-soft md:col-span-2">
               Calle / Dirección completa
-              <input value={street} onChange={e => setStreet(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input value={street} onChange={e => setStreet(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Ciudad
-              <input value={city} onChange={e => setCity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input value={city} onChange={e => setCity(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Código postal
-              <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Peso (kg)
-              <input type="number" step="0.01" value={weight} onChange={e => setWeight(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input type="number" step="0.01" value={weight} onChange={e => setWeight(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Largo (cm)
-              <input type="number" step="0.1" value={length} onChange={e => setLength(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input type="number" step="0.1" value={length} onChange={e => setLength(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Ancho (cm)
-              <input type="number" step="0.1" value={width} onChange={e => setWidth(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input type="number" step="0.1" value={width} onChange={e => setWidth(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
-            <label className="text-sm font-medium text-slate-600">
+            <label className="text-sm font-medium text-ink-soft">
               Alto (cm)
-              <input type="number" step="0.1" value={height} onChange={e => setHeight(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-indigo-500 focus:outline-none" />
+              <input type="number" step="0.1" value={height} onChange={e => setHeight(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 focus:ring-brand-500 focus:outline-none" />
             </label>
           </div>
 
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <div className="rounded-xl border border-dashed border-slate-300 bg-surface-muted px-4 py-3 text-sm text-ink-soft">
             Los artículos se cargan automáticamente al seleccionar un pedido. No es posible añadir productos manualmente desde este formulario.
           </div>
 
-          <div className="rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <div className="rounded-2xl border border-line">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-400">Resumen</p>
-                <p className="text-sm font-semibold text-slate-700">Artículos del envío</p>
+                <p className="text-sm font-semibold text-ink-soft">Artículos del envío</p>
               </div>
-              <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">{previewItems.length}</span>
+              <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-600">{previewItems.length}</span>
             </div>
             {previewItems.length > 0 ? (
               <div className="overflow-x-auto max-h-40">
                 <table className="min-w-full divide-y divide-slate-100 text-sm">
-                  <thead className="bg-slate-50 sticky top-0">
+                  <thead className="bg-surface-muted sticky top-0">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">SKU</th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Cantidad</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">SKU</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">Producto</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-muted">Cantidad</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {previewItems.map((item, index) => (
                       <tr key={`${item.sku || 'item'}-${index}`}>
-                        <td className="px-4 py-2 font-mono text-slate-700">{item.sku || '—'}</td>
-                        <td className="px-4 py-2 text-slate-700">{item.name || 'Nombre no disponible'}</td>
-                        <td className="px-4 py-2 text-right font-semibold text-slate-900">{item.qty}</td>
+                        <td className="px-4 py-2 font-mono text-ink-soft">{item.sku || '—'}</td>
+                        <td className="px-4 py-2 text-ink-soft">{item.name || 'Nombre no disponible'}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-ink">{item.qty}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <p className="px-4 py-3 text-sm text-slate-500">Selecciona un pedido para visualizar los artículos asociados al envío.</p>
+              <p className="px-4 py-3 text-sm text-ink-muted">Selecciona un pedido para visualizar los artículos asociados al envío.</p>
             )}
           </div>
-        </div>        <div className="p-6 border-t border-slate-100 sticky bottom-0 bg-white flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Cancelar</button>
-          <button type="submit" className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-700">{shipment ? 'Guardar cambios' : 'Crear envío'}</button>
+        </div>        <div className="p-6 border-t border-line sticky bottom-0 bg-surface flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-line text-ink-soft hover:bg-slate-50">Cancelar</button>
+          <button type="submit" className="px-4 py-2 rounded-lg bg-brand-600 text-white font-semibold shadow hover:bg-brand-700">{shipment ? 'Guardar cambios' : 'Crear envío'}</button>
         </div>
       </form>
     </div>

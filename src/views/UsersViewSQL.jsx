@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Trash2, UserPlus, Edit, AlertTriangle, Loader2 } from 'lucide-react';
+import { Trash2, UserPlus, Edit, AlertTriangle, Loader2, Users } from 'lucide-react';
 import ConfirmationModal from '../components/modals/ConfirmationModal.jsx';
 import UserModal from '../components/modals/UserModal.jsx';
 import toast from 'react-hot-toast';
@@ -12,6 +12,9 @@ import Button from '../components/ui/Button.jsx';
 
 // API PostgreSQL
 import { useApiCrud } from '../hooks/useApi.js';
+import { PLACEHOLDER_IMG } from '../utils/placeholderImage.js';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const UsersViewSQL = ({ companyProfile, isMasterUser, adminUser, onCurrentUserUpdate, autoEditUserId = null, onAutoEditClose }) => {
     // Datos de la API
@@ -78,10 +81,7 @@ const UsersViewSQL = ({ companyProfile, isMasterUser, adminUser, onCurrentUserUp
     // Estados de carga y error
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Loader2 className="animate-spin text-indigo-500" size={48} />
-                <p className="ml-4 text-gray-500">Cargando usuarios...</p>
-            </div>
+            <PageSkeleton kpis={0} label="Cargando usuarios..." />
         );
     }
 
@@ -120,23 +120,23 @@ const UsersViewSQL = ({ companyProfile, isMasterUser, adminUser, onCurrentUserUp
     return (
         <div>
             <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-6 gap-2">
-                <h2 className="text-3xl font-bold text-gray-800 dark:text-white">
+                <h2 className="page-title">
                     Gestionar Equipo
                 </h2>
-                <button onClick={openCreateModal} className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center gap-2">
+                <button onClick={openCreateModal} className="bg-brand-600 text-white py-2 px-4 rounded-lg hover:bg-brand-700 flex items-center gap-2">
                     <UserPlus size={20}/> Añadir Nuevo Empleado
                 </button>
             </div>
-            <div className="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded-lg p-4 mb-6">
+            <div className="bg-brand-50 border border-brand-100 text-brand-800 dark:bg-brand-950/40 dark:border-brand-900 dark:text-brand-200 rounded-lg p-4 mb-6">
                 <p className="text-sm">
                     Define los permisos de cada usuario seleccionando un rol. Los empleados sin un rol asignado solo verán el panel principal.
                 </p>
             </div>
 
-            <div className="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
+            <div className="card p-4 overflow-x-auto">
                 <table className="w-full text-left">
                     <thead>
-                        <tr className="border-b">
+                        <tr className="border-b bg-gray-50/60 text-xs font-semibold uppercase tracking-wide text-ink-muted">
                             <th className="p-4">Empleado</th>
                             <th className="p-4">N° Empleado</th>
                             <th className="p-4">Cargo</th>
@@ -148,15 +148,15 @@ const UsersViewSQL = ({ companyProfile, isMasterUser, adminUser, onCurrentUserUp
                     <tbody>
                         {safeUsers.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="p-4 text-center text-gray-500">No hay usuarios registrados</td>
+                                <td colSpan="6" className="p-0"><EmptyState icon={Users} title="No hay usuarios registrados" description="Añade empleados y asígnales un rol para darles acceso." /></td>
                             </tr>
                         ) : (
                             safeUsers.map(u => (
-                                <tr key={u.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-4 font-medium flex items-center gap-3">
-                                        <img src={u.photoUrl || u.photoURL || 'https://placehold.co/40x40/e2e8f0/a0aec0?text=Foto'} alt="Foto" className="w-10 h-10 rounded-full object-cover" />
+                                <tr key={u.id} className="border-b hover:bg-surface-muted">
+                                    <td className="p-4 font-medium"><div className="flex items-center gap-3">
+                                        <img src={u.photoUrl || u.photoURL || PLACEHOLDER_IMG} alt="Foto" className="w-10 h-10 rounded-full object-cover" />
                                         {u.firstName} {u.lastName}
-                                    </td>
+                                    </div></td>
                                     <td className="p-4 font-mono text-sm">{u.employeeId || 'N/A'}</td>
                                     <td className="p-4">{u.cargo || 'Sin cargo'}</td>
                                     <td className="p-4">
@@ -174,7 +174,7 @@ const UsersViewSQL = ({ companyProfile, isMasterUser, adminUser, onCurrentUserUp
                                         )}
                                     </td>
                                     <td className="p-4">{u.email}</td>
-                                    <td className="p-4 flex gap-3">
+                                    <td className="p-4"><div className="flex gap-3">
                                         <button onClick={() => openEditModal(u)} className="text-blue-600 hover:text-blue-800" title="Modificar">
                                             <Edit size={18}/>
                                         </button>
@@ -183,7 +183,7 @@ const UsersViewSQL = ({ companyProfile, isMasterUser, adminUser, onCurrentUserUp
                                                 <Trash2 size={18}/>
                                             </button>
                                         )}
-                                    </td>
+                                    </div></td>
                                 </tr>
                             ))
                         )}

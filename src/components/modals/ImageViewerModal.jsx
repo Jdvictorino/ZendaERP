@@ -41,10 +41,10 @@ const ImageViewerModal = ({ imageUrl, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-            <div className="bg-white rounded-2xl shadow-card p-4 w-full max-w-3xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[70] p-4">
+            <div className="modal-panel p-4 w-full max-w-3xl max-h-[90vh] flex flex-col">
                 <div className="flex justify-end mb-2">
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800" aria-label="Cerrar"><X size={28}/></button>
+                    <button onClick={onClose} className="text-ink-muted hover:text-gray-800" aria-label="Cerrar"><X size={28}/></button>
                 </div>
                 <div className="flex-1 flex items-center justify-center overflow-hidden">
                     {/* --- CAMBIO 3: Se eliminó la lógica de carga y se usa la URL directamente --- */}

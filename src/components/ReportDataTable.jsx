@@ -35,17 +35,17 @@ const ReportDataTable = ({ title, headers, data, fileName }) => {
     };
 
     return (
-        <div className="bg-white dark:bg-gray-900 p-6 sm:p-8 rounded-[2.5rem] shadow-lg shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 mt-10">
+        <div className="card p-6 sm:p-8 mt-10">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h3 className="font-bold text-2xl text-gray-900 dark:text-gray-100 tracking-tight">{title}</h3>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">
+                    <h3 className="font-bold text-2xl text-ink dark:text-gray-100 tracking-tight">{title}</h3>
+                    <p className="text-sm font-medium text-ink-muted dark:text-gray-400 mt-1">
                         {data?.length || 0} registros encontrados
                     </p>
                 </div>
                 {data?.length > 0 && (
                     <button 
-                        className="bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition-all shadow-lg shadow-brand-500/20 active:scale-95 flex items-center gap-2" 
+                        className="bg-brand-600 hover:bg-brand-700 text-white px-4 h-10 rounded-lg text-sm font-semibold transition-colors shadow-sm active:scale-95 flex items-center gap-2" 
                         onClick={handleExportCsv}
                     >
                         Exportar Datos
@@ -56,9 +56,9 @@ const ReportDataTable = ({ title, headers, data, fileName }) => {
                 <div className="inline-block min-w-full align-middle">
                     <table className="min-w-full">
                         <thead>
-                            <tr className="border-b border-gray-100 dark:border-gray-800">
+                            <tr className="border-b border-line dark:border-gray-800">
                                 {headers.map(h => (
-                                    <th key={h} className="px-5 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.1em]">
+                                    <th key={h} className="px-5 py-4 text-left text-xs font-bold text-ink-muted uppercase tracking-[0.1em]">
                                         {h}
                                     </th>
                                 ))}
@@ -68,7 +68,7 @@ const ReportDataTable = ({ title, headers, data, fileName }) => {
                             {data.map((row, index) => (
                                 <tr key={index} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
                                     {headers.map(h => (
-                                        <td key={h} className="px-5 py-4 text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                        <td key={h} className="px-5 py-4 text-sm font-medium text-ink-soft dark:text-gray-300 whitespace-nowrap">
                                             {row[h]}
                                         </td>
                                     ))}
@@ -78,7 +78,7 @@ const ReportDataTable = ({ title, headers, data, fileName }) => {
                                 <tr>
                                     <td colSpan={headers.length} className="px-5 py-16 text-center">
                                         <div className="flex flex-col items-center">
-                                            <p className="text-sm font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest italic">
+                                            <p className="text-sm font-bold text-ink-muted uppercase tracking-widest italic">
                                                 Sin datos disponibles
                                             </p>
                                         </div>

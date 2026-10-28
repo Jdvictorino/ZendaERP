@@ -14,8 +14,8 @@ export default function Alert({
 }) {
   const variants = {
     success: {
-      bg: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-      text: 'text-green-800 dark:text-green-300',
+      bg: 'bg-success-50 dark:bg-success-900/20 border-success-200 dark:border-success-800',
+      text: 'text-success-800 dark:text-success-300',
       icon: CheckCircle
     },
     warning: {

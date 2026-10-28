@@ -7,11 +7,13 @@ import Button from '../components/ui/Button.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import { Table, TableHeader, TableRow, TableCell } from '../components/ui/Table.jsx';
+import { Skeleton } from '../components/ui/Skeleton.jsx';
 import { Trash2, Edit3, PlusCircle, Loader2, Tag, Percent, DollarSign, Calendar } from 'lucide-react';
 import CouponModal from '../components/modals/CouponModal.jsx';
 import toast from 'react-hot-toast';
 import api from '../api/client.js';
 import { useApiCrud } from '../hooks/useApi.js';
+import { confirmDialog } from '../utils/confirmDialog.jsx';
 
 const OffersViewSQL = ({ companyProfile }) => {
   const { data: offersData, loading, refetch } = useApiCrud('/offers');
@@ -31,7 +33,7 @@ const OffersViewSQL = ({ companyProfile }) => {
   };
 
   const handleDelete = async (offer) => {
-    if (!confirm(`¿Eliminar cupón ${offer.code}?`)) return;
+    if (!(await confirmDialog(`¿Eliminar el cupón ${offer.code}?`, { confirmText: 'Eliminar' }))) return;
     try {
       await api.offers.delete(offer.id);
       toast.success('Cupón eliminado');
@@ -76,14 +78,11 @@ const OffersViewSQL = ({ companyProfile }) => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4 mb-2">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center shadow-sm">
-            <Tag size={24} className="text-brand-600 dark:text-brand-400" />
-          </div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+            <h2 className="page-title">
               Ofertas y Cupones
             </h2>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-0.5">
+            <p className="page-subtitle">
               Administra los descuentos y promociones de la tienda
             </p>
           </div>
@@ -99,9 +98,17 @@ const OffersViewSQL = ({ companyProfile }) => {
       <Card>
         <CardBody className="p-0">
           {loading ? (
-            <div className="flex flex-col justify-center items-center py-16 gap-3">
-              <Loader2 className="animate-spin text-brand-500" size={40} />
-              <p className="text-sm text-gray-500 dark:text-gray-400">Cargando ofertas y cupones...</p>
+            <div role="status" aria-busy="true" className="p-5 space-y-4">
+              <span className="sr-only">Cargando ofertas y cupones…</span>
+              <Skeleton className="h-9 w-full" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <Skeleton className="h-5 w-1/6" />
+                  <Skeleton className="h-5 w-1/6" />
+                  <Skeleton className="h-5 flex-1" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -118,7 +125,7 @@ const OffersViewSQL = ({ companyProfile }) => {
                     <TableCell as="th" className="pr-6 text-right">Acciones</TableCell>
                   </TableRow>
                 </TableHeader>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-surface dark:bg-gray-900">
                   {offers.map(o => {
                     const isExpired = o.endAt && new Date(o.endAt) < new Date();
                     
@@ -138,13 +145,13 @@ const OffersViewSQL = ({ companyProfile }) => {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="font-bold text-gray-900 dark:text-gray-100">
+                        <TableCell className="font-bold text-ink dark:text-gray-100">
                           {o.type === 'percentage' ? `${o.value}%` : `${o.value}`}
                         </TableCell>
-                        <TableCell className="text-xs text-gray-600 dark:text-gray-400">
+                        <TableCell className="text-xs text-ink-soft dark:text-gray-400">
                           <span className="capitalize">{o.appliesTo === 'all' ? 'Todo el catálogo' : o.appliesTo}</span>
                         </TableCell>
-                        <TableCell className="text-xs text-gray-500 dark:text-gray-400">
+                        <TableCell className="text-xs text-ink-muted dark:text-gray-400">
                           <div className="flex items-center gap-1.5">
                             <Calendar size={12} className="text-gray-400" />
                             <span>
@@ -153,12 +160,12 @@ const OffersViewSQL = ({ companyProfile }) => {
                               {o.endAt ? new Date(o.endAt).toLocaleDateString('es-DO', {day: '2-digit', month: 'short'}) : 'Sin límite'}
                             </span>
                             {isExpired && (
-                              <Badge variant="danger" size="sm" className="ml-1.5 py-0 px-1.5 text-[10px]">Expirado</Badge>
+                              <Badge variant="danger" size="sm" className="ml-1.5 py-0 px-1.5 text-xs">Expirado</Badge>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs text-gray-600 dark:text-gray-400">
-                          <span className="font-medium text-gray-900 dark:text-gray-200">{o.timesUsed || 0}</span>
+                        <TableCell className="text-xs text-ink-soft dark:text-gray-400">
+                          <span className="font-medium text-ink dark:text-gray-200">{o.timesUsed || 0}</span>
                           {o.usageLimit ? ` / ${o.usageLimit}` : ' (Sin límite)'}
                         </TableCell>
                         <TableCell className="text-center">
@@ -177,7 +184,7 @@ const OffersViewSQL = ({ companyProfile }) => {
                               title={o.active ? 'Desactivar cupón' : 'Activar cupón'}
                             >
                               <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
                                   o.active ? 'translate-x-6' : 'translate-x-1'
                                 }`}
                               />
@@ -187,7 +194,7 @@ const OffersViewSQL = ({ companyProfile }) => {
                         <TableCell className="pr-6 text-right">
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="sm" onClick={() => handleEdit(o)} title="Editar">
-                              <Edit3 size={16} className="text-gray-500 hover:text-brand-500" />
+                              <Edit3 size={16} className="text-ink-muted hover:text-brand-500" />
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => handleDelete(o)} title="Eliminar">
                               <Trash2 size={16} className="text-red-500 hover:text-red-700" />
@@ -200,8 +207,9 @@ const OffersViewSQL = ({ companyProfile }) => {
                   
                   {offers.length === 0 && (
                     <TableRow hover={false}>
-                      <TableCell colSpan="8" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                        <div className="flex flex-col items-center gap-3">
+                      <TableCell colSpan="8" className="px-6 py-12 text-center text-ink-muted dark:text-gray-400">
+                        {/* sticky: en móvil la tabla es más ancha que la pantalla; el mensaje queda en la parte visible */}
+                          <div className="sticky left-0 w-[calc(100vw-5rem)] sm:w-auto flex flex-col items-center gap-3">
                           <Tag size={40} className="text-gray-300 dark:text-gray-700" />
                           <p className="font-medium">No hay cupones registrados</p>
                           <Button variant="secondary" size="sm" onClick={handleCreate} className="mt-1">

@@ -5,7 +5,7 @@ export default function AddressFields({ address, onChange }) {
 
     return (
         <fieldset className="border p-4 rounded-lg">
-            <legend className="text-lg font-semibold text-indigo-600 px-2">Datos de Dirección</legend>
+            <legend className="text-lg font-semibold text-brand-600 px-2">Datos de Dirección</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <input name="street" value={address.street} onChange={handle} placeholder="Calle y Número" className="w-full p-2 border rounded-md md:col-span-2" />
                 <input name="sector" value={address.sector} onChange={handle} placeholder="Sector" className="w-full p-2 border rounded-md" />

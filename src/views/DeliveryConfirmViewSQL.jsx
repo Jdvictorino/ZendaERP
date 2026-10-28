@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { XCircle } from 'lucide-react';
 import { shipments as shipmentsApi } from '../api/client.js';
 
 const DeliveryConfirmViewSQL = () => {
@@ -89,10 +90,10 @@ const DeliveryConfirmViewSQL = () => {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-muted">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+          <p className="text-ink-soft">Cargando...</p>
         </div>
       </div>
     );
@@ -100,11 +101,11 @@ const DeliveryConfirmViewSQL = () => {
   
   if (status === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <div className="text-red-500 text-5xl mb-4">✕</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Error</h2>
-          <p className="text-gray-600">{message}</p>
+      <div className="min-h-screen flex items-center justify-center bg-surface-muted">
+        <div className="bg-surface p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+          <XCircle size={56} className="mx-auto mb-4 text-danger-500" aria-hidden="true" />
+          <h2 className="text-xl font-bold text-ink mb-2">Error</h2>
+          <p className="text-ink-soft">{message}</p>
         </div>
       </div>
     );
@@ -112,11 +113,11 @@ const DeliveryConfirmViewSQL = () => {
   
   if (status === 'done') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <div className="text-green-500 text-5xl mb-4">✓</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">¡Completado!</h2>
-          <p className="text-gray-600">{message}</p>
+      <div className="min-h-screen flex items-center justify-center bg-surface-muted">
+        <div className="bg-surface p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+          <div className="text-success-500 text-5xl mb-4">✓</div>
+          <h2 className="text-xl font-bold text-ink mb-2">¡Completado!</h2>
+          <p className="text-ink-soft">{message}</p>
         </div>
       </div>
     );
@@ -124,58 +125,58 @@ const DeliveryConfirmViewSQL = () => {
 
   if (status === 'saving') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-muted">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Confirmando entrega...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+          <p className="text-ink-soft">Confirmando entrega...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Confirmar Entrega</h2>
+    <div className="min-h-screen flex items-center justify-center bg-surface-muted p-4">
+      <div className="bg-surface p-6 rounded-lg shadow-lg max-w-md w-full">
+        <h2 className="text-2xl font-bold text-ink mb-6 text-center">Confirmar Entrega</h2>
         
         {shipment && (
           <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-surface-muted rounded-lg p-4">
               <div className="space-y-2">
                 <p className="text-sm">
-                  <span className="font-medium text-gray-700">Orden:</span>{' '}
-                  <span className="text-gray-600">{shipment.invoice?.orderNumber || shipment.invoiceId}</span>
+                  <span className="font-medium text-ink-soft">Orden:</span>{' '}
+                  <span className="text-ink-soft">{shipment.invoice?.orderNumber || shipment.invoiceId}</span>
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium text-gray-700">Destinatario:</span>{' '}
-                  <span className="text-gray-600">{shipment.recipientName || shipment.invoice?.customerName || 'Sin nombre'}</span>
+                  <span className="font-medium text-ink-soft">Destinatario:</span>{' '}
+                  <span className="text-ink-soft">{shipment.recipientName || shipment.invoice?.customerName || 'Sin nombre'}</span>
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium text-gray-700">Dirección:</span>{' '}
-                  <span className="text-gray-600">{shipment.deliveryAddress || 'Sin dirección'}</span>
+                  <span className="font-medium text-ink-soft">Dirección:</span>{' '}
+                  <span className="text-ink-soft">{shipment.deliveryAddress || 'Sin dirección'}</span>
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium text-gray-700">Estado:</span>{' '}
-                  <span className="text-gray-600 capitalize">{shipment.status}</span>
+                  <span className="font-medium text-ink-soft">Estado:</span>{' '}
+                  <span className="text-ink-soft capitalize">{shipment.status}</span>
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-ink-soft mb-2">
                 Nombre de quien recibe:
               </label>
               <input
                 type="text"
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Nombre del receptor"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-ink-soft mb-2">
                 Foto comprobante (opcional):
               </label>
               <input
@@ -183,15 +184,15 @@ const DeliveryConfirmViewSQL = () => {
                 accept="image/*"
                 capture="environment"
                 onChange={handleFileChange}
-                className="w-full text-sm text-gray-500
+                className="w-full text-sm text-ink-muted
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-lg file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-indigo-50 file:text-indigo-700
-                  hover:file:bg-indigo-100"
+                  file:bg-brand-50 file:text-brand-700
+                  hover:file:bg-brand-100"
               />
               {photo && (
-                <p className="text-xs text-green-600 mt-2">
+                <p className="text-xs text-success-600 mt-2">
                   ✓ Foto seleccionada: {photo.name}
                 </p>
               )}
@@ -199,7 +200,7 @@ const DeliveryConfirmViewSQL = () => {
 
             <button
               onClick={confirmDelivery}
-              className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+              className="w-full bg-success-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-success-700 transition-colors"
             >
               Confirmar Entrega
             </button>

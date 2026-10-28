@@ -7,29 +7,11 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 import { DollarSign, CreditCard, BarChart as BarChartIcon, ShoppingCart, AlertTriangle, Sun, CalendarDays, UserPlus, Ticket, TrendingUp, Award, Target, Loader2 } from 'lucide-react';
 import { getInventoryAlerts } from '../utils/inventory.js';
 import { useApiCrud } from '../hooks/useApi.js';
+import KpiCard from '../components/ui/KpiCard.jsx';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
 
-// --- Componente de Tarjeta de Estadísticas Rediseñado con Gradientes Premium ---
-const StatCard = ({ title, value, icon: IconComponent, gradientClass, onClick, trend }) => (
-    <div
-        onClick={onClick}
-        className={`rounded-3xl ${gradientClass} p-5 text-white shadow-lg shadow-indigo-500/10 hover:shadow-2xl transition-all duration-300 relative overflow-hidden active:scale-95 ${onClick ? 'cursor-pointer' : ''}`}
-    >
-        <div className="absolute -right-6 -top-6 opacity-20 transform rotate-12">
-            <IconComponent size={100} />
-        </div>
-        <div className="relative z-10 flex flex-col h-full justify-between">
-            <div>
-                <p className="text-xs font-bold uppercase tracking-widest opacity-80">{title}</p>
-                <p className="text-2xl font-extrabold mt-1 tracking-tight">{value}</p>
-            </div>
-            {trend !== undefined && (
-                <div className={`inline-flex items-center gap-1 text-[10px] font-bold mt-4 px-2 py-1 rounded-full w-fit ${trend >= 0 ? 'bg-white/20 text-white' : 'bg-white/20 text-white'}`}>
-                    {trend >= 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(1)}%
-                </div>
-            )}
-        </div>
-    </div>
-);
+// Las tarjetas de indicadores usan el componente único KpiCard
+const StatCard = ({ title, ...rest }) => <KpiCard label={title} {...rest} />;
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -184,10 +166,7 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Loader2 className="animate-spin text-gray-400" size={48} />
-                <p className="ml-4 text-gray-500">Cargando dashboard...</p>
-            </div>
+            <PageSkeleton label="Cargando dashboard..." />
         );
     }
 
@@ -195,73 +174,73 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
         <div>
             <div className="flex justify-between items-start mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h2>
-                    <p className="text-slate-500 mt-1 dark:text-slate-400">Un resumen de la actividad reciente de tu negocio.</p>
+                    <h2 className="page-title">Dashboard</h2>
+                    <p className="page-subtitle">Un resumen de la actividad reciente de tu negocio.</p>
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="kpi-grid">
                 <StatCard 
                     title="Ingresos Brutos" 
                     value={formatCurrency(totalRevenue, currency)} 
                     icon={DollarSign}
-                    gradientClass="bg-gradient-to-br from-indigo-600 to-indigo-400"
+                    tone="brand"
                 />
                 <StatCard 
                     title="Gastos y Reembolsos" 
                     value={formatCurrency(totalExpenses + totalRefunds, currency)} 
                     icon={CreditCard}
-                    gradientClass="bg-gradient-to-br from-red-600 to-pink-400"
+                    tone="danger"
                 />
                 <StatCard 
                     title="Ganancia Neta" 
                     value={formatCurrency(netProfit, currency)} 
                     icon={TrendingUp}
-                    gradientClass={netProfit >= 0 ? "bg-gradient-to-br from-emerald-600 to-teal-400" : "bg-gradient-to-br from-orange-600 to-red-400"}
+                    tone={netProfit >= 0 ? "success" : "danger"}
                 />
                 <StatCard 
                     title="Ticket Promedio" 
                     value={formatCurrency(averageTicket, currency)} 
                     icon={Target}
-                    gradientClass="bg-gradient-to-br from-purple-600 to-fuchsia-400"
+                    tone="brand"
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
+            <div className="kpi-grid mt-4">
                 <StatCard 
                     title="Ventas Hoy" 
                     value={formatCurrency(todayRevenue, currency)} 
                     icon={Sun}
-                    gradientClass="bg-gradient-to-br from-amber-600 to-orange-400"
+                    tone="warning"
                 />
                 <StatCard 
                     title="Ventas 7 días" 
                     value={formatCurrency(weeklyRevenue, currency)} 
                     icon={CalendarDays}
-                    gradientClass="bg-gradient-to-br from-indigo-600 to-sky-400"
+                    tone="info"
                 />
                 <StatCard 
                     title="Pedidos Activos" 
                     value={pendingOrders} 
                     icon={ShoppingCart}
-                    gradientClass="bg-gradient-to-br from-sky-600 to-cyan-400"
+                    tone="info"
                     onClick={() => setView('invoices')}
                 />
                 <StatCard 
                     title="Productos con Bajo Stock" 
                     value={lowStockCount} 
                     icon={AlertTriangle}
-                    gradientClass="bg-gradient-to-br from-orange-600 to-red-400"
+                    tone="warning"
                     onClick={() => setView('products')}
                 />
                 <StatCard 
                     title="Clientes Nuevos (30 días)" 
                     value={newCustomers30} 
                     icon={UserPlus}
-                    gradientClass="bg-gradient-to-br from-teal-600 to-emerald-400"
+                    tone="success"
                     onClick={() => setView('customers')}
                 />
-                <div className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-lg shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800">
-                    <h3 className="font-bold text-sm mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <div className="card p-6">
+                    <h3 className="font-bold text-sm mb-4 text-ink dark:text-gray-100 flex items-center gap-2">
                         <TrendingUp size={18} className="text-brand-600" />
                         Acciones Rápidas
                     </h3>
@@ -271,68 +250,68 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
                             className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 active:scale-90 transition-all"
                         >
                             <ShoppingCart size={20} />
-                            <span className="text-[10px] font-bold">Venta</span>
+                            <span className="text-xs font-bold">Venta</span>
                         </button>
                         <button 
                             onClick={() => setView('finance-expenses')} 
                             className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 active:scale-90 transition-all"
                         >
                             <CreditCard size={20} />
-                            <span className="text-[10px] font-bold">Gasto</span>
+                            <span className="text-xs font-bold">Gasto</span>
                         </button>
                         <button 
                             onClick={() => setView('finance-sales-reports')} 
-                            className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 active:scale-90 transition-all"
+                            className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-success-50 dark:bg-success-900/20 text-success-700 dark:text-success-400 active:scale-90 transition-all"
                         >
                             <BarChartIcon size={20} />
-                            <span className="text-[10px] font-bold">Reporte</span>
+                            <span className="text-xs font-bold">Reporte</span>
                         </button>
                     </div>
                 </div>
             </div>
 
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 pb-24 lg:pb-8">
-                <div className="rounded-3xl bg-white dark:bg-gray-900 p-6 border border-gray-100 dark:border-gray-800 shadow-lg shadow-gray-200/50 dark:shadow-none">
+                <div className="card p-6">
                     <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30">
-                            <ShoppingCart className="text-indigo-600 dark:text-indigo-400" size={20} />
+                        <div className="p-2.5 rounded-xl bg-brand-50 dark:bg-brand-900/30">
+                            <ShoppingCart className="text-brand-600 dark:text-brand-400" size={20} />
                         </div>
-                        <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">Top Productos</h3>
+                        <h3 className="font-bold text-lg text-ink dark:text-gray-100">Top Productos</h3>
                     </div>
                     <ul className="space-y-3">
-                        {topProducts.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 italic">Sin ventas recientes.</p>}
+                        {topProducts.length === 0 && <p className="text-sm text-ink-muted dark:text-gray-400 text-center py-4 italic">Sin ventas recientes.</p>}
                         {topProducts.map((product, idx) => (
-                            <li key={product.name} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/50 dark:bg-gray-800/40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group">
+                            <li key={product.name} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/50 dark:bg-gray-800/40 hover:bg-surface-muted dark:hover:bg-gray-800 transition-all group">
                                 <div className="flex items-center gap-3 flex-1">
-                                    <span className="font-bold text-[10px] w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-sm shadow-indigo-500/30">{idx + 1}</span>
+                                    <span className="font-bold text-xs w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-sm shadow-brand-500/30">{idx + 1}</span>
                                     <div>
-                                        <p className="font-bold text-sm text-gray-800 dark:text-gray-200">{product.name}</p>
-                                        <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{product.quantity} unidades vendidas</p>
+                                        <p className="font-bold text-sm text-ink dark:text-gray-200">{product.name}</p>
+                                        <p className="text-xs font-medium text-ink-muted dark:text-gray-400">{product.quantity} unidades vendidas</p>
                                     </div>
                                 </div>
-                                <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm tracking-tight">{formatCurrency(product.revenue, currency)}</span>
+                                <span className="font-bold text-brand-600 dark:text-brand-400 text-sm tracking-tight">{formatCurrency(product.revenue, currency)}</span>
                             </li>
                         ))}
                     </ul>
                 </div>
-                <div className="rounded-3xl bg-white dark:bg-gray-900 p-6 border border-gray-100 dark:border-gray-800 shadow-lg shadow-gray-200/50 dark:shadow-none">
+                <div className="card p-6">
                     <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
-                            <TrendingUp className="text-emerald-600 dark:text-emerald-400" size={20} />
+                        <div className="p-2.5 rounded-xl bg-success-50 dark:bg-success-900/30">
+                            <TrendingUp className="text-success-600 dark:text-success-400" size={20} />
                         </div>
-                        <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">Últimos Movimientos</h3>
+                        <h3 className="font-bold text-lg text-ink dark:text-gray-100">Últimos Movimientos</h3>
                     </div>
                     <ul className="space-y-3">
-                        {recentMovements.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 italic">Sin movimientos recientes.</p>}
+                        {recentMovements.length === 0 && <p className="text-sm text-ink-muted dark:text-gray-400 text-center py-4 italic">Sin movimientos recientes.</p>}
                         {recentMovements.map(mov => (
                             <li key={`${mov.type}-${mov.id || mov.label}`}
-                                className="flex justify-between items-center p-3 rounded-2xl bg-gray-50/50 dark:bg-gray-800/40 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group active:scale-[0.98]">
+                                className="flex justify-between items-center p-3 rounded-2xl bg-gray-50/50 dark:bg-gray-800/40 hover:bg-surface-muted dark:hover:bg-gray-800 transition-all group active:scale-[0.98]">
                                 <div className="flex-1">
-                                    <p className="font-bold text-sm text-gray-800 dark:text-gray-200">{mov.label}</p>
-                                    <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500">{mov.date.toLocaleDateString()} • {mov.date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
+                                    <p className="font-bold text-sm text-ink dark:text-gray-200">{mov.label}</p>
+                                    <p className="text-xs font-medium text-ink-muted">{mov.date.toLocaleDateString()} • {mov.date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`font-bold text-xs px-3 py-1 rounded-full ${mov.type === 'income' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                    <span className={`font-bold text-xs px-3 py-1 rounded-full ${mov.type === 'income' ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                                         {mov.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(mov.amount), currency)}
                                     </span>
                                 </div>

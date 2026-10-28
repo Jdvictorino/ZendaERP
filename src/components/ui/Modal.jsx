@@ -74,7 +74,7 @@ export default function Modal({
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}
         aria-describedby={subtitle ? "modal-subtitle" : undefined}
-        className={`bg-white dark:bg-gray-900 rounded-t-[2.5rem] sm:rounded-[2rem] shadow-2xl w-full ${sizes[size]} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-slideUp border border-white/20 dark:border-gray-800 ${className}`}
+        className={`bg-surface rounded-t-3xl sm:rounded-3xl shadow-2xl w-full ${sizes[size]} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-slideUp border border-white/20 dark:border-gray-800 ${className}`}
       >
         {/* Mobile Handle */}
         <div className="flex justify-center pt-4 pb-1 sm:hidden">
@@ -88,7 +88,7 @@ export default function Modal({
               {title && (
                 <h2 
                   id="modal-title" 
-                  className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight"
+                  className="text-2xl font-bold text-ink dark:text-gray-100 tracking-tight"
                 >
                   {title}
                 </h2>
@@ -96,7 +96,7 @@ export default function Modal({
               {subtitle && (
                 <p 
                   id="modal-subtitle" 
-                  className="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400"
+                  className="mt-1 text-sm font-medium text-ink-muted dark:text-gray-400"
                 >
                   {subtitle}
                 </p>
@@ -105,10 +105,10 @@ export default function Modal({
             {showClose && (
               <button 
                 onClick={onClose}
-                className="ml-4 p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-all active:scale-90"
+                className="modal-close ml-4"
                 aria-label="Cerrar modal"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             )}
           </div>

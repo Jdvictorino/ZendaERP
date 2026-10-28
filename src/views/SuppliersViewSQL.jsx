@@ -4,6 +4,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Trash2, Download, PlusCircle, TrendingUp, Activity, Award, Clock, Settings, Power, Loader2, AlertTriangle } from 'lucide-react';
+import KpiCard from '../components/ui/KpiCard.jsx';
 import toast from 'react-hot-toast';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import SupplierModal from '../components/modals/SupplierModal.jsx';
@@ -14,6 +15,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 
 // API PostgreSQL
 import { useApiCrud } from '../hooks/useApi.js';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
 
 const SuppliersViewSQL = ({ companyProfile }) => {
     // Datos de la API
@@ -171,10 +173,7 @@ const SuppliersViewSQL = ({ companyProfile }) => {
     // Estados de carga y error
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Loader2 className="animate-spin text-indigo-500" size={48} />
-                <p className="ml-4 text-gray-500">Cargando proveedores...</p>
-            </div>
+            <PageSkeleton label="Cargando proveedores..." />
         );
     }
 
@@ -204,7 +203,7 @@ const SuppliersViewSQL = ({ companyProfile }) => {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                <h2 className="page-title">
                     Gestión de Proveedores
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
@@ -214,56 +213,21 @@ const SuppliersViewSQL = ({ companyProfile }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">Proveedores activos</p>
-                                <p className="text-2xl font-semibold text-gray-900">{supplierAnalytics.activeSuppliers} / {supplierAnalytics.totalSuppliers}</p>
-                            </div>
-                            <Activity className="text-indigo-500" size={28} />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">{supplierAnalytics.inactiveSuppliers} inactivos</p>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">Compras del mes</p>
-                                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(supplierAnalytics.monthSpend, currency)}</p>
-                            </div>
-                            <TrendingUp className="text-emerald-500" size={28} />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">Impacto directo en flujo de caja</p>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">Proveedor destacado</p>
-                                <p className="text-lg font-semibold text-gray-900">{supplierAnalytics.topSupplier?.name || 'Sin registros'}</p>
-                                <p className="text-sm text-gray-500">{supplierAnalytics.topSupplier ? formatCurrency(supplierAnalytics.topSupplier.total, currency) : ''}</p>
-                            </div>
-                            <Award className="text-amber-500" size={28} />
-                        </div>
-                        {supplierAnalytics.topSupplier?.lastDate && (
-                            <p className="text-xs text-gray-500 mt-3">Última compra: {formatDate(supplierAnalytics.topSupplier.lastDate)}</p>
-                        )}
-                    </CardBody>
-                </Card>
+            <div className="kpi-grid">
+                <KpiCard label="Proveedores activos" value={`${supplierAnalytics.activeSuppliers} / ${supplierAnalytics.totalSuppliers}`} icon={Activity} tone="brand" hint={`${supplierAnalytics.inactiveSuppliers} inactivos`} />
+                <KpiCard label="Compras del mes" value={formatCurrency(supplierAnalytics.monthSpend, currency)} icon={TrendingUp} tone="success" hint="Impacto directo en flujo de caja" />
+                <KpiCard label="Proveedor destacado" value={supplierAnalytics.topSupplier?.name || 'Sin registros'} icon={Award} tone="warning"
+                    hint={supplierAnalytics.topSupplier ? `${formatCurrency(supplierAnalytics.topSupplier.total, currency)}${supplierAnalytics.topSupplier.lastDate ? ` · Última compra: ${formatDate(supplierAnalytics.topSupplier.lastDate)}` : ''}` : undefined} />
             </div>
 
             <Card>
                 <CardBody className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="md:col-span-2">
-                        <label className="block text-sm text-gray-600 mb-1">Buscar proveedor</label>
-                        <input className="input-base" placeholder="Nombre, teléfono o email" value={q} onChange={e => setQ(e.target.value)} />
+                        <label className="block text-sm text-ink-soft mb-1">Buscar proveedor</label>
+                        <input aria-label="Buscar proveedor" className="input-base" placeholder="Nombre, teléfono o email" value={q} onChange={e => setQ(e.target.value)} />
                     </div>
                     <div className="flex items-end">
-                        <p className="text-sm text-gray-500">Mostrando {filteredSuppliers.length} de {safeSuppliers.length}</p>
+                        <p className="text-sm text-ink-muted">Mostrando {filteredSuppliers.length} de {safeSuppliers.length}</p>
                     </div>
                 </CardBody>
             </Card>
@@ -271,11 +235,11 @@ const SuppliersViewSQL = ({ companyProfile }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
                     <CardBody>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top 5 proveedores por compras</h3>
+                        <h3 className="text-lg font-semibold text-ink mb-4">Top 5 proveedores por compras</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="text-xs uppercase tracking-wide text-gray-500 border-b">
+                                    <tr className="text-xs uppercase tracking-wide text-ink-muted border-b">
                                         <th className="py-2">Proveedor</th>
                                         <th className="py-2">Compras totales</th>
                                         <th className="py-2">Última compra</th>
@@ -284,14 +248,14 @@ const SuppliersViewSQL = ({ companyProfile }) => {
                                 <tbody>
                                     {supplierAnalytics.topSuppliers.length === 0 && (
                                         <tr>
-                                            <td colSpan="3" className="py-3 text-sm text-gray-500 text-center">Aún no hay compras asociadas a proveedores.</td>
+                                            <td colSpan="3" className="py-3 text-sm text-ink-muted text-center">Aún no hay compras asociadas a proveedores.</td>
                                         </tr>
                                     )}
                                     {supplierAnalytics.topSuppliers.map(item => (
                                         <tr key={item.supplierId} className="border-b last:border-0">
-                                            <td className="py-2 text-sm font-medium text-gray-800">{item.name}</td>
-                                            <td className="py-2 text-sm text-gray-600">{formatCurrency(item.total, currency)}</td>
-                                            <td className="py-2 text-sm text-gray-500">{formatDate(item.lastDate)}</td>
+                                            <td className="py-2 text-sm font-medium text-ink">{item.name}</td>
+                                            <td className="py-2 text-sm text-ink-soft">{formatCurrency(item.total, currency)}</td>
+                                            <td className="py-2 text-sm text-ink-muted">{formatDate(item.lastDate)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -301,18 +265,18 @@ const SuppliersViewSQL = ({ companyProfile }) => {
                 </Card>
                 <Card>
                     <CardBody>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Últimas compras registradas</h3>
+                        <h3 className="text-lg font-semibold text-ink mb-4">Últimas compras registradas</h3>
                         <ul className="space-y-3">
-                            {supplierAnalytics.recentExpenses.length === 0 && <li className="text-sm text-gray-500">No hay movimientos recientes.</li>}
+                            {supplierAnalytics.recentExpenses.length === 0 && <li className="text-sm text-ink-muted">No hay movimientos recientes.</li>}
                             {supplierAnalytics.recentExpenses.map(item => (
                                 <li key={item.id || `${item.supplier}-${item.date}`} className="flex items-center justify-between text-sm">
                                     <div>
-                                        <p className="font-medium text-gray-800">{item.supplier}</p>
-                                        <p className="text-xs text-gray-500 flex items-center gap-1"><Clock size={14} /> {formatDate(item.date)}</p>
+                                        <p className="font-medium text-ink">{item.supplier}</p>
+                                        <p className="text-xs text-ink-muted flex items-center gap-1"><Clock size={14} /> {formatDate(item.date)}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-semibold text-gray-900">{formatCurrency(item.amount, currency)}</p>
-                                        {item.reference && <p className="text-xs text-gray-500">Ref. {item.reference}</p>}
+                                        <p className="font-semibold text-ink">{formatCurrency(item.amount, currency)}</p>
+                                        {item.reference && <p className="text-xs text-ink-muted">Ref. {item.reference}</p>}
                                     </div>
                                 </li>
                             ))}
@@ -326,31 +290,31 @@ const SuppliersViewSQL = ({ companyProfile }) => {
                     <table className="w-full text-left min-w-[900px]">
                         <thead>
                             <tr className="border-b bg-gray-50/60">
-                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre / Razón Social</th>
-                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Identificación</th>
-                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Teléfono</th>
-                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Email</th>
-                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
+                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Nombre / Razón Social</th>
+                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Identificación</th>
+                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Teléfono</th>
+                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Email</th>
+                                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredSuppliers.map(s => (
-                                <tr key={s.id} className="border-b hover:bg-gray-50">
+                                <tr key={s.id} className="border-b hover:bg-surface-muted">
                                     <td className="p-3 text-sm font-medium">{s.name}</td>
                                     <td className="p-3 text-sm">{s.identificationNumber}</td>
                                     <td className="p-3 text-sm">{s.phone}</td>
                                     <td className="p-3 text-sm">{s.email}</td>
-                                    <td className="p-3 flex flex-wrap gap-2 items-center">
+                                    <td className="p-3"><div className="flex flex-wrap gap-2 items-center">
                                         <Button variant="ghost" size="sm" onClick={() => setEditingSupplier(s)} title="Editar proveedor">
-                                            <Settings size={18} className="text-indigo-600" />
+                                            <Settings size={18} className="text-brand-600" />
                                         </Button>
                                         <Button variant="ghost" size="sm" onClick={() => toggleStatus(s)} title={s.status !== 'inactive' ? 'Desactivar' : 'Activar'}>
-                                            <Power size={18} className={s.status !== 'inactive' ? 'text-amber-600' : 'text-emerald-600'} />
+                                            <Power size={18} className={s.status !== 'inactive' ? 'text-amber-600' : 'text-success-600'} />
                                         </Button>
                                         <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(s)} title="Eliminar">
                                             <Trash2 size={18} className="text-red-600" />
                                         </Button>
-                                    </td>
+                                    </div></td>
                                 </tr>
                             ))}
                         </tbody>

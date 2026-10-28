@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import toast from 'react-hot-toast';
@@ -83,18 +83,18 @@ const ProfileModal = ({ profile, onClose, onSave, isMasterUser, fullPage = false
     };
 
     return (
-        <div className={fullPage ? 'w-full' : 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4'}>
-            <div className={fullPage ? 'bg-white rounded-2xl shadow-card p-6 w-full' : 'bg-white rounded-2xl shadow-card p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto'}>
+        <div className={fullPage ? 'w-full' : 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4'}>
+            <div className={fullPage ? 'modal-panel p-6 w-full' : 'modal-panel p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto'}>
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
                     <div className="flex items-center gap-2">
                         {fullPage && (
-                            <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+                            <button type="button" onClick={onClose} className="modal-close" aria-label="Salir">
                                 <ArrowLeft size={22} strokeWidth={2.5} />
                             </button>
                         )}
-                        <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Perfil de la Empresa</h3>
+                        <h3 className="text-lg font-semibold text-ink">Perfil de la Empresa</h3>
                     </div>
-                    {!fullPage && <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>}
+                    {!fullPage && <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>}
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Top: logo left + general info right (like UserModal) */}
@@ -106,19 +106,19 @@ const ProfileModal = ({ profile, onClose, onSave, isMasterUser, fullPage = false
                         </div>
                         <div className="md:col-span-3">
                             <fieldset className="p-4 border rounded-lg">
-                                <legend className="font-semibold text-indigo-600 px-2">Información General</legend>
+                                <legend className="font-semibold text-brand-600 px-2">Información General</legend>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label className="block text-gray-700 text-sm mb-1">Nombre de la Empresa</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required readOnly={!isMasterUser} /></div>
-                                    <div><label className="block text-gray-700 text-sm mb-1">RNC (Opcional)</label><input type="text" name="rnc" value={formData.rnc} onChange={handleChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div><label className="block text-ink-soft text-sm mb-1">Nombre de la Empresa</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required readOnly={!isMasterUser} /></div>
+                                    <div><label className="block text-ink-soft text-sm mb-1">RNC (Opcional)</label><input type="text" name="rnc" value={formData.rnc} onChange={handleChange} className="input-base" readOnly={!isMasterUser} /></div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                    <div className="col-span-2"><label className="block text-gray-700 text-sm mb-1">Dirección</label><input type="text" name="street" value={formData.address.street} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
-                                    <div><label className="block text-gray-700 text-sm mb-1">Sector</label><input type="text" name="sector" value={formData.address.sector} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
-                                    <div><label className="block text-gray-700 text-sm mb-1">Ciudad</label><input type="text" name="city" value={formData.address.city} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div className="col-span-2"><label className="block text-ink-soft text-sm mb-1">Dirección</label><input type="text" name="street" value={formData.address.street} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div><label className="block text-ink-soft text-sm mb-1">Sector</label><input type="text" name="sector" value={formData.address.sector} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div><label className="block text-ink-soft text-sm mb-1">Ciudad</label><input type="text" name="city" value={formData.address.city} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                    <div><label className="block text-gray-700 text-sm mb-1">Teléfono</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-base" readOnly={!isMasterUser} /></div>
-                                    <div><label className="block text-gray-700 text-sm mb-1">Email</label><input type="email" name="email" value={formData.email} onChange={handleChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div><label className="block text-ink-soft text-sm mb-1">Teléfono</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div><label className="block text-ink-soft text-sm mb-1">Email</label><input type="email" name="email" value={formData.email} onChange={handleChange} className="input-base" readOnly={!isMasterUser} /></div>
                                 </div>
                             </fieldset>
                         </div>
@@ -126,7 +126,7 @@ const ProfileModal = ({ profile, onClose, onSave, isMasterUser, fullPage = false
                     
                     {/* --- SECCIÓN DE DATOS BANCARIOS --- */}
                     <fieldset className="p-4 border rounded-lg">
-                        <legend className="font-semibold text-indigo-600 px-2">Datos Bancarios (Para Facturas)</legend>
+                        <legend className="font-semibold text-brand-600 px-2">Datos Bancarios (Para Facturas)</legend>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <select name="entityType" value={formData.bankDetails.entityType} onChange={handleBankChange} className="input-base" disabled={!isMasterUser}><option>Persona</option><option>Empresa</option></select>
                             <input type="text" name="bankName" value={formData.bankDetails.bankName} onChange={handleBankChange} placeholder="Nombre del Banco" className="input-base" readOnly={!isMasterUser}/>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import Button from '../ui/Button.jsx';
 import toast from 'react-hot-toast';
@@ -127,18 +127,18 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 };
     
     return (
-        <div className={fullPage ? 'w-full' : 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4'}>
-            <div className={fullPage ? 'bg-white rounded-2xl shadow-card p-6 w-full' : 'bg-white rounded-2xl shadow-card p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto'}>
+        <div className={fullPage ? 'w-full' : 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4'}>
+            <div className={fullPage ? 'modal-panel p-6 w-full' : 'modal-panel p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto'}>
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
                     <div className="flex items-center gap-2">
                         {fullPage && (
-                            <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+                            <button type="button" onClick={onClose} className="modal-close" aria-label="Salir">
                                 <ArrowLeft size={22} strokeWidth={2.5} />
                             </button>
                         )}
-                        <h3 className="text-lg md:text-2xl font-semibold text-gray-900">{customer.id ? 'Modificar Cliente' : 'Nuevo Cliente'}</h3>
+                        <h3 className="text-lg font-semibold text-ink">{customer.id ? 'Modificar Cliente' : 'Nuevo Cliente'}</h3>
                     </div>
-                    {!fullPage && <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>}
+                    {!fullPage && <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>}
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -149,11 +149,11 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                         </div>
                         <div className="md:col-span-3">
                             <fieldset className="p-4 border rounded-lg">
-                                <legend className="font-semibold text-indigo-600 px-2">Información del Cliente</legend>
+                                <legend className="font-semibold text-brand-600 px-2">Información del Cliente</legend>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label className="block text-gray-700 mb-1">Nombre Completo / Razón Social</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required /></div>
+                                    <div><label className="block text-ink-soft mb-1">Nombre Completo / Razón Social</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required /></div>
                                     <div>
-                                        <label className="block text-gray-700 mb-1">Tipo de Cliente</label>
+                                        <label className="block text-ink-soft mb-1">Tipo de Cliente</label>
                                         <select name="type" value={formData.type} onChange={handleChange} className="input-base">
                                             <option value="Persona">Persona</option>
                                             <option value="Empresa">Empresa</option>
@@ -165,28 +165,28 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                                                         <div>
-                                                                            <label className="block text-gray-700 mb-1">{idTypeLabel}</label>
-                                                                            <input type="text" name="identificationNumber" value={formData.identificationNumber} onChange={onIdChange} className={`input-base ${errors.identificationNumber ? 'border-red-500' : ''}`} />
-                                      {errors.identificationNumber && <p className="text-xs text-red-600 mt-1">{errors.identificationNumber}</p>}
+                                                                            <label className="block text-ink-soft mb-1">{idTypeLabel}</label>
+                                                                            <input type="text" name="identificationNumber" value={formData.identificationNumber} onChange={onIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={errors.identificationNumber ? 'err-identificationNumber' : undefined} />
+                                      {errors.identificationNumber && <p id="err-identificationNumber" className="field-error">{errors.identificationNumber}</p>}
                                     </div>
                                     <div>
-                                      <label className="block text-gray-700 mb-1">Teléfono</label>
+                                      <label className="block text-ink-soft mb-1">Teléfono</label>
                                       <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-base" />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div>
-                                      <label className="block text-gray-700 mb-1">Email</label>
-                                      <input type="email" name="email" value={formData.email} onChange={handleChange} className={`input-base ${errors.email ? 'border-red-500' : ''}`} />
-                                      {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+                                      <label className="block text-ink-soft mb-1">Email</label>
+                                      <input type="email" name="email" value={formData.email} onChange={handleChange} className="input-base" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
+                                      {errors.email && <p id="err-email" className="field-error">{errors.email}</p>}
                                     </div>
                                     <div>
-                                      <label className="block text-gray-700 mb-1">Descuento por Defecto (%)</label>
-                                      <input type="number" name="defaultDiscount" value={formData.defaultDiscount} onChange={handleChange} className={`input-base ${errors.defaultDiscount ? 'border-red-500' : ''}`} min="0" max="100" />
-                                      {errors.defaultDiscount && <p className="text-xs text-red-600 mt-1">{errors.defaultDiscount}</p>}
+                                      <label className="block text-ink-soft mb-1">Descuento por Defecto (%)</label>
+                                      <input type="number" name="defaultDiscount" value={formData.defaultDiscount} onChange={handleChange} className="input-base" aria-invalid={!!errors.defaultDiscount} aria-describedby={errors.defaultDiscount ? 'err-defaultDiscount' : undefined} min="0" max="100" />
+                                      {errors.defaultDiscount && <p id="err-defaultDiscount" className="field-error">{errors.defaultDiscount}</p>}
                                     </div>
                                 </div>
-                                <div className="mt-4"><label className="block text-gray-700 mb-1">Dirección - Calle</label><input type="text" name="street" value={formData.address.street} onChange={handleAddressChange} className="input-base" /></div>
+                                <div className="mt-4"><label className="block text-ink-soft mb-1">Dirección - Calle</label><input type="text" name="street" value={formData.address.street} onChange={handleAddressChange} className="input-base" /></div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                     <input name="sector" value={formData.address.sector} onChange={handleAddressChange} placeholder="Sector" className="input-base" />
                                     <input name="city" value={formData.address.city} onChange={handleAddressChange} placeholder="Ciudad" className="input-base" />
@@ -194,26 +194,26 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                     <div>
-                                        <label className="block text-gray-700 mb-1">Estado</label>
+                                        <label className="block text-ink-soft mb-1">Estado</label>
                                         <select name="status" value={formData.status} onChange={handleChange} className="input-base">
                                             <option value="active">Activo</option>
                                             <option value="inactive">Inactivo</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-gray-700 mb-1">Tipo de Cliente</label>
+                                        <label className="block text-ink-soft mb-1">Tipo de Cliente</label>
                                         <select name="category" value={formData.category} onChange={handleChange} className="input-base">
                                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-gray-700 mb-1">Código Cliente</label>
+                                        <label className="block text-ink-soft mb-1">Código Cliente</label>
                                         <input type="text" name="customerCode" value={formData.customerCode} onChange={handleChange} className="input-base" placeholder="Ej: CLI-0001" />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                     <div>
-                                        <label className="block text-gray-700 mb-1">Tipo de Cuenta</label>
+                                        <label className="block text-ink-soft mb-1">Tipo de Cuenta</label>
                                         <select name="accountType" value={formData.accountType} onChange={handleAccountTypeChange} className="input-base">
                                             <option value="contado">Contado</option>
                                             <option value="credito">Crédito</option>
@@ -222,17 +222,17 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div>
-                                        <label className="block text-gray-700 mb-1">Límite de Crédito</label>
+                                        <label className="block text-ink-soft mb-1">Límite de Crédito</label>
                                         <input type="number" name="creditLimit" value={formData.creditLimit} onChange={handleChange} className={`input-base ${formData.accountType !== 'credito' ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`} min="0" disabled={formData.accountType !== 'credito'} />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-700 mb-1">Días de Crédito</label>
-                                        <input type="number" name="creditDays" value={formData.creditDays} onChange={handleChange} className={`input-base ${errors.creditDays ? 'border-red-500' : ''} ${formData.accountType !== 'credito' ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`} min="0" disabled={formData.accountType !== 'credito'} />
-                                        {errors.creditDays && <p className="text-xs text-red-600 mt-1">{errors.creditDays}</p>}
+                                        <label className="block text-ink-soft mb-1">Días de Crédito</label>
+                                        <input type="number" name="creditDays" value={formData.creditDays} onChange={handleChange} aria-invalid={!!errors.creditDays} aria-describedby={errors.creditDays ? 'err-creditDays' : undefined} className={`input-base ${formData.accountType !== 'credito' ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`} min="0" disabled={formData.accountType !== 'credito'} />
+                                        {errors.creditDays && <p id="err-creditDays" className="field-error">{errors.creditDays}</p>}
                                     </div>
                                 </div>
                                 <div className="mt-4">
-                                    <label className="block text-gray-700 mb-1">Notas</label>
+                                    <label className="block text-ink-soft mb-1">Notas</label>
                                     <textarea name="notes" value={formData.notes} onChange={handleChange} className="input-base" rows={2} placeholder="Notas adicionales, preferencias, etc." />
                                 </div>
                             </fieldset>

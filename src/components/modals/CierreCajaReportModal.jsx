@@ -145,10 +145,10 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-            <div className="card rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-                <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-6 border-b border-gray-100">
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Reportes de Cierres de Caja</h3>
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[60] p-4">
+            <div className="modal-panel w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+                <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-6 border-b border-line">
+                    <h3 className="text-lg font-semibold text-ink">Reportes de Cierres de Caja</h3>
                     <div className="flex items-center gap-2">
                         <Button variant="secondary" onClick={onClose}>Cerrar</Button>
                     </div>
@@ -162,7 +162,7 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
                             </div>
                         </div>
                         {loading ? (
-                            <div className="text-sm text-gray-500">Cargando cierres...</div>
+                            <div className="text-sm text-ink-muted">Cargando cierres...</div>
                         ) : (
                             <ul className="space-y-2">
                                 {(closings || []).filter(c => {
@@ -181,9 +181,9 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
                                     const totals = c.totals || {};
                                     const ventas = (totals.totalEfectivo || 0) + (totals.totalTarjeta || 0);
                                     return (
-                                        <li key={c.id} className={`p-2 border rounded cursor-pointer ${selected?.id === c.id ? 'bg-indigo-50 border-indigo-200' : ''}`} onClick={() => handleSelect(c)}>
+                                        <li key={c.id} className={`p-2 border rounded cursor-pointer ${selected?.id === c.id ? 'bg-brand-50 border-brand-200' : ''}`} onClick={() => handleSelect(c)}>
                                             <div className="text-sm font-medium">{c.id}</div>
-                                            <div className="text-xs text-gray-500">{when ? when.toLocaleString() : ''}</div>
+                                            <div className="text-xs text-ink-muted">{when ? when.toLocaleString() : ''}</div>
                                             <div className="text-sm">Ventas: {formatCurrency(c.totalVentas ?? ventas ?? 0, companyProfile?.currency || 'DOP')}</div>
                                         </li>
                                     );
@@ -192,7 +192,7 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
                         )}
                     </div>
                     <div className="md:col-span-2">
-                        {!selected && <div className="p-4 text-gray-500">Seleccione un cierre para ver detalles.</div>}
+                        {!selected && <div className="p-4 text-ink-muted">Seleccione un cierre para ver detalles.</div>}
                         {selected && (
                             <div>
                                 <h4 className="font-semibold">Cierre: {selected.id}</h4>
@@ -208,7 +208,7 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
                                     <h5 className="font-semibold">Facturas</h5>
                                     <div className="mt-2 max-h-40 overflow-y-auto border rounded p-2">
                                         {loadingDetails ? (
-                                            <div className="text-sm text-gray-500">Cargando detalles...</div>
+                                            <div className="text-sm text-ink-muted">Cargando detalles...</div>
                                         ) : (
                                             <ul>
                                                 {(selectedInvoices || []).map(inv => (
@@ -223,7 +223,7 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
                                     <h5 className="font-semibold">Egresos</h5>
                                     <div className="mt-2 max-h-40 overflow-y-auto border rounded p-2">
                                         {loadingDetails ? (
-                                            <div className="text-sm text-gray-500">Cargando detalles...</div>
+                                            <div className="text-sm text-ink-muted">Cargando detalles...</div>
                                         ) : (
                                             <ul>
                                                 {(selectedExpenses || []).map(e => (
@@ -236,7 +236,7 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
 
                                 <div className="mt-4 border-t pt-4 flex items-center gap-2">
                                     <input type="text" value={managerName} onChange={(e) => setManagerName(e.target.value)} className="input-base flex-1" placeholder="Nombre del gerente para firmar" />
-                                    <Button onClick={handleSign} disabled={isSigning} className="bg-green-600 hover:bg-green-700 focus:ring-green-600">{isSigning ? 'Firmando...' : 'Firmar como Gerente'}</Button>
+                                    <Button onClick={handleSign} disabled={isSigning} className="bg-success-600 hover:bg-success-700 focus:ring-success-600">{isSigning ? 'Firmando...' : 'Firmar como Gerente'}</Button>
                                     <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 focus:ring-blue-600">Imprimir</Button>
                                 </div>
                             </div>

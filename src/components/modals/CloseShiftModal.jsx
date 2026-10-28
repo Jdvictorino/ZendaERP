@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { shifts } from '../../api/client.js';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
@@ -186,50 +187,50 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-      <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-lg">
+    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[70] p-4">
+      <div className="modal-panel p-6 w-full max-w-lg">
         <div className="flex justify-between items-start gap-4 mb-2">
-          <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Cierre de Turno</h3>
-          <button onClick={() => onClose(false)} className="text-2xl text-gray-500">&times;</button>
+          <h3 className="text-lg font-semibold text-ink">Cierre de Turno</h3>
+          <button onClick={() => onClose(false)} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
         </div>
-        <p className="text-sm text-gray-600 mb-4">Cuenta por denominación y confirma el cierre.</p>
+        <p className="text-sm text-ink-soft mb-4">Cuenta por denominación y confirma el cierre.</p>
         {(registerId || openShift.registerId) && (
-          <div className="mb-2 text-sm text-gray-700"><span className="font-medium">Caja:</span> {registerId || openShift.registerId}</div>
+          <div className="mb-2 text-sm text-ink-soft"><span className="font-medium">Caja:</span> {registerId || openShift.registerId}</div>
         )}
         <div className="grid grid-cols-2 gap-3">
           {DEFAULT_DENOMS.map(v => (
             <div key={v} className="flex items-center justify-between gap-2 border rounded p-2">
-              <div className="text-gray-700 font-medium">{formatCurrency(v, currency)}</div>
+              <div className="text-ink-soft font-medium">{formatCurrency(v, currency)}</div>
               <input type="number" min="0" className="input-base w-24" value={denoms[v]} onChange={e => setDenoms(prev => ({...prev, [v]: e.target.value}))} />
             </div>
           ))}
         </div>
-        <div className="mt-4 p-3 bg-gray-50 rounded flex items-center justify-between">
-          <span className="text-gray-600">Efectivo contado</span>
-          <span className="text-xl font-bold text-indigo-600">{formatCurrency(counted, currency)}</span>
+        <div className="mt-4 p-3 bg-surface-muted rounded flex items-center justify-between">
+          <span className="text-ink-soft">Efectivo contado</span>
+          <span className="text-xl font-bold text-brand-600">{formatCurrency(counted, currency)}</span>
         </div>
-        <div className="mt-2 p-3 bg-gray-50 rounded">
-          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-            <span className="text-gray-600">Fondo inicial</span>
+        <div className="mt-2 p-3 bg-surface-muted rounded">
+          <div className="flex justify-between items-center py-2 border-b border-line">
+            <span className="text-ink-soft">Fondo inicial</span>
             <span className="font-semibold">{formatCurrency(totals.opening, currency)}</span>
           </div>
-          <div className="flex items-center justify-between py-2 border-b border-gray-100"><span>Efectivo esperado</span><span>{formatCurrency(efectivoEsperado, currency)}</span></div>
-          <div className="flex items-center justify-between py-2 border-b border-gray-100"><span>Ingresos de caja</span><span>{formatCurrency(ingresos, currency)}</span></div>
-          <div className="flex items-center justify-between py-2 border-b border-gray-100"><span>Retiros de caja</span><span>{formatCurrency(egresos, currency)}</span></div>
-          <div className="flex items-center justify-between font-bold pt-2"><span>Diferencia</span><span className={diferencia === 0 ? 'text-green-700' : 'text-red-600'}>{formatCurrency(diferencia, currency)}</span></div>
+          <div className="flex items-center justify-between py-2 border-b border-line"><span>Efectivo esperado</span><span>{formatCurrency(efectivoEsperado, currency)}</span></div>
+          <div className="flex items-center justify-between py-2 border-b border-line"><span>Ingresos de caja</span><span>{formatCurrency(ingresos, currency)}</span></div>
+          <div className="flex items-center justify-between py-2 border-b border-line"><span>Retiros de caja</span><span>{formatCurrency(egresos, currency)}</span></div>
+          <div className="flex items-center justify-between font-bold pt-2"><span>Diferencia</span><span className={diferencia === 0 ? 'text-success-700' : 'text-red-600'}>{formatCurrency(diferencia, currency)}</span></div>
         </div>
-        <div className="mt-3 p-3 border rounded bg-gray-50">
+        <div className="mt-3 p-3 border rounded bg-surface-muted">
           <div className="font-medium mb-2">Conciliación No-Efectivo</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Tarjeta contado</label>
+              <label className="block text-sm text-ink-soft mb-1">Tarjeta contado</label>
               <input type="number" min="0" step="0.01" className="input-base" value={cardCounted} onChange={e => setCardCounted(e.target.value)} />
-              <div className="text-xs text-gray-500 mt-1">Esperado: {formatCurrency(totals.tarjeta || 0, currency)}</div>
+              <div className="text-xs text-ink-muted mt-1">Esperado: {formatCurrency(totals.tarjeta || 0, currency)}</div>
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Transfer/Cheque contado</label>
+              <label className="block text-sm text-ink-soft mb-1">Transfer/Cheque contado</label>
               <input type="number" min="0" step="0.01" className="input-base" value={transferCounted} onChange={e => setTransferCounted(e.target.value)} />
-              <div className="text-xs text-gray-500 mt-1">Esperado: {formatCurrency(totals.chequeTransferencia || 0, currency)}</div>
+              <div className="text-xs text-ink-muted mt-1">Esperado: {formatCurrency(totals.chequeTransferencia || 0, currency)}</div>
             </div>
           </div>
         </div>
@@ -238,16 +239,16 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
             <p className="text-sm text-red-700">La diferencia excede la tolerancia de {formatCurrency(tolerance, currency)}.</p>
             {!companyProfile?.cash?.requireSupervisorBeyondTolerance ? (
               <>
-                <label className="block text-sm text-gray-700 mt-2">Autorizado por</label>
+                <label className="block text-sm text-ink-soft mt-2">Autorizado por</label>
                 <input className="input-base" value={authorizedBy} onChange={e => setAuthorizedBy(e.target.value)} placeholder="Nombre/ID del supervisor" />
               </>
             ) : (
-              <div className="text-sm text-gray-700 mt-2">Se solicitará PIN de supervisor al confirmar.</div>
+              <div className="text-sm text-ink-soft mt-2">Se solicitará PIN de supervisor al confirmar.</div>
             )}
           </div>
         )}
         <div className="mt-3">
-          <label className="block text-sm text-gray-600 mb-1">Notas</label>
+          <label className="block text-sm text-ink-soft mb-1">Notas</label>
           <textarea className="input-base" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
         </div>
         <div className="flex justify-end gap-2 mt-6">
