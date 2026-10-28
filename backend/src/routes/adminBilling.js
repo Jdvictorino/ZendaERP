@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { runBillingEnforcement } from '../services/billingEnforcementService.js';
+import { readPublishedRelease, mergeCompanySettings } from './updates.js';
 
 const router = Router();
 
@@ -306,6 +307,9 @@ router.get('/tenants', async (req, res, next) => {
       billingPolicy: getBillingPolicyFromSettings(tenant.settings),
       orderMode: (tenant.settings && typeof tenant.settings === 'object') ? tenant.settings.orderMode : 'craft',
       availableOrderModes: (tenant.settings && typeof tenant.settings === 'object') ? tenant.settings.availableOrderModes : ['craft'],
+      otaUpdates: tenant.settings?.otaUpdates === true,
+      appVersion: tenant.settings?.appVersion || null,
+      appCheckedAt: tenant.settings?.appCheckedAt || null,
       settings: undefined,
     }));
 
@@ -759,6 +763,41 @@ router.patch('/tenants/:companyId/order-modes', async (req, res, next) => {
         availableOrderModes: s.availableOrderModes || ['craft'],
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/billing/updates/release
+ * Versión de la app de escritorio publicada en el servidor de actualizaciones.
+ */
+router.get('/updates/release', (req, res) => {
+  res.json({ release: readPublishedRelease() });
+});
+
+/**
+ * PATCH /api/admin/billing/tenants/:companyId/updates
+ * Activa o desactiva las actualizaciones automáticas (OTA) de una empresa.
+ */
+router.patch('/tenants/:companyId/updates', async (req, res, next) => {
+  try {
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+    const updated = await mergeCompanySettings(req.params.companyId, { otaUpdates: enabled });
+    if (!updated) {
+      return res.status(404).json({ error: 'Empresa no encontrada' });
+    }
+
+    await prisma.companyBillingEvent.create({
+      data: {
+        companyId: req.params.companyId,
+        eventType: enabled ? 'ota_enabled' : 'ota_disabled',
+        actor: `owner:${req.platformOwner.email}`,
+        metadata: { source: 'admin-billing-route' },
+      }
+    });
+
+    res.json({ message: enabled ? 'Actualizaciones automáticas activadas' : 'Actualizaciones automáticas desactivadas', otaUpdates: enabled });
   } catch (error) {
     next(error);
   }

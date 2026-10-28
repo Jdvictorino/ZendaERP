@@ -418,6 +418,15 @@ export const platformBilling = {
       body: JSON.stringify({ availableOrderModes }),
     }),
 
+  setTenantUpdates: (sessionToken, companyId, enabled) =>
+    adminFetch(`/admin/billing/tenants/${companyId}/updates`, sessionToken, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    }),
+
+  getUpdateRelease: (sessionToken) =>
+    adminFetch('/admin/billing/updates/release', sessionToken),
+
   sendEmail: (sessionToken, payload) =>
     adminFetch('/admin/billing/send-email', sessionToken, {
       method: 'POST',
