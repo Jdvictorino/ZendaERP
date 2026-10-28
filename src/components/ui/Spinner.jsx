@@ -24,7 +24,7 @@ export default function Spinner({
         className="animate-spin text-brand-600 dark:text-brand-400" 
       />
       {text && (
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-ink-soft dark:text-gray-400">
           {text}
         </p>
       )}

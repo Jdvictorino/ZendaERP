@@ -16,10 +16,12 @@ import ConfirmationModal from '../components/modals/ConfirmationModal.jsx';
 import ExpenseModal from '../components/modals/ExpenseModal.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
+import KpiCard from '../components/ui/KpiCard.jsx';
 import { Table, TableHeader, TableRow, TableCell } from '../components/ui/Table.jsx';
 
 // API PostgreSQL
 import { useApiCrud } from '../hooks/useApi.js';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
 
 const ExpensesViewSQL = ({ companyProfile }) => {
     // Datos de la API
@@ -113,10 +115,7 @@ const ExpensesViewSQL = ({ companyProfile }) => {
     // Estados de carga y error
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Loader2 className="animate-spin text-indigo-500" size={48} />
-                <p className="ml-4 text-gray-500">Cargando gastos...</p>
-            </div>
+            <PageSkeleton label="Cargando gastos..." />
         );
     }
 
@@ -134,87 +133,28 @@ const ExpensesViewSQL = ({ companyProfile }) => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-6 gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center shadow-sm">
-                        <CreditCard size={24} className="text-brand-600 dark:text-brand-400" />
-                    </div>
                     <div>
-                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight font-sans">
+                        <h2 className="page-title">
                             Registro de Compras y Gastos (606)
                         </h2>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-0.5">
+                        <p className="page-subtitle">
                             Reporte de compras de bienes y servicios para la DGII
                         </p>
                     </div>
                 </div>
                 <div className="w-full sm:w-auto">
-                    <Button onClick={() => setEditingExpense({})} className="w-full sm:w-auto justify-center shadow-lg shadow-brand-500/20">
+                    <Button onClick={() => setEditingExpense({})} className="w-full sm:w-auto justify-center">
                         <PlusCircle size={16} className="mr-2"/> Registrar Compra / Gasto
                     </Button>
                 </div>
             </div>
 
             {/* Dashboard Analítico */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Compras/Gastos</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                                    {formatCurrency(expenseAnalytics.totalSpend, currency)}
-                                </p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/20 flex items-center justify-center">
-                                <ArrowDownRight size={20} className="text-red-600 dark:text-red-400" />
-                            </div>
-                        </div>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium font-sans">Total ITBIS Reportado</p>
-                                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                                    {formatCurrency(expenseAnalytics.totalItbis, currency)}
-                                </p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center">
-                                <DollarSign size={20} className="text-blue-600 dark:text-blue-400" />
-                            </div>
-                        </div>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium font-sans">Transacciones (606)</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                                    {expenseAnalytics.totalCount}
-                                </p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-950/20 flex items-center justify-center">
-                                <Hash size={20} className="text-brand-600 dark:text-brand-400" />
-                            </div>
-                        </div>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium font-sans">Ticket Promedio</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                                    {formatCurrency(expenseAnalytics.averageExpense, currency)}
-                                </p>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center">
-                                <CreditCard size={20} className="text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                        </div>
-                    </CardBody>
-                </Card>
+            <div className="kpi-grid">
+                <KpiCard label="Total Compras/Gastos" value={formatCurrency(expenseAnalytics.totalSpend, currency)} icon={ArrowDownRight} tone="danger" />
+                <KpiCard label="Total ITBIS Reportado" value={formatCurrency(expenseAnalytics.totalItbis, currency)} icon={DollarSign} tone="info" />
+                <KpiCard label="Transacciones (606)" value={expenseAnalytics.totalCount} icon={Hash} tone="brand" />
+                <KpiCard label="Ticket Promedio" value={formatCurrency(expenseAnalytics.averageExpense, currency)} icon={CreditCard} tone="success" />
             </div>
 
             <Card>
@@ -233,11 +173,12 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                                     <TableCell as="th" className="pr-6 text-right">Acciones</TableCell>
                                 </TableRow>
                             </TableHeader>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-surface dark:bg-gray-900">
                                 {sortedExpenses.length === 0 ? (
                                     <TableRow hover={false}>
-                                        <TableCell colSpan="7" className="p-12 text-center text-gray-500 dark:text-gray-400">
-                                            <div className="flex flex-col items-center gap-3">
+                                        <TableCell colSpan="7" className="p-12 text-center text-ink-muted dark:text-gray-400">
+                                            {/* sticky: en móvil la tabla es más ancha que la pantalla; el mensaje queda en la parte visible */}
+                          <div className="sticky left-0 w-[calc(100vw-5rem)] sm:w-auto flex flex-col items-center gap-3">
                                                 <CreditCard size={40} className="text-gray-300 dark:text-gray-700" />
                                                 <p className="font-medium">No hay compras ni gastos registrados</p>
                                                 <Button variant="secondary" size="sm" onClick={() => setEditingExpense({})} className="mt-1">
@@ -258,14 +199,14 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="font-mono text-sm dark:text-gray-400 font-semibold">{e.rncCedula}</TableCell>
-                                                <TableCell className="font-medium text-gray-900 dark:text-gray-100">{e.supplierName}</TableCell>
+                                                <TableCell className="font-medium text-ink dark:text-gray-100">{e.supplierName}</TableCell>
                                                 <TableCell className="font-mono text-sm dark:text-gray-400 font-semibold">{e.ncf || '—'}</TableCell>
-                                                <TableCell className="font-bold text-gray-900 dark:text-gray-100">{formatCurrency(e.montoFacturado, currency)}</TableCell>
+                                                <TableCell className="font-bold text-ink dark:text-gray-100">{formatCurrency(e.montoFacturado, currency)}</TableCell>
                                                 <TableCell className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(e.itbisFacturado, currency)}</TableCell>
                                                 <TableCell className="pr-6 text-right">
                                                     <div className="flex justify-end gap-1">
                                                         <Button variant="ghost" size="sm" onClick={() => setEditingExpense(e)} title="Modificar">
-                                                            <Edit3 size={16} className="text-gray-500 hover:text-brand-500" />
+                                                            <Edit3 size={16} className="text-ink-muted hover:text-brand-500" />
                                                         </Button>
                                                         <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(e)} title="Eliminar">
                                                             <Trash2 size={16} className="text-red-500 hover:text-red-700" />
@@ -288,28 +229,28 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                                 <div key={e.id} className="p-4 active:bg-gray-50 dark:active:bg-gray-800 transition-colors">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-0.5">
+                                            <span className="text-xs uppercase font-bold text-gray-400 dark:text-gray-500 mb-0.5">
                                                 {invoiceDate ? invoiceDate.toLocaleDateString() : '—'}
                                             </span>
-                                            <span className="font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                                            <span className="font-bold text-ink dark:text-gray-100 leading-tight">
                                                 {e.supplierName}
                                             </span>
-                                            <span className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1">
+                                            <span className="text-xs font-mono text-ink-muted dark:text-gray-400 mt-1">
                                                 {e.ncf || 'Sin NCF'}
                                             </span>
                                         </div>
                                         <div className="text-right">
-                                            <div className="font-bold text-gray-900 dark:text-gray-100">
+                                            <div className="font-bold text-ink dark:text-gray-100">
                                                 {formatCurrency(e.montoFacturado, currency)}
                                             </div>
-                                            <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">
+                                            <div className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-0.5">
                                                 ITBIS: {formatCurrency(e.itbisFacturado, currency)}
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50 dark:border-gray-800">
-                                        <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">{e.rncCedula}</span>
+                                        <span className="text-xs font-mono text-gray-400 dark:text-gray-500">{e.rncCedula}</span>
                                         <div className="flex gap-2">
                                             <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(e)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg p-1.5">
                                                 <Trash2 size={16} />
@@ -323,7 +264,7 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                             );
                         })}
                         {sortedExpenses.length === 0 && (
-                            <div className="p-8 text-center text-gray-500 dark:text-gray-400">No hay gastos registrados</div>
+                            <div className="p-8 text-center text-ink-muted dark:text-gray-400">No hay gastos registrados</div>
                         )}
                     </div>
                 </CardBody>

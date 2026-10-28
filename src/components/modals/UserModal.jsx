@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Save, ArrowLeft } from 'lucide-react';
+import { UserPlus, Save, ArrowLeft, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import ProfilePicture from '../common/ProfilePicture.jsx';
@@ -184,21 +184,21 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
     };
 
     return (
-        <div className={fullPage ? 'w-full' : 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4'}>
-            <div className={fullPage ? 'bg-white rounded-2xl shadow-card p-6 w-full' : 'bg-white rounded-2xl shadow-card p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto'}>
+        <div className={fullPage ? 'w-full' : 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4'}>
+            <div className={fullPage ? 'modal-panel p-6 w-full' : 'modal-panel p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto'}>
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
                     <div className="flex items-center gap-2">
                         {fullPage && (
-                            <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+                            <button type="button" onClick={onClose} className="modal-close" aria-label="Salir">
                                 <ArrowLeft size={22} strokeWidth={2.5} />
                             </button>
                         )}
-                        <h3 className="text-lg md:text-2xl font-semibold text-gray-900 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-ink flex items-center gap-2">
                             {isEditing ? <Save /> : <UserPlus />}
                             {isEditing ? (isAdminProfile ? 'Modificar Perfil de Administrador' : 'Modificar Empleado') : 'Crear Nuevo Empleado'}
                         </h3>
                     </div>
-                    {!fullPage && <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>}
+                    {!fullPage && <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>}
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -207,7 +207,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                         </div>
                         <div className="md:col-span-3">
                                     <fieldset className="border p-4 rounded-lg h-full">
-                                        <legend className="text-lg font-semibold text-indigo-600 px-2">Datos Personales y Laborales</legend>
+                                        <legend className="text-lg font-semibold text-brand-600 px-2">Datos Personales y Laborales</legend>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <input name="firstName" value={formData.firstName} onChange={handleChange} placeholder="Nombres" className="input-base" required />
                                             <input name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Apellidos" className="input-base" required />
@@ -217,7 +217,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                                                 <option value="M">Masculino</option>
                                             </select>
                                             <div className="flex flex-col">
-                                                <label htmlFor="role" className="text-sm font-medium text-gray-700 mb-1">Cargo y permisos</label>
+                                                <label htmlFor="role" className="text-sm font-medium text-ink-soft mb-1">Cargo y permisos</label>
                                                 <select
                                                     id="role"
                                                     name="role"
@@ -233,14 +233,14 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                                                         </option>
                                                     ))}
                                                 </select>
-                                                <span className="text-xs text-gray-500 mt-1">
+                                                <span className="text-xs text-ink-muted mt-1">
                                                     {isAdminProfile
                                                         ? 'Este perfil es el administrador principal. Debes asignar otro administrador antes de cambiar su cargo.'
                                                         : (isEditingSelf ? 'No puedes cambiar tu propio rol desde aquí.' : 'Selecciona el nivel de acceso que tendrá este usuario en la aplicación.')}
                                                 </span>
                                             </div>
                                             <div className="flex flex-col">
-                                                <label htmlFor="empresa" className="text-sm font-medium text-gray-700 mb-1">Empresa</label>
+                                                <label htmlFor="empresa" className="text-sm font-medium text-ink-soft mb-1">Empresa</label>
                                                 <input
                                                     id="empresa"
                                                     name="empresa"
@@ -257,7 +257,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                     </div>
 
                     <fieldset className="border p-4 rounded-lg">
-                        <legend className="text-lg font-semibold text-indigo-600 px-2">Datos de Contacto</legend>
+                        <legend className="text-lg font-semibold text-brand-600 px-2">Datos de Contacto</legend>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <input name="street" value={formData.address.street} onChange={handleAddressChange} placeholder="Calle y Número" className="input-base md:col-span-2" />
                             <input name="sector" value={formData.address.sector} onChange={handleAddressChange} placeholder="Sector" className="input-base" />
@@ -270,7 +270,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                     </fieldset>
                     
                     <fieldset className="border p-4 rounded-lg">
-                        <legend className="text-lg font-semibold text-indigo-600 px-2">Datos de Usuario</legend>
+                        <legend className="text-lg font-semibold text-brand-600 px-2">Datos de Usuario</legend>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <input
                                 type="email"
@@ -289,11 +289,11 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                                 </>
                             )}
                         </div>
-                        {isEditing && <p className="text-xs text-gray-500 mt-2">El correo y la contraseña no se pueden modificar por seguridad.</p>}
+                        {isEditing && <p className="text-xs text-ink-muted mt-2">El correo y la contraseña no se pueden modificar por seguridad.</p>}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                             <input type="password" name="pin" value={formData.pin} onChange={handleChange} placeholder={isAdminProfile ? 'PIN de Admin (opcional)' : 'PIN (opcional)'} className="input-base" />
                             <input type="password" name="confirmPin" value={formData.confirmPin} onChange={handleChange} placeholder="Confirmar PIN" className="input-base" />
-                            <div className="text-xs text-gray-500 flex items-center">El PIN permite autorizaciones rápidas sin cambiar de usuario.</div>
+                            <div className="text-xs text-ink-muted flex items-center">El PIN permite autorizaciones rápidas sin cambiar de usuario.</div>
                         </div>
                     </fieldset>
 

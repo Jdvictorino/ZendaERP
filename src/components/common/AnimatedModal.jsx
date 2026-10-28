@@ -30,13 +30,13 @@ export default function AnimatedModal({ children, onClose }) {
             <div
                 aria-hidden
                 onClick={handleClose}
-                className={`absolute inset-0 bg-black transition-opacity ${visible ? 'opacity-50' : 'opacity-0'}`}
+                className={`absolute inset-0 modal-backdrop transition-opacity ${visible ? 'opacity-100' : 'opacity-0'}`}
             />
 
             <div
                 role="dialog"
                 aria-modal="true"
-                className={`relative bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 transform transition-all duration-200 ease-out ${
+                className={`relative modal-panel w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 transform transition-all duration-200 ease-out ${
                     visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
                 }`}
             >

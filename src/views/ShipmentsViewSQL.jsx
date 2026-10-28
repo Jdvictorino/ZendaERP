@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useApiCrud } from '../hooks/useApi.js';
 import { shipments as shipmentsApi, users as usersApi, invoices as invoicesApi, customers as customersApi } from '../api/client.js';
 import QRCode from 'react-qr-code';
@@ -7,8 +8,13 @@ import ShipmentModal from '../components/ShipmentModal.jsx';
 import { buildLabelPayload } from '../utils/shipping.js';
 import ShipmentLabel from '../components/ShipmentLabel.jsx';
 import notificationService from '../utils/notificationService.js';
-import { Tag, Settings, Printer, Send, CheckCircle, X, Trash2, Plus } from 'lucide-react';
+import { Tag, Settings, Printer, Send, CheckCircle, X, Trash2, Plus, Truck, Clock, Package } from 'lucide-react';
+import KpiCard from '../components/ui/KpiCard.jsx';
 import Button from '../components/ui/Button.jsx';
+import { confirmDialog } from '../utils/confirmDialog.jsx';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { badgeClass } from '../components/ui/Badge.jsx';
 
 const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserProfile, onProfileUpdate }) => {
   // Fetch data using API hooks
@@ -62,7 +68,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
 
   const openCreate = () => {
     if (!canCurrentUserAssignShipment) {
-      alert('Solo administradores, gerentes y cajeros pueden crear envíos.');
+      toast.error('Solo administradores, gerentes y cajeros pueden crear envíos.');
       return;
     }
     setSelectedShipment(null);
@@ -86,13 +92,13 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
       refetchShipments();
     } catch (err) {
       console.error('Error creando envío', err);
-      alert('No se pudo crear el envío. Revisa la consola.');
+      toast.error('No se pudo crear el envío. Revisa la consola.');
     }
   };
 
   const handleEdit = (s) => {
     if (!canCurrentUserAssignShipment) {
-      alert('Solo administradores, gerentes y cajeros pueden editar envíos.');
+      toast.error('Solo administradores, gerentes y cajeros pueden editar envíos.');
       return;
     }
     setSelectedShipment(s);
@@ -107,29 +113,29 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
       refetchShipments();
     } catch (err) {
       console.error('Error actualizando envío', err);
-      alert('No se pudo actualizar el envío.');
+      toast.error('No se pudo actualizar el envío.');
     }
   };
 
   const handleCancel = async (shipmentId) => {
-    if (!confirm('¿Cancelar este envío?')) return;
+    if (!(await confirmDialog('¿Cancelar este envío?', { confirmText: 'Cancelar envío', cancelText: 'Volver' }))) return;
     try {
       await shipmentsApi.updateStatus(shipmentId, 'cancelled', {});
       refetchShipments();
     } catch (err) {
       console.error('Error cancelando envío', err);
-      alert('No se pudo cancelar el envío.');
+      toast.error('No se pudo cancelar el envío.');
     }
   };
 
   const handleDelete = async (shipmentId) => {
-    if (!confirm('Esta eliminación es permanente. ¿Eliminar el registro de envío?')) return;
+    if (!(await confirmDialog('Esta eliminación es permanente.', { title: '¿Eliminar el registro de envío?', confirmText: 'Eliminar' }))) return;
     try {
       await shipmentsApi.delete(shipmentId);
       refetchShipments();
     } catch (err) {
       console.error('Error eliminando envío', err);
-      alert('No se pudo eliminar el envío.');
+      toast.error('No se pudo eliminar el envío.');
     }
   };
 
@@ -139,20 +145,20 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
       refetchShipments();
     } catch (err) {
       console.error('Error asignando driver', err);
-      alert('No se pudo asignar el repartidor.');
+      toast.error('No se pudo asignar el repartidor.');
     }
   };
 
   const handleMarkAsShipped = async (shipmentId, assignedDriverId) => {
     if (!canCurrentUserMarkAsShipped) {
-      alert('Solo administradores, gerentes, vendedores o mensajeros pueden marcar envíos como enviados.');
+      toast.error('Solo administradores, gerentes, vendedores o mensajeros pueden marcar envíos como enviados.');
       return;
     }
     if (!assignedDriverId) {
-      alert('Debe asignar un repartidor antes de marcar como enviado.');
+      toast.error('Debe asignar un repartidor antes de marcar como enviado.');
       return;
     }
-    if (!confirm('¿Marcar este envío como "En Reparto"? El repartidor asignado podrá confirmar la entrega.')) return;
+    if (!(await confirmDialog('El repartidor asignado podrá confirmar la entrega.', { title: '¿Marcar como "En Reparto"?', confirmText: 'Marcar en reparto', danger: false }))) return;
     try {
       // Cambiar a "out_for_delivery" cuando el vendedor confirma que está en reparto
       await shipmentsApi.updateStatus(shipmentId, 'out_for_delivery', {});
@@ -167,7 +173,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
       refetchShipments();
     } catch (err) {
       console.error('Error marcando como enviado', err);
-      alert('No se pudo marcar como enviado.');
+      toast.error('No se pudo marcar como enviado.');
     }
   };
 
@@ -176,7 +182,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
     const isAssignedDriver = shipment.assignedDriverId === currentUserId;
     
     if (!isAssignedDriver && !isMasterUser) {
-      alert('Solo el repartidor asignado puede marcar como entregado.');
+      toast.error('Solo el repartidor asignado puede marcar como entregado.');
       return;
     }
     
@@ -227,7 +233,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
       refetchShipments();
     } catch (err) {
       console.error('Error marcando como entregado', err);
-      alert('No se pudo marcar como entregado.');
+      toast.error('No se pudo marcar como entregado.');
     } finally {
       setIsUploading(false);
     }
@@ -317,7 +323,6 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
     .info-box { 
       background: #f9fafb; 
       border: 1px solid #e5e7eb; 
-      border-left: 4px solid #3b82f6;
       border-radius: 4px; 
       padding: 12px; 
     }
@@ -381,7 +386,6 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
     .notes-section { 
       background: #fffbeb; 
       border: 1px solid #fcd34d; 
-      border-left: 4px solid #f59e0b;
       border-radius: 4px; 
       padding: 12px; 
       margin-bottom: 20px;
@@ -570,14 +574,14 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
 </html>`;
 
       const w = window.open('', '_blank', 'width=900,height=800');
-      if (!w) return alert('Permitir ventanas emergentes para imprimir.');
+      if (!w) return toast.error('Permitir ventanas emergentes para imprimir.');
       w.document.open();
       w.document.write(html);
       w.document.close();
       setTimeout(() => { w.print(); }, 300);
     } catch (err) {
       console.error('Error al abrir ventana de impresión', err);
-      alert('No se pudo abrir la ventana de impresión.');
+      toast.error('No se pudo abrir la ventana de impresión.');
     }
   };
 
@@ -645,12 +649,12 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
     URL.revokeObjectURL(url);
   };
 
-  const statusColors = {
-    created: 'bg-slate-200 text-slate-700',
-    in_transit: 'bg-amber-200 text-amber-900',
-    out_for_delivery: 'bg-sky-200 text-sky-900',
-    delivered: 'bg-emerald-200 text-emerald-900',
-    cancelled: 'bg-rose-200 text-rose-900',
+  const statusTone = {
+    created: 'neutral',
+    in_transit: 'warning',
+    out_for_delivery: 'info',
+    delivered: 'success',
+    cancelled: 'danger',
   };
 
   const formatDate = (timestamp) => {
@@ -673,10 +677,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
   // Loading state
   if (loadingShipments || loadingUsers || loadingInvoices || loadingCustomers) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-        <span className="ml-3 text-gray-600">Cargando datos...</span>
-      </div>
+      <PageSkeleton label="Cargando datos..." />
     );
   }
 
@@ -701,7 +702,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Gestión de Envíos</h2>
+        <h2 className="page-title">Gestión de Envíos</h2>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={downloadCSV} size="md">Exportar CSV</Button>
           <Button 
@@ -715,50 +716,22 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">En tránsito</p>
-              <p className="text-2xl font-semibold text-gray-900">{shipments.filter(s => s.status === 'out_for_delivery' || s.status === 'in_transit').length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Entregados</p>
-              <p className="text-2xl font-semibold text-gray-900">{shipments.filter(s => s.status === 'delivered').length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Pendientes</p>
-              <p className="text-2xl font-semibold text-gray-900">{shipments.filter(s => s.status === 'created').length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total envíos</p>
-              <p className="text-2xl font-semibold text-gray-900">{shipments.length}</p>
-            </div>
-          </div>
-        </div>
+      <div className="kpi-grid">
+        <KpiCard label="En tránsito" value={shipments.filter(s => s.status === 'out_for_delivery' || s.status === 'in_transit').length} icon={Truck} tone="info" />
+        <KpiCard label="Entregados" value={shipments.filter(s => s.status === 'delivered').length} icon={CheckCircle} tone="success" />
+        <KpiCard label="Pendientes" value={shipments.filter(s => s.status === 'created').length} icon={Clock} tone="warning" />
+        <KpiCard label="Total envíos" value={shipments.length} icon={Package} tone="brand" />
       </div>
 
-      <div className="bg-white rounded-2xl shadow border border-slate-100 p-4">
+      <div className="card p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="md:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">Buscar envío</label>
-            <input placeholder="ID, nombre, orden..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-sm text-ink-soft mb-1">Buscar envío</label>
+            <input aria-label="Buscar envío" placeholder="ID, nombre, orden..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Estado</label>
-            <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:outline-none">
+            <label className="block text-sm text-ink-soft mb-1">Estado</label>
+            <select aria-label="Estado" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:ring-brand-500 focus:outline-none">
               <option value="all">Todos</option>
               <option value="created">Creado</option>
               <option value="in_transit">En tránsito</option>
@@ -767,16 +740,16 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
               <option value="cancelled">Cancelado</option>
             </select>
           </div>
-          <div className="md:col-span-3 flex justify-between text-sm text-gray-500">
+          <div className="md:col-span-3 flex justify-between text-sm text-ink-muted">
             <span>Mostrando {filtered.length} de {shipments.length} envíos</span>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden">
+      <div className="card overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[1100px]">
-          <thead className="bg-gray-50/60 text-gray-500 uppercase text-xs tracking-wide">
+          <thead className="bg-gray-50/60 text-ink-muted uppercase text-xs tracking-wide">
             <tr>
               <th className="py-3 px-4 text-left">Fecha</th>
               <th className="py-3 px-4 text-left">Código</th>
@@ -789,17 +762,17 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
           </thead>
           <tbody>
             {pageItems.map((s) => (
-              <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/80">
-                <td className="py-3 px-4 text-slate-500 text-xs">
+              <tr key={s.id} className="border-t border-line hover:bg-slate-50/80">
+                <td className="py-3 px-4 text-ink-muted text-xs">
                   {formatDate(s.createdAt)}
                 </td>
-                <td className="py-3 px-4 font-semibold text-slate-800">{s.orderId || s.orderNumber || s.id}</td>
-                <td className="py-3 px-4 text-slate-700">
+                <td className="py-3 px-4 font-semibold text-ink">{s.orderId || s.orderNumber || s.id}</td>
+                <td className="py-3 px-4 text-ink-soft">
                   <p className="font-semibold">{toDisplayText(s.toAddress?.name) || '—'}</p>
-                  <p className="text-xs text-slate-500">{toDisplayText(s.toAddress?.city)}</p>
+                  <p className="text-xs text-ink-muted">{toDisplayText(s.toAddress?.city)}</p>
                 </td>
-                <td className="py-3 px-4 text-slate-600">
-                  <p className="text-xs">Courier: <span className="font-semibold text-slate-800">{s.courier || '—'}</span></p>
+                <td className="py-3 px-4 text-ink-soft">
+                  <p className="text-xs">Courier: <span className="font-semibold text-ink">{s.courier || '—'}</span></p>
                   <p className="text-xs">Peso: {s.weightKg ? `${s.weightKg}kg` : '—'}</p>
                   <p className="text-xs">Dimensiones: {s.dimensions && (s.dimensions.length || s.dimensions.width || s.dimensions.height)
                     ? `${s.dimensions.length || 0}x${s.dimensions.width || 0}x${s.dimensions.height || 0} cm`
@@ -807,17 +780,17 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
                   <p className="text-xs">Tracking: {toDisplayText(s.trackingNumber) || '—'}</p>
                 </td>
                 <td className="py-3 px-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[s.status] || 'bg-slate-200 text-slate-700'}`}>
+                  <span className={badgeClass(statusTone[s.status] || 'neutral')}>
                     {s.status?.replace(/_/g, ' ') || '—'}
                   </span>
                 </td>
                 <td className="py-3 px-4">
                   {drivers.length > 0 ? (
-                    <select 
+                    <select aria-label="Ninguno" 
                       defaultValue={s.assignedDriverId || ''} 
                       onChange={(e) => handleAssign(s.id, e.target.value)} 
                       disabled={!canCurrentUserAssignShipment}
-                      className={`px-2 py-1 rounded border border-slate-200 text-sm focus:ring-indigo-500 focus:outline-none ${!canCurrentUserAssignShipment ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`}
+                      className={`px-2 py-1 rounded border border-line text-sm focus:ring-brand-500 focus:outline-none ${!canCurrentUserAssignShipment ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`}
                       title={!canCurrentUserAssignShipment ? 'Solo administradores, gerentes y cajeros pueden asignar envíos' : 'Seleccionar repartidor'}
                     >
                       <option value="">-- Ninguno --</option>
@@ -826,7 +799,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
                       ))}
                     </select>
                   ) : (
-                    <span className="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
+                    <span className={badgeClass("warning", "sm")}>
                       Sin repartidores
                     </span>
                   )}
@@ -837,7 +810,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
                       <Tag size={18} className="text-blue-600" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(s)} title="Editar envío" aria-label="Editar envío">
-                      <Settings size={18} className="text-indigo-600" />
+                      <Settings size={18} className="text-brand-600" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => openPrintWindowForShipment(s)} title="Imprimir etiqueta" aria-label="Imprimir etiqueta">
                       <Printer size={18} className="text-purple-600" />
@@ -853,7 +826,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
                     {/* Repartidor: Marcar como entregado solo si es el asignado */}
                     {s.status === 'out_for_delivery' && (isMasterUser || s.assignedDriverId === currentUserId) && (
                       <Button variant="ghost" size="sm" onClick={() => openDeliveryModal(s)} title="Marcar como entregado" aria-label="Marcar como entregado">
-                        <CheckCircle size={18} className="text-emerald-600" />
+                        <CheckCircle size={18} className="text-success-600" />
                       </Button>
                     )}
 
@@ -871,29 +844,29 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
               </tr>
             ))}
             {shipments.length === 0 && (
-              <tr><td colSpan={7} className="py-6 text-center text-slate-400">No hay envíos registrados.</td></tr>
+              <tr><td colSpan={7} className="p-0"><EmptyState icon={Truck} title="No hay envíos registrados" description="Crea un envío a partir de un pedido con entrega a domicilio." /></td></tr>
             )}
           </tbody>
         </table>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-center gap-2">
-        <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-3 py-1 border rounded">Anterior</button>
-        <div>Página {page} / {totalPages}</div>
-        <button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-3 py-1 border rounded">Siguiente</button>
+      <div className="mt-4 flex items-center justify-center gap-3">
+        <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</Button>
+        <span className="text-sm text-ink-muted tabular-nums">Página {page} de {totalPages}</span>
+        <Button size="sm" variant="secondary" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Siguiente</Button>
       </div>
 
       {showLabelModal && labelData && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+          <div className="modal-panel max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Etiqueta de Envío</h3>
+              <h3 className="text-lg font-semibold text-ink">Etiqueta de Envío</h3>
               <button 
                 onClick={() => setShowLabelModal(false)} 
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Cerrar" className="modal-close"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             <div className="flex justify-center">
@@ -904,34 +877,34 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
       )}
 
       {showDeliveryModal && deliveryShipment && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+          <div className="bg-surface dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Confirmar Entrega</h3>
+              <h3 className="text-lg font-semibold text-ink dark:text-gray-100">Confirmar Entrega</h3>
               <button 
                 onClick={() => setShowDeliveryModal(false)} 
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                aria-label="Cerrar" className="modal-close"
                 disabled={isUploading}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             
             <div className="space-y-4">
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <strong className="text-gray-800 dark:text-gray-200">Envío:</strong> {deliveryShipment.orderId || deliveryShipment.id}
+              <div className="bg-surface-muted dark:bg-gray-800 rounded-lg p-4">
+                <p className="text-sm text-ink-soft dark:text-gray-400">
+                  <strong className="text-ink dark:text-gray-200">Envío:</strong> {deliveryShipment.orderId || deliveryShipment.id}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  <strong className="text-gray-800 dark:text-gray-200">Para:</strong> {deliveryShipment.toAddress?.name || '—'}
+                <p className="text-sm text-ink-soft dark:text-gray-400 mt-1">
+                  <strong className="text-ink dark:text-gray-200">Para:</strong> {deliveryShipment.toAddress?.name || '—'}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  <strong className="text-gray-800 dark:text-gray-200">Dirección:</strong> {deliveryShipment.toAddress?.street || '—'}
+                <p className="text-sm text-ink-soft dark:text-gray-400 mt-1">
+                  <strong className="text-ink dark:text-gray-200">Dirección:</strong> {deliveryShipment.toAddress?.street || '—'}
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-ink-soft dark:text-gray-300 mb-2">
                   Foto de comprobante (opcional)
                 </label>
                 <input
@@ -939,17 +912,17 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
                   accept="image/*"
                   capture="environment"
                   onChange={(e) => setProofPhoto(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-500 dark:text-gray-400
+                  className="block w-full text-sm text-ink-muted dark:text-gray-400
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-lg file:border-0
                     file:text-sm file:font-semibold
-                    file:bg-indigo-50 file:text-indigo-700
-                    hover:file:bg-indigo-100
-                    dark:file:bg-indigo-900 dark:file:text-indigo-300"
+                    file:bg-brand-50 file:text-brand-700
+                    hover:file:bg-brand-100
+                    dark:file:bg-brand-900 dark:file:text-brand-300"
                   disabled={isUploading}
                 />
                 {proofPhoto && (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  <p className="text-xs text-success-600 dark:text-success-400 mt-1">
                     ✓ Foto seleccionada: {proofPhoto.name}
                   </p>
                 )}
@@ -958,14 +931,14 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setShowDeliveryModal(false)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="flex-1 px-4 py-2 rounded-lg border border-line dark:border-gray-600 text-ink-soft dark:text-gray-300 hover:bg-surface-muted dark:hover:bg-gray-800 transition-colors"
                   disabled={isUploading}
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleMarkAsDelivered}
-                  className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 rounded-lg bg-success-600 text-white font-semibold hover:bg-success-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isUploading}
                 >
                   {isUploading ? 'Confirmando...' : 'Confirmar Entrega'}

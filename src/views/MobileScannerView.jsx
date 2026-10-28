@@ -165,10 +165,10 @@ const MobileScannerView = () => {
 
     if (!sessionId) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6 text-center">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-surface-muted p-6 text-center">
                 <XCircle className="w-16 h-16 text-red-500 mb-4" />
-                <h1 className="text-2xl font-bold text-gray-800 mb-2">Escáner Desconectado</h1>
-                <p className="text-gray-600">{scanError || "Falta el ID de sesión. Asegúrate de escanear el código QR directamente de la pantalla de Facturación de tu computadora."}</p>
+                <h1 className="text-2xl font-bold text-ink mb-2">Escáner Desconectado</h1>
+                <p className="text-ink-soft">{scanError || "Falta el ID de sesión. Asegúrate de escanear el código QR directamente de la pantalla de Facturación de tu computadora."}</p>
             </div>
         );
     }
@@ -178,17 +178,17 @@ const MobileScannerView = () => {
             {/* Cabecera */}
             <div className="bg-gray-800 p-4 shadow-md flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <Camera className="text-indigo-400" />
+                    <Camera className="text-brand-400" />
                     <h1 className="font-bold text-lg">Escáner Móvil</h1>
                 </div>
                 {/* Indicador de estado y botón de Desconectar */}
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
                         <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
                         </span>
-                        <span className="text-xs text-green-400 font-medium">Conectado</span>
+                        <span className="text-xs text-success-400 font-medium">Conectado</span>
                     </div>
                     
                     <button 
@@ -211,11 +211,11 @@ const MobileScannerView = () => {
 
                 {/* Overlays de Estado */}
                 {!isScanning && scanResult && !scanError && (
-                    <div className="mt-8 bg-green-600 text-white rounded-xl p-6 shadow-lg w-full max-w-sm flex flex-col items-center text-center animate-in slide-in-from-bottom-4 relative z-10 transition-all">
+                    <div className="mt-8 bg-success-600 text-white rounded-xl p-6 shadow-lg w-full max-w-sm flex flex-col items-center text-center animate-in slide-in-from-bottom-4 relative z-10 transition-all">
                         <CheckCircle2 className="w-16 h-16 mb-2" />
                         <h3 className="text-xl font-bold mb-1">Cargado con Éxito</h3>
-                        <p className="text-green-100 font-mono text-lg">{scanResult}</p>
-                        <p className="text-sm mt-4 text-green-200">Reactivando cámara en breve...</p>
+                        <p className="text-success-100 font-mono text-lg">{scanResult}</p>
+                        <p className="text-sm mt-4 text-success-200">Reactivando cámara en breve...</p>
                     </div>
                 )}
 

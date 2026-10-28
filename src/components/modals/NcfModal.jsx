@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Save } from 'lucide-react';
+import { AlertTriangle, Save, X } from 'lucide-react';
 import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import Button from '../ui/Button.jsx';
 
@@ -56,16 +56,16 @@ const NcfModal = ({ companyProfile, onClose, onSave, isMasterUser }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+            <div className="modal-panel p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Gestionar Secuencias de NCF</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>
+                    <h3 className="text-lg font-semibold text-ink">Gestionar Secuencias de NCF</h3>
+                    <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
                 
                 <div className="overflow-x-auto flex-1">
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-gray-50">
+                        <thead className="sticky top-0 bg-surface-muted">
                             <tr className="border-b">
                                 <th className="p-2 text-left">Tipo de NCF</th>
                                 <th className="p-2 text-left">Prefijo</th>

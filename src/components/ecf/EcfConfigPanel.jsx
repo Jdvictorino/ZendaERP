@@ -5,6 +5,8 @@ import Card, { CardBody } from '../ui/Card.jsx';
 import Button from '../ui/Button.jsx';
 import api from '../../api/client.js';
 import { ECF_TYPES, ECF_ENVIRONMENTS, SEQUENCE_STATUSES } from '../../utils/ecfConstants.js';
+import { badgeClass } from '../ui/Badge.jsx';
+import { confirmDialog } from '../../utils/confirmDialog.jsx';
 
 const EcfConfigPanel = () => {
   const [config, setConfig] = useState(null);
@@ -95,7 +97,7 @@ const EcfConfigPanel = () => {
   };
 
   const handleDeleteSequence = async (id) => {
-    if (!confirm('¿Eliminar esta secuencia?')) return;
+    if (!(await confirmDialog('¿Eliminar esta secuencia?', { confirmText: 'Eliminar' }))) return;
     try {
       await api.ecf.deleteSequence(id);
       toast.success('Secuencia eliminada');
@@ -103,7 +105,7 @@ const EcfConfigPanel = () => {
     } catch (err) { toast.error('Error al eliminar'); }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-40"><Loader className="animate-spin text-indigo-500" size={28} /></div>;
+  if (loading) return <div className="flex items-center justify-center h-40"><Loader className="animate-spin text-brand-500" size={28} /></div>;
 
   return (
     <div className="space-y-4">
@@ -113,8 +115,8 @@ const EcfConfigPanel = () => {
           <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2"><Shield size={18} />Facturación Electrónica</h3>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-600 dark:text-slate-300">Estado: <span className={`font-medium ${config?.ecfEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>{config?.ecfEnabled ? 'Habilitado' : 'Deshabilitado'}</span></p>
-              <p className="text-xs text-slate-400 mt-1">RNC: {config?.rnc || 'No configurado'} — {config?.companyName}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Estado: <span className={`font-medium ${config?.ecfEnabled ? 'text-success-600' : 'text-slate-400'}`}>{config?.ecfEnabled ? 'Habilitado' : 'Deshabilitado'}</span></p>
+              <p className="text-xs text-ink-muted mt-1">RNC: {config?.rnc || 'No configurado'} — {config?.companyName}</p>
             </div>
             <Button variant={config?.ecfEnabled ? 'danger' : 'primary'} size="sm" onClick={handleToggleEcf} disabled={saving}>
               {config?.ecfEnabled ? 'Deshabilitar' : 'Habilitar'} e-CF
@@ -130,9 +132,9 @@ const EcfConfigPanel = () => {
           <div className="grid gap-2 sm:grid-cols-3">
             {ECF_ENVIRONMENTS.map(env => (
               <button key={env.code} onClick={() => handleEnvironmentChange(env.code)} disabled={saving}
-                className={`rounded-xl border-2 p-3 text-left transition-all ${config?.ecfEnvironment === env.code ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'}`}>
+                className={`rounded-xl border-2 p-3 text-left transition-all ${config?.ecfEnvironment === env.code ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'}`}>
                 <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{env.name}</p>
-                <p className="text-xs text-slate-500 mt-1">{env.description}</p>
+                <p className="text-xs text-ink-muted mt-1">{env.description}</p>
               </button>
             ))}
           </div>
@@ -144,12 +146,12 @@ const EcfConfigPanel = () => {
         <CardBody>
           <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-3">Certificado Digital (.p12)</h3>
           {config?.hasCertificate ? (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20">
-              <CheckCircle className="text-emerald-500 mt-0.5" size={18} />
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-success-50 dark:bg-success-950/20">
+              <CheckCircle className="text-success-500 mt-0.5" size={18} />
               <div className="flex-1">
-                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Certificado configurado</p>
+                <p className="text-sm font-medium text-success-700 dark:text-success-400">Certificado configurado</p>
                 {config.certificateInfo && !config.certificateInfo.error && (
-                  <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                  <div className="text-xs text-ink-muted mt-1 space-y-0.5">
                     <p>Sujeto: {config.certificateInfo.subject}</p>
                     <p>Válido hasta: {new Date(config.certificateInfo.validTo).toLocaleDateString('es-DO')}</p>
                     {config.certificateInfo.isExpired && <p className="text-red-500 font-medium">⚠ Certificado vencido</p>}
@@ -180,7 +182,7 @@ const EcfConfigPanel = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-slate-900 dark:text-slate-100">Probar Conexión DGII</h3>
-              <p className="text-xs text-slate-500 mt-1">Intenta autenticarse con el certificado y ambiente configurados</p>
+              <p className="text-xs text-ink-muted mt-1">Intenta autenticarse con el certificado y ambiente configurados</p>
             </div>
             <Button variant="outline" size="sm" onClick={handleTestConnection} disabled={testing || !config?.hasCertificate}>
               {testing ? <Loader size={14} className="animate-spin mr-1" /> : <Wifi size={14} className="mr-1" />}
@@ -188,10 +190,10 @@ const EcfConfigPanel = () => {
             </Button>
           </div>
           {testResult && (
-            <div className={`mt-3 p-3 rounded-lg ${testResult.success ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
+            <div className={`mt-3 p-3 rounded-lg ${testResult.success ? 'bg-success-50 dark:bg-success-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
               <div className="flex items-center gap-2">
-                {testResult.success ? <Wifi className="text-emerald-500" size={16} /> : <WifiOff className="text-red-500" size={16} />}
-                <span className={`text-sm font-medium ${testResult.success ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+                {testResult.success ? <Wifi className="text-success-500" size={16} /> : <WifiOff className="text-red-500" size={16} />}
+                <span className={`text-sm font-medium ${testResult.success ? 'text-success-700 dark:text-success-400' : 'text-red-700 dark:text-red-400'}`}>
                   {testResult.success ? `Conexión exitosa (${testResult.environment})` : `Error: ${testResult.error}`}
                 </span>
               </div>
@@ -209,10 +211,10 @@ const EcfConfigPanel = () => {
           </div>
 
           {showAddSeq && (
-            <div className="mb-4 p-4 rounded-xl border border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/20 space-y-3">
+            <div className="mb-4 p-4 rounded-xl border border-brand-200 bg-brand-50/50 dark:border-brand-800 dark:bg-brand-950/20 space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">Tipo e-CF</label>
+                  <label className="text-xs font-medium text-ink-muted block mb-1">Tipo e-CF</label>
                   <select value={newSeq.tipoEcf} onChange={e => setNewSeq(s => ({ ...s, tipoEcf: e.target.value }))}
                     className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
                     <option value="">Seleccionar...</option>
@@ -222,17 +224,17 @@ const EcfConfigPanel = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">Vencimiento</label>
+                  <label className="text-xs font-medium text-ink-muted block mb-1">Vencimiento</label>
                   <input type="date" value={newSeq.fechaVencimiento} onChange={e => setNewSeq(s => ({ ...s, fechaVencimiento: e.target.value }))}
                     className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">Rango Desde</label>
+                  <label className="text-xs font-medium text-ink-muted block mb-1">Rango Desde</label>
                   <input type="number" min={1} value={newSeq.rangoDesde} onChange={e => setNewSeq(s => ({ ...s, rangoDesde: parseInt(e.target.value) || 1 }))}
                     className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">Rango Hasta (0 = sin límite)</label>
+                  <label className="text-xs font-medium text-ink-muted block mb-1">Rango Hasta (0 = sin límite)</label>
                   <input type="number" min={0} value={newSeq.rangoHasta} onChange={e => setNewSeq(s => ({ ...s, rangoHasta: parseInt(e.target.value) || 0 }))}
                     className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" />
                 </div>
@@ -252,14 +254,14 @@ const EcfConfigPanel = () => {
                 <div key={seq.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700">
                   <div>
                     <span className="font-medium text-sm text-slate-900 dark:text-slate-100">{seq.tipoEcf}</span>
-                    <span className="text-sm text-slate-500 ml-2">{seq.nombre}</span>
+                    <span className="text-sm text-ink-muted ml-2">{seq.nombre}</span>
                     <div className="text-xs text-slate-400 mt-0.5">
                       Secuencial: #{seq.secuencial} | Rango: {seq.rangoDesde}-{seq.rangoHasta || '∞'}
                       {seq.fechaVencimiento && ` | Vence: ${new Date(seq.fechaVencimiento).toLocaleDateString('es-DO')}`}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: SEQUENCE_STATUSES[seq.estado]?.color, backgroundColor: SEQUENCE_STATUSES[seq.estado]?.color + '20' }}>
+                    <span className={badgeClass(SEQUENCE_STATUSES[seq.estado]?.tone || 'neutral', 'sm')}>
                       {SEQUENCE_STATUSES[seq.estado]?.label || seq.estado}
                     </span>
                     <button onClick={() => handleDeleteSequence(seq.id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>

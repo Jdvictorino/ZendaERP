@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button.jsx';
+import { PLACEHOLDER_IMG } from '../../utils/placeholderImage.js';
 
 const getColorClass = (colorName) => {
     const colors = {
-        rojo: 'bg-red-500', azul: 'bg-blue-500', verde: 'bg-green-500',
+        rojo: 'bg-red-500', azul: 'bg-blue-500', verde: 'bg-success-500',
         amarillo: 'bg-yellow-400', negro: 'bg-black', blanco: 'bg-white border border-gray-300',
         gris: 'bg-gray-400', morado: 'bg-purple-500', naranja: 'bg-orange-500', rosado: 'bg-pink-400',
     };
@@ -71,39 +73,39 @@ const CustomizeItemModal = ({ productData, onClose, onSave, companyProfile }) =>
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-lg">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+            <div className="modal-panel p-6 w-full max-w-lg">
                 <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Personalizar: {product.name}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>
+                    <h3 className="text-lg font-semibold text-ink">Personalizar: {product.name}</h3>
+                    <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
                 
                 <div className="flex justify-center mb-4">
-                    <img src={displayImage || 'https://placehold.co/200x200/e2e8f0/a0aec0?text=...'} alt="Vista previa" className="w-48 h-48 object-cover rounded-lg shadow-sm"/>
+                    <img src={displayImage || PLACEHOLDER_IMG} alt="Vista previa" className="w-48 h-48 object-cover rounded-lg shadow-sm"/>
                 </div>
 
                 {variants.length > 0 && (
                     <div className="mb-4">
-                        <label className="block text-gray-700 mb-2 font-semibold">Seleccionar Variante:</label>
+                        <label className="block text-ink-soft mb-2 font-semibold">Seleccionar Variante:</label>
                         <div className="flex flex-wrap gap-3">
-                            <div onClick={() => setSelectedVariant(null)} className={`w-8 h-8 rounded-full cursor-pointer bg-white border-2 border-gray-300 ${!selectedVariant ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`} title="Default"></div>
+                            <div onClick={() => setSelectedVariant(null)} className={`w-8 h-8 rounded-full cursor-pointer bg-surface border-2 border-line ${!selectedVariant ? 'ring-2 ring-offset-2 ring-brand-500' : ''}`} title="Default"></div>
                             {variants.map(variant => (
-                                <div key={variant.id} onClick={() => setSelectedVariant(variant)} className={`w-8 h-8 rounded-full cursor-pointer ${getColorClass(variant.name)} ${selectedVariant?.id === variant.id ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`} title={variant.name}></div>
+                                <div key={variant.id} onClick={() => setSelectedVariant(variant)} className={`w-8 h-8 rounded-full cursor-pointer ${getColorClass(variant.name)} ${selectedVariant?.id === variant.id ? 'ring-2 ring-offset-2 ring-brand-500' : ''}`} title={variant.name}></div>
                             ))}
                         </div>
                     </div>
                 )}
 
                 <div className="mb-4">
-                    <label className="block text-gray-700 mb-1">Cantidad (Disponibles: {maxStock})</label>
+                    <label className="block text-ink-soft mb-1">Cantidad (Disponibles: {maxStock})</label>
                     <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="input-base" min="1" max={maxStock} required />
                 </div>
                 <div className="mb-4">
-                    <label className="block text-gray-700 mb-1">Notas de Personalización</label>
+                    <label className="block text-ink-soft mb-1">Notas de Personalización</label>
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input-base" rows="3" placeholder="Ej: Poner el nombre 'Ana' en la espalda..."/>
                 </div>
                 <div className="mb-4">
-                    <label className="block text-gray-700 mb-1">Cargar Imágenes de Diseño</label>
+                    <label className="block text-ink-soft mb-1">Cargar Imágenes de Diseño</label>
                     <input type="file" multiple onChange={handleImageUpload} className="input-base" accept="image/*" />
                 </div>
                 

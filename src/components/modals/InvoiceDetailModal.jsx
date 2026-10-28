@@ -323,25 +323,25 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
 
     return (
         <>
-            <div className={fullPage ? 'w-full' : 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4'}>
-                <div className={fullPage ? 'bg-white rounded-2xl shadow-card p-6 md:p-8 w-full' : 'bg-white rounded-2xl shadow-card p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto'}>
+            <div className={fullPage ? 'w-full' : 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4'}>
+                <div className={fullPage ? 'modal-panel p-6 md:p-8 w-full' : 'modal-panel p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto'}>
                     {/* Encabezado */}
                     <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-2">
                         <div>
                             {fullPage && (
-                                <p className="text-sm text-gray-500 mb-1">Pedidos/Facturas &gt; Gestionar {invoice.orderNumber}</p>
+                                <p className="text-sm text-ink-muted mb-1">Pedidos/Facturas &gt; Gestionar {invoice.orderNumber}</p>
                             )}
                             <div className="flex items-center gap-2">
                                 {fullPage && (
-                                    <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Salir">
+                                    <button type="button" onClick={onClose} className="modal-close" aria-label="Salir">
                                         <ArrowLeft size={22} strokeWidth={2.5} />
                                     </button>
                                 )}
-                                <h3 className="text-2xl font-bold">Gestionar Pedido {invoice.orderNumber}</h3>
+                                <h3 className="text-lg font-semibold text-ink">Gestionar Pedido {invoice.orderNumber}</h3>
                             </div>
-                            {invoice.isBilled && <p className="text-lg font-semibold text-green-600">Factura: {invoice.invoiceNumber}</p>}
+                            {invoice.isBilled && <p className="text-lg font-semibold text-success-600">Factura: {invoice.invoiceNumber}</p>}
                         </div>
-                        {!fullPage && <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>}
+                        {!fullPage && <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>}
                     </div>
 
                     {/* Botones principales */}
@@ -396,7 +396,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                 <option>Listo para Recoger</option>
                                 <option>Completado</option>
                             </select>
-                            {!invoice.isBilled && <p className="text-xs text-gray-500 mt-1">Debes facturar para cambiar el estado.</p>}
+                            {!invoice.isBilled && <p className="text-xs text-ink-muted mt-1">Debes facturar para cambiar el estado.</p>}
                         </div>
                         <div>
                             <h4 className="font-bold">Estado del Pago:</h4>
@@ -413,19 +413,19 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                             const lineDiscount = Number(perLineDiscounts[itemKey] || 0);
                             const isDiscounted = lineDiscount > 0;
                             return (
-                            <div key={itemKey} className={`rounded-lg p-4 ${isDiscounted ? 'bg-yellow-50 border-l-4 border-yellow-300' : 'bg-gray-50'}`}>
+                            <div key={itemKey} className={`rounded-lg p-4 ${isDiscounted ? 'bg-warning-50 ring-1 ring-inset ring-warning-200 dark:bg-warning-950/30 dark:ring-warning-800' : 'bg-surface-muted'}`}>
                                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-2">
                                             <h5 className="font-bold text-lg">{item.productName} ({item.quantity}x)</h5>
                                             {isDiscounted ? (
                                                 <div className="text-right">
-                                                    <p className="text-sm text-gray-500 line-through">{formatCurrency(item.quantity * (item.unitPrice ?? item.price ?? 0), companyProfile.currency)}</p>
+                                                    <p className="text-sm text-ink-muted line-through">{formatCurrency(item.quantity * (item.unitPrice ?? item.price ?? 0), companyProfile.currency)}</p>
                                                     <p className="font-bold text-lg">{formatCurrency((item.quantity * (item.unitPrice ?? item.price ?? 0)) - lineDiscount, companyProfile.currency)}</p>
                                                 </div>
                                             ) : (
                                                 <p className="font-bold text-lg">{formatCurrency(item.quantity * (item.unitPrice ?? item.price ?? 0), companyProfile.currency)}</p>
                                             )}
                                 </div>
-                                <div className="mt-2 pl-4 border-l-2 border-indigo-200">
+                                <div className="mt-2 pl-4 border-l-2 border-brand-200">
                                     <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-2">
                                         <p className="font-semibold text-sm">Notas:</p>
                                         {editingNotes.itemId !== itemKey && (
@@ -441,7 +441,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                             </div>
                                         </div>
                                     ) : (
-                                        <p className="text-gray-700 text-sm whitespace-pre-wrap">{item.customizationNotes || "Ninguna"}</p>
+                                        <p className="text-ink-soft text-sm whitespace-pre-wrap">{item.customizationNotes || "Ninguna"}</p>
                                     )}
 
                                     {/* Mostrar descuento por línea si aplica */}
@@ -449,11 +449,11 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                         <div className="mt-3 flex items-center justify-between bg-white/60 rounded-md p-2">
                                             <div>
                                                 <p className="text-sm font-semibold text-yellow-800">Descuento aplicado</p>
-                                                <p className="text-xs text-gray-600">Este artículo recibe un descuento del cupón</p>
+                                                <p className="text-xs text-ink-soft">Este artículo recibe un descuento del cupón</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm text-red-600 font-bold">-{formatCurrency(lineDiscount, companyProfile.currency)}</p>
-                                                <p className="text-xs text-gray-500">Total: {formatCurrency(((item.unitPrice ?? item.price ?? 0) * item.quantity) - lineDiscount, companyProfile.currency)}</p>
+                                                <p className="text-xs text-ink-muted">Total: {formatCurrency(((item.unitPrice ?? item.price ?? 0) * item.quantity) - lineDiscount, companyProfile.currency)}</p>
                                             </div>
                                         </div>
                                     )}
@@ -464,7 +464,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                             <p className="font-semibold text-sm mt-2">Imágenes de Diseño:</p>
                                             <div className="flex flex-wrap gap-2 mt-1">
                                                 {item.customImageUrls.map((url, idx) => (
-                                                    <div key={idx} onClick={() => setViewingImage(url)} className="w-16 h-16 border rounded-md p-1 cursor-pointer hover:border-indigo-500">
+                                                    <div key={idx} onClick={() => setViewingImage(url)} className="w-16 h-16 border rounded-md p-1 cursor-pointer hover:border-brand-500">
                                                         <img src={url} alt={`Diseño ${idx + 1}`} className="w-full h-full object-contain"/>
                                                     </div>
                                                 ))}
@@ -507,9 +507,9 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                         </div>
                                 <div className="text-right">
                            <p>Subtotal (sin ITBIS): {formatCurrency(invoice.subtotal, companyProfile.currency)}</p>
-                           {invoice.taxAmount > 0 && <p className="text-gray-600">ITBIS: +{formatCurrency(invoice.taxAmount, companyProfile.currency)}</p>}
+                           {invoice.taxAmount > 0 && <p className="text-ink-soft">ITBIS: +{formatCurrency(invoice.taxAmount, companyProfile.currency)}</p>}
                            {invoice.discountAmount > 0 && <p className="text-red-600">Descuento: -{formatCurrency(invoice.discountAmount, companyProfile.currency)}</p>}
-                           <p className="text-2xl font-bold mt-2">Total del Pedido: <span className="text-indigo-600">{formatCurrency(invoice.total, companyProfile.currency)}</span></p>
+                           <p className="text-2xl font-bold mt-2">Total del Pedido: <span className="text-brand-600">{formatCurrency(invoice.total, companyProfile.currency)}</span></p>
                         </div>
                     </div>
                 </div>
@@ -530,7 +530,6 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                 onConfirm={handleActionConfirm}
                 title={confirmAction?.action.includes('Delete') ? 'Eliminación Permanente' : 'Confirmar Cancelación'}
                 message={`¿Estás seguro? Esta acción es irreversible.`}
-                confirmColor={confirmAction?.action.includes('Delete') ? "bg-red-700 hover:bg-red-800" : "bg-yellow-500 hover:bg-yellow-600"}
             />
             {showPaymentModal && <PaymentModal invoice={invoice} customers={customers} companyProfile={companyProfile} onClose={() => setShowPaymentModal(false)} onSuccess={handlePaymentSuccess} />}
             {showCreditNoteModal && <CreditNoteModal invoice={invoice} onClose={() => setShowCreditNoteModal(false)} onSuccess={handleCreditNoteSuccess} companyProfile={companyProfile} customers={customers} />}

@@ -19,7 +19,7 @@ const LoginScreen = ({ onLogin, error, onOpenRegister, onOpenForgot }) => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-100 dark:from-[#0a0f1e] dark:via-[#0f172a] dark:to-[#0a0f1e] px-6 pt-safe pb-safe">
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-100 dark:from-night-950 dark:via-night-900 dark:to-night-950 px-6 pt-safe pb-safe">
             <div className="w-full max-w-sm animate-slideUp">
                 {/* Branding */}
                 <div className="text-center mb-12">
@@ -30,10 +30,10 @@ const LoginScreen = ({ onLogin, error, onOpenRegister, onOpenForgot }) => {
                             className="h-20 w-auto drop-shadow-[0_18px_24px_rgba(15,23,42,0.25)]"
                         />
                     </div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                    <h1 className="text-3xl font-extrabold text-ink dark:text-white tracking-tight">
                         Zenda ERP
                     </h1>
-                    <p className="mt-3 text-base font-medium text-gray-500 dark:text-gray-400">
+                    <p className="mt-3 text-base font-medium text-ink-muted dark:text-gray-400">
                         El mejor amigo de tus finanzas
                     </p>
                 </div>
@@ -51,7 +51,7 @@ const LoginScreen = ({ onLogin, error, onOpenRegister, onOpenForgot }) => {
                             type="email"
                             autoComplete="email"
                             required
-                            className="w-full h-14 pl-12 pr-4 text-base font-medium bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all shadow-sm"
+                            className="w-full h-14 pl-12 pr-4 text-base font-medium bg-surface dark:bg-gray-900 border border-line dark:border-gray-800 rounded-2xl text-ink dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all shadow-sm"
                             placeholder="Correo electrónico"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -69,7 +69,7 @@ const LoginScreen = ({ onLogin, error, onOpenRegister, onOpenForgot }) => {
                             type={showPassword ? "text" : "password"}
                             autoComplete="current-password"
                             required
-                            className="w-full h-14 pl-12 pr-12 text-base font-medium bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all shadow-sm"
+                            className="w-full h-14 pl-12 pr-12 text-base font-medium bg-surface dark:bg-gray-900 border border-line dark:border-gray-800 rounded-2xl text-ink dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all shadow-sm"
                             placeholder="Contraseña"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -86,7 +86,7 @@ const LoginScreen = ({ onLogin, error, onOpenRegister, onOpenForgot }) => {
                     {/* Error message */}
                     {error && (
                         <div className="px-4 py-3 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30">
-                            <p className="text-sm font-bold text-red-600 dark:text-red-400 text-center">{error}</p>
+                            <p role="alert" className="text-sm font-medium text-danger-700 dark:text-danger-400 text-center">{error}</p>
                         </div>
                     )}
 
@@ -119,14 +119,14 @@ const LoginScreen = ({ onLogin, error, onOpenRegister, onOpenForgot }) => {
                     <button
                         type="button"
                         onClick={() => onOpenForgot && onOpenForgot(email)}
-                        className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors active:scale-95"
+                        className="text-sm font-medium text-ink-muted dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors active:scale-95"
                     >
                         ¿Olvidaste tu contraseña?
                     </button>
                 </div>
 
                 {/* Brand footer */}
-                <p className="mt-16 text-center text-[11px] font-medium text-gray-400 dark:text-gray-600 tracking-wide uppercase">
+                <p className="mt-16 text-center text-xs font-medium text-ink-muted dark:text-gray-400 tracking-wide uppercase">
                     By Batey Creativo Studio
                 </p>
             </div>

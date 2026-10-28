@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 
 const StockModal = ({ product, onClose, onSave }) => {
@@ -18,17 +19,17 @@ const StockModal = ({ product, onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card p-6 w-full max-w-md">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+            <div className="modal-panel p-6 w-full max-w-md">
                 <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900 dark:text-white">Ajustar Stock</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 text-2xl" aria-label="Cerrar">&times;</button>
+                    <h3 className="text-lg font-semibold text-ink">Ajustar Stock</h3>
+                    <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
-                <p className="text-gray-600 dark:text-gray-300 mb-2">Producto: <strong>{product.name}</strong></p>
-                <p className="text-gray-600 dark:text-gray-300 mb-4">Stock actual: <span className="font-mono font-bold text-indigo-600">{product.stock ?? 0}</span></p>
+                <p className="text-ink-soft dark:text-gray-300 mb-2">Producto: <strong>{product.name}</strong></p>
+                <p className="text-ink-soft dark:text-gray-300 mb-4">Stock actual: <span className="font-mono font-bold text-brand-600">{product.stock ?? 0}</span></p>
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">
-                        <label className="block text-gray-700 dark:text-gray-300 mb-1">Cantidad a Añadir</label>
+                        <label className="block text-ink-soft dark:text-gray-300 mb-1">Cantidad a Añadir</label>
                         <input 
                             type="number" 
                             value={amount} 
@@ -37,10 +38,10 @@ const StockModal = ({ product, onClose, onSave }) => {
                             required 
                             min="1" 
                         />
-                        <p className="text-xs text-gray-500 mt-1">Use números negativos para restar stock</p>
+                        <p className="text-xs text-ink-muted mt-1">Use números negativos para restar stock</p>
                     </div>
                     <div className="mb-4">
-                        <label className="block text-gray-700 dark:text-gray-300 mb-1">Motivo (opcional)</label>
+                        <label className="block text-ink-soft dark:text-gray-300 mb-1">Motivo (opcional)</label>
                         <input 
                             type="text" 
                             value={reason} 

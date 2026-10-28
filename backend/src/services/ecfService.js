@@ -272,6 +272,25 @@ export async function checkTrackIdStatus(ecfDocumentId, companyId) {
 /**
  * Reintenta el envío de un documento fallido
  */
+// Una factura cuenta como facturada solo si la DGII recibió su e-CF. Si no llegó o fue rechazado,
+// vuelve a quedar pendiente de facturar (el documento queda guardado para reintentar o revisar).
+const ECF_RECEIVED = ['enviado', 'en_proceso', 'aceptado', 'aceptado_condicional'];
+
+export async function syncInvoiceWithEcf(ecfDocumentId) {
+  const doc = await prisma.ecfDocument.findUnique({ where: { id: ecfDocumentId } });
+  if (!doc?.invoiceId) return null;
+  const invoice = await prisma.invoice.findUnique({ where: { id: doc.invoiceId } });
+  if (!invoice) return null;
+  const received = ECF_RECEIVED.includes(doc.dgiiStatus);
+  return prisma.invoice.update({
+    where: { id: invoice.id },
+    data: received
+      ? { isBilled: true, billedDate: invoice.billedDate || new Date(), invoiceNumber: invoice.orderNumber, ncfNumber: doc.eNcf, ncfType: doc.tipoEcf }
+      : { isBilled: false, billedDate: null, ncfNumber: null, ncfType: null },
+    include: { items: true, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } },
+  });
+}
+
 export async function retryEcfSend(ecfDocumentId, companyId) {
   const ecfDoc = await prisma.ecfDocument.findUnique({
     where: { id: ecfDocumentId },
@@ -427,6 +446,7 @@ export function getCertificateInfo(company) {
 export default {
   emitEcf,
   checkTrackIdStatus,
+  syncInvoiceWithEcf,
   retryEcfSend,
   generateENCF,
   getQRCodeUrl,

@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -104,7 +104,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /settings - Actualizar configuraciones generales
-router.put('/', async (req, res) => {
+router.put('/', authorize('admin', 'manager'), async (req, res) => {
   try {
     const userId = req.user.id;
     const { 
@@ -245,7 +245,7 @@ router.put('/', async (req, res) => {
 });
 
 // PUT /settings/ncf - Actualizar secuencias NCF
-router.put('/ncf', async (req, res) => {
+router.put('/ncf', authorize('admin', 'manager'), async (req, res) => {
   try {
     const userId = req.user.id;
     const { B01, B02 } = req.body;

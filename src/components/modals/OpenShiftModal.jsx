@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { shifts } from '../../api/client.js';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
@@ -49,30 +50,30 @@ export default function OpenShiftModal({ onClose, currentUserProfile, companyPro
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-      <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-lg">
+    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[70] p-4">
+      <div className="modal-panel p-6 w-full max-w-lg">
         <div className="flex justify-between items-start gap-4 mb-2">
-          <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Apertura de Turno</h3>
-          <button onClick={() => onClose(false)} className="text-2xl text-gray-500">&times;</button>
+          <h3 className="text-lg font-semibold text-ink">Apertura de Turno</h3>
+          <button onClick={() => onClose(false)} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
         </div>
-        <p className="text-sm text-gray-600 mb-4">Ingresa cantidades por denominación.</p>
+        <p className="text-sm text-ink-soft mb-4">Ingresa cantidades por denominación.</p>
         {registerId && (
-          <div className="mb-2 text-sm text-gray-700"><span className="font-medium">Caja:</span> {registerId}</div>
+          <div className="mb-2 text-sm text-ink-soft"><span className="font-medium">Caja:</span> {registerId}</div>
         )}
         <div className="grid grid-cols-2 gap-3">
           {DEFAULT_DENOMS.map(v => (
             <div key={v} className="flex items-center justify-between gap-2 border rounded p-2">
-              <div className="text-gray-700 font-medium">{formatCurrency(v, currency)}</div>
+              <div className="text-ink-soft font-medium">{formatCurrency(v, currency)}</div>
               <input type="number" min="0" className="input-base w-24" value={denoms[v]} onChange={e => changeQty(v, e.target.value)} />
             </div>
           ))}
         </div>
-        <div className="mt-4 p-3 bg-gray-50 rounded flex items-center justify-between">
-          <span className="text-gray-600">Fondo inicial</span>
-          <span className="text-xl font-bold text-indigo-600">{formatCurrency(total, currency)}</span>
+        <div className="mt-4 p-3 bg-surface-muted rounded flex items-center justify-between">
+          <span className="text-ink-soft">Fondo inicial</span>
+          <span className="text-xl font-bold text-brand-600">{formatCurrency(total, currency)}</span>
         </div>
         <div className="mt-3">
-          <label className="block text-sm text-gray-600 mb-1">Notas</label>
+          <label className="block text-sm text-ink-soft mb-1">Notas</label>
           <textarea className="input-base" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
         </div>
         <div className="flex justify-end gap-2 mt-6">

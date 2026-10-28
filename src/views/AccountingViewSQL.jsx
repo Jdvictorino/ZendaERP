@@ -3,7 +3,8 @@ import React, { useMemo, useState } from 'react';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import Button from '../components/ui/Button.jsx';
 import Card, { CardBody, CardHeader } from '../components/ui/Card.jsx';
-import { Download, RefreshCcw, BookOpen, Layers, Scale, Sliders, ShoppingCart } from 'lucide-react';
+import { Download, RefreshCcw, BookOpen, Layers, Scale, Sliders, ShoppingCart, TrendingUp, Wallet, CreditCard } from 'lucide-react';
+import KpiCard from '../components/ui/KpiCard.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
 import { generateAllJournalEntries, filterByPeriod } from '../utils/chartOfAccounts.js';
 
@@ -14,6 +15,8 @@ import MayorGeneral from '../components/accounting/MayorGeneral.jsx';
 import BalanzaComprobacion from '../components/accounting/BalanzaComprobacion.jsx';
 import BalanceAjustado from '../components/accounting/BalanceAjustado.jsx';
 import CostoDeVentas from '../components/accounting/CostoDeVentas.jsx';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const TABS = [
   { id: 'resumen',    label: 'Resumen',                icon: RefreshCcw },
@@ -166,9 +169,7 @@ const AccountingViewSQL = ({ companyProfile }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
+      <PageSkeleton label="Cargando…" />
     );
   }
 
@@ -177,15 +178,15 @@ const AccountingViewSQL = ({ companyProfile }) => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Contabilidad</h2>
-          <p className="text-gray-500">Ciclo contable, reportes y conciliación por período.</p>
+          <h2 className="page-title">Contabilidad</h2>
+          <p className="page-subtitle">Ciclo contable, reportes y conciliación por período.</p>
         </div>
         <PeriodSelector startDate={periodStart} endDate={periodEnd}
           onChange={(s, e) => { setPeriodStart(s); setPeriodEnd(e); }} />
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 overflow-x-auto">
+      <div className="border-b border-line overflow-x-auto">
         <nav className="-mb-px flex space-x-1 min-w-max">
           {TABS.map(tab => {
             const active = activeTab === tab.id;
@@ -193,10 +194,10 @@ const AccountingViewSQL = ({ companyProfile }) => {
               <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
                 className={`group flex items-center gap-2 whitespace-nowrap px-4 py-3 border-b-2 text-sm font-medium transition-colors ${
                   active
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-300'
+                    : 'border-transparent text-ink-muted hover:text-gray-700 hover:border-gray-300'
                 }`}>
-                <tab.icon size={16} className={active ? 'text-indigo-500' : 'text-gray-400 group-hover:text-gray-500'} />
+                <tab.icon size={16} className={active ? 'text-brand-500' : 'text-gray-400 group-hover:text-gray-500'} />
                 {tab.label}
               </button>
             );
@@ -216,11 +217,11 @@ const AccountingViewSQL = ({ companyProfile }) => {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <Card><CardBody className="space-y-1"><p className="text-gray-500 text-sm">Ingresos Cobrados</p><p className="text-2xl font-bold text-green-600">{formatCurrency(totals.incomeCollected, currency)}</p></CardBody></Card>
-            <Card><CardBody className="space-y-1"><p className="text-gray-500 text-sm">Por Cobrar</p><p className="text-2xl font-bold text-orange-600">{formatCurrency(totals.outstanding, currency)}</p></CardBody></Card>
-            <Card><CardBody className="space-y-1"><p className="text-gray-500 text-sm">Gastos Registrados</p><p className="text-2xl font-bold text-red-600">{formatCurrency(totals.expensesTotal, currency)}</p></CardBody></Card>
-            <Card><CardBody className="space-y-1"><p className="text-gray-500 text-sm">Resultado Neto</p><p className={`text-2xl font-bold ${totals.netProfit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>{formatCurrency(totals.netProfit, currency)}</p></CardBody></Card>
+          <div className="kpi-grid">
+            <KpiCard label="Ingresos Cobrados" value={formatCurrency(totals.incomeCollected, currency)} icon={TrendingUp} tone="success" />
+            <KpiCard label="Por Cobrar" value={formatCurrency(totals.outstanding, currency)} icon={Wallet} tone="warning" />
+            <KpiCard label="Gastos Registrados" value={formatCurrency(totals.expensesTotal, currency)} icon={CreditCard} tone="danger" />
+            <KpiCard label="Resultado Neto" value={formatCurrency(totals.netProfit, currency)} icon={Scale} tone={totals.netProfit >= 0 ? 'brand' : 'danger'} />
           </div>
 
           <Card>
@@ -228,15 +229,15 @@ const AccountingViewSQL = ({ companyProfile }) => {
               subtitle="Compara los montos cobrados contra lo depositado en cada canal." />
             <CardBody>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4 border"><p className="text-xs uppercase text-gray-500">Efectivo</p><p className="text-xl font-semibold text-gray-800">{formatCurrency(paymentBreakdown.efectivo, currency)}</p></div>
-                <div className="bg-gray-50 rounded-lg p-4 border"><p className="text-xs uppercase text-gray-500">Tarjetas</p><p className="text-xl font-semibold text-gray-800">{formatCurrency(paymentBreakdown.tarjeta, currency)}</p></div>
-                <div className="bg-gray-50 rounded-lg p-4 border"><p className="text-xs uppercase text-gray-500">Transferencias / Cheques</p><p className="text-xl font-semibold text-gray-800">{formatCurrency(paymentBreakdown.chequeTransferencia, currency)}</p></div>
-                <div className="bg-gray-50 rounded-lg p-4 border"><p className="text-xs uppercase text-gray-500">Ventas a Crédito</p><p className="text-xl font-semibold text-gray-800">{formatCurrency(paymentBreakdown.credito, currency)}</p></div>
+                <div className="bg-surface-muted rounded-lg p-4"><p className="text-xs font-medium text-ink-muted">Efectivo</p><p className="text-xl font-semibold text-ink">{formatCurrency(paymentBreakdown.efectivo, currency)}</p></div>
+                <div className="bg-surface-muted rounded-lg p-4"><p className="text-xs font-medium text-ink-muted">Tarjetas</p><p className="text-xl font-semibold text-ink">{formatCurrency(paymentBreakdown.tarjeta, currency)}</p></div>
+                <div className="bg-surface-muted rounded-lg p-4"><p className="text-xs font-medium text-ink-muted">Transferencias / Cheques</p><p className="text-xl font-semibold text-ink">{formatCurrency(paymentBreakdown.chequeTransferencia, currency)}</p></div>
+                <div className="bg-surface-muted rounded-lg p-4"><p className="text-xs font-medium text-ink-muted">Ventas a Crédito</p><p className="text-xl font-semibold text-ink">{formatCurrency(paymentBreakdown.credito, currency)}</p></div>
               </div>
               {pendingInvoices.length > 0 && (
-                <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-sm text-amber-700 font-semibold">Facturas con pago pendiente:</p>
-                  <ul className="list-disc list-inside text-sm text-amber-700 mt-2 space-y-1">
+                <div className="mt-4 bg-warning-50 border border-warning-200 dark:bg-warning-950/30 dark:border-warning-800 rounded-lg p-4">
+                  <p className="text-sm text-warning-800 dark:text-warning-300 font-semibold">Facturas con pago pendiente:</p>
+                  <ul className="list-disc list-inside text-sm text-warning-800 dark:text-warning-300 mt-2 space-y-1">
                     {pendingInvoices.slice(0, 5).map((inv) => (
                       <li key={inv.id}>{inv.invoiceNumber || inv.orderNumber || inv.id} · {formatCurrency((inv.total || 0) - (inv.paidAmount || inv.amountPaid || 0), currency)}</li>
                     ))}
@@ -251,7 +252,7 @@ const AccountingViewSQL = ({ companyProfile }) => {
             <CardHeader title="Libro Mayor" />
             <CardBody className="overflow-x-auto">
               <table className="w-full text-left text-sm min-w-[960px]">
-                <thead className="bg-gray-50 uppercase text-xs tracking-wide text-gray-500">
+                <thead className="bg-surface-muted uppercase text-xs tracking-wide text-ink-muted">
                   <tr>
                     <th className="p-3">Fecha</th><th className="p-3">Tipo</th><th className="p-3">Referencia</th>
                     <th className="p-3">Descripción</th><th className="p-3">Estado</th><th className="p-3 text-right">Monto</th>
@@ -259,16 +260,16 @@ const AccountingViewSQL = ({ companyProfile }) => {
                 </thead>
                 <tbody>
                   {ledgerEntries.length === 0 && (
-                    <tr><td className="p-4 text-center text-gray-500" colSpan={6}>No hay movimientos contables en este período.</td></tr>
+                    <tr><td className="p-0" colSpan={6}><EmptyState icon={BookOpen} title="Sin movimientos en este período" description="Cambia el período arriba o registra ventas y gastos para ver aquí el libro mayor." /></td></tr>
                   )}
                   {ledgerEntries.map((entry) => (
-                    <tr key={entry.id} className="border-b last:border-transparent hover:bg-gray-50">
+                    <tr key={entry.id} className="border-b last:border-transparent hover:bg-surface-muted">
                       <td className="p-3 whitespace-nowrap">{entry.date ? entry.date.toLocaleDateString() : 'Sin fecha'}</td>
-                      <td className="p-3 font-semibold text-gray-700">{entry.kind}</td>
-                      <td className="p-3 font-mono text-xs text-gray-600">{entry.reference}</td>
-                      <td className="p-3 text-gray-700">{entry.description}</td>
-                      <td className="p-3 text-gray-600">{entry.status}</td>
-                      <td className={`p-3 text-right font-semibold ${entry.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <td className="p-3 font-semibold text-ink-soft">{entry.kind}</td>
+                      <td className="p-3 font-mono text-xs text-ink-soft">{entry.reference}</td>
+                      <td className="p-3 text-ink-soft">{entry.description}</td>
+                      <td className="p-3 text-ink-soft">{entry.status}</td>
+                      <td className={`p-3 text-right font-semibold ${entry.amount >= 0 ? 'text-success-700 dark:text-success-400' : 'text-danger-700 dark:text-danger-400'}`}>
                         {formatCurrency(entry.amount, currency)}
                       </td>
                     </tr>

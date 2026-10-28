@@ -127,30 +127,30 @@ const CierreCajaModal = ({ currentUserProfile, companyProfile, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-            <div className="card rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-6 border-b border-gray-100">
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Cierre de Caja</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800" aria-label="Cerrar"><X /></button>
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[60] p-4">
+            <div className="modal-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-6 border-b border-line">
+                    <h3 className="text-lg font-semibold text-ink">Cierre de Caja</h3>
+                    <button onClick={onClose} className="text-ink-muted hover:text-gray-800" aria-label="Cerrar"><X /></button>
                 </div>
                 <div className="p-6">
                     {isLoading ? (
-                        <div className="flex items-center justify-center p-12 text-gray-500"><Loader2 className="animate-spin mr-2"/>Cargando...</div>
+                        <div className="flex items-center justify-center p-12 text-ink-muted"><Loader2 className="animate-spin mr-2"/>Cargando...</div>
                     ) : (
                         <div className="space-y-6">
                             <div>
                                 <h4 className="font-semibold">Totales del Sistema</h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                                    <div className="p-3 bg-gray-50 rounded">Total Efectivo
+                                    <div className="p-3 bg-surface-muted rounded">Total Efectivo
                                         <div className="font-bold">{formatCurrency(systemReport.totalEfectivo || 0, currency)}</div>
                                     </div>
-                                    <div className="p-3 bg-gray-50 rounded">Total Tarjeta
+                                    <div className="p-3 bg-surface-muted rounded">Total Tarjeta
                                         <div className="font-bold">{formatCurrency(systemReport.totalTarjeta || 0, currency)}</div>
                                     </div>
-                                    <div className="p-3 bg-gray-50 rounded">Egresos Registrados
+                                    <div className="p-3 bg-surface-muted rounded">Egresos Registrados
                                         <div className="font-bold">{formatCurrency(systemReport.totalEgresos || 0, currency)}</div>
                                     </div>
-                                    <div className="p-3 bg-gray-50 rounded">Facturas
+                                    <div className="p-3 bg-surface-muted rounded">Facturas
                                         <div className="font-bold">{(systemReport.facturasProcesadas || []).length}</div>
                                     </div>
                                 </div>
@@ -167,7 +167,7 @@ const CierreCajaModal = ({ currentUserProfile, companyProfile, onClose }) => {
                                         </div>
                                     ))}
                                     <div>
-                                        <button onClick={addLastMinuteExpense} className="bg-gray-100 hover:bg-gray-200 text-gray-900 px-3 py-2 rounded inline-flex items-center gap-2"><PlusCircle size={18}/> Añadir Egreso</button>
+                                        <button onClick={addLastMinuteExpense} className="bg-gray-100 hover:bg-gray-200 text-ink px-3 py-2 rounded inline-flex items-center gap-2"><PlusCircle size={18}/> Añadir Egreso</button>
                                     </div>
                                 </div>
                             </div>
@@ -180,7 +180,7 @@ const CierreCajaModal = ({ currentUserProfile, companyProfile, onClose }) => {
                                         <label className="w-48">Monto Contado Manualmente:</label>
                                         <input type="number" value={manualCashCount} onChange={e => setManualCashCount(Number(e.target.value || 0))} className="input-base w-full" />
                                     </div>
-                                    <div>Dif. (Descuadre): <span className={`font-bold ${diferencia < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(diferencia || 0, currency)}</span></div>
+                                    <div>Dif. (Descuadre): <span className={`font-bold ${diferencia < 0 ? 'text-red-600' : 'text-success-600'}`}>{formatCurrency(diferencia || 0, currency)}</span></div>
                                 </div>
                             </div>
 

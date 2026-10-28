@@ -48,9 +48,9 @@ export default function RegisterModal({ onClose, onRegister }) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-4 text-gray-800">Crear Cuenta Administrador</h2>
+        <div className="fixed inset-0 modal-backdrop z-50 flex justify-center items-center p-4">
+            <div className="modal-panel p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold mb-4 text-ink">Crear Cuenta Administrador</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input name="firstName" value={form.firstName} onChange={handleChange} placeholder="Nombres" required className="w-full p-2 border rounded-md" />
@@ -63,7 +63,7 @@ export default function RegisterModal({ onClose, onRegister }) {
                         <input name="cargo" value={form.cargo} onChange={handleChange} placeholder="Cargo" className="w-full p-2 border rounded-md" />
                         <input name="empresa" value={form.empresa} onChange={handleChange} placeholder="Empresa (opcional)" className="w-full p-2 border rounded-md" />
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de actividad comercial</label>
+                            <label className="block text-sm font-medium text-ink-soft mb-1">Tipo de actividad comercial</label>
                             <select name="businessType" value={form.businessType} onChange={handleChange} className="w-full p-2 border rounded-md">
                                 <optgroup label="Modo Tienda Craft (recomendado)">
                                     <option value="restaurante">Restaurante / Comida rápida</option>
@@ -83,7 +83,7 @@ export default function RegisterModal({ onClose, onRegister }) {
                                     <option value="otro">Otra actividad</option>
                                 </optgroup>
                             </select>
-                            <p className="text-xs text-gray-500 mt-1">Esto configura la vista de pedidos más adecuada para tu negocio.</p>
+                            <p className="text-xs text-ink-muted mt-1">Esto configura la vista de pedidos más adecuada para tu negocio.</p>
                         </div>
                     </div>
 
@@ -108,11 +108,11 @@ export default function RegisterModal({ onClose, onRegister }) {
                         <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleChange} placeholder="Confirmar contraseña" required className="w-full p-2 border rounded-md" />
                     </div>
 
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
+                    {error && <p role="alert" className="field-error">{error}</p>}
 
                     <div className="flex justify-end gap-3 pt-2">
                         <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200">Cancelar</button>
-                        <button type="submit" disabled={isLoading} className="px-4 py-2 rounded bg-indigo-600 text-white">{isLoading ? 'Registrando...' : 'Registrarse'}</button>
+                        <button type="submit" disabled={isLoading} className="px-4 py-2 rounded bg-brand-600 text-white">{isLoading ? 'Registrando...' : 'Registrarse'}</button>
                     </div>
                 </form>
             </div>

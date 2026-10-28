@@ -7,44 +7,62 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
   >
     <div
       aria-hidden="true"
-      class="absolute inset-0 bg-black transition-opacity opacity-50"
+      class="absolute inset-0 modal-backdrop transition-opacity opacity-100"
     />
     <div
       aria-modal="true"
-      class="relative bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 transform transition-all duration-200 ease-out opacity-100 scale-100"
+      class="relative modal-panel w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 transform transition-all duration-200 ease-out opacity-100 scale-100"
       role="dialog"
     >
       <div
         class="w-full max-w-4xl"
       >
         <div
-          class="relative rounded-3xl border border-slate-100 bg-white shadow-2xl"
+          class="relative rounded-3xl border border-line bg-surface shadow-2xl"
         >
           <header
-            class="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-start sm:justify-between"
+            class="flex flex-col gap-4 border-b border-line px-6 py-5 sm:flex-row sm:items-start sm:justify-between"
           >
             <div>
               <p
-                class="text-xs uppercase tracking-[0.28em] text-indigo-500"
+                class="text-xs uppercase tracking-[0.28em] text-brand-500"
               >
                 Resumen
               </p>
               <h3
-                class="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl"
+                class="mt-1 text-2xl font-bold text-ink sm:text-3xl"
               >
                 Confirma los datos antes de crear la cuenta
               </h3>
               <p
-                class="mt-2 text-sm text-slate-500"
+                class="mt-2 text-sm text-ink-muted"
               >
                 Verifica la información del administrador y la empresa. Puedes volver para editar o reiniciar el proceso en cualquier momento.
               </p>
             </div>
             <button
               aria-label="Cerrar"
-              class="self-start text-2xl text-slate-400 transition-colors hover:text-slate-600 sm:self-center"
+              class="modal-close"
             >
-              ×
+              <svg
+                class="lucide lucide-x"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M18 6 6 18"
+                />
+                <path
+                  d="m6 6 12 12"
+                />
+              </svg>
             </button>
           </header>
           <div
@@ -54,18 +72,40 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
               class="grid gap-4 sm:grid-cols-2"
             >
               <div
-                class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                class="flex items-center gap-4 rounded-2xl border border-line bg-slate-50/70 p-4"
               >
                 <div
                   class="flex flex-col items-center space-y-2"
                 >
-                  <img
-                    alt="Foto de perfil"
-                    class="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
-                    src="https://placehold.co/100x100/e2e8f0/a0aec0?text=Foto"
-                  />
+                  <div
+                    aria-label="Sin foto de perfil"
+                    class="w-24 h-24 rounded-full bg-surface-muted border border-line flex items-center justify-center text-gray-400 dark:text-gray-500"
+                    role="img"
+                  >
+                    <svg
+                      class="lucide lucide-user"
+                      fill="none"
+                      height="36"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="36"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+                      />
+                      <circle
+                        cx="12"
+                        cy="7"
+                        r="4"
+                      />
+                    </svg>
+                  </div>
                   <label
-                    class="cursor-pointer bg-gray-200 text-gray-700 text-sm py-1 px-3 rounded-lg hover:bg-gray-300 flex items-center gap-2"
+                    class="cursor-pointer border border-line bg-surface text-ink text-sm font-medium h-8 px-3 rounded-lg hover:bg-surface-muted flex items-center gap-2 shadow-sm"
                     for="adminPreview"
                   >
                     <svg
@@ -93,7 +133,7 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                         y2="15"
                       />
                     </svg>
-                    Cargar Foto
+                    Cargar foto
                   </label>
                   <input
                     accept="image/*"
@@ -106,12 +146,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-lg font-semibold text-slate-900"
+                    class="text-lg font-semibold text-ink"
                   >
                     Juan Pérez
                   </p>
                   <p
-                    class="text-xs uppercase tracking-wide text-slate-500"
+                    class="text-xs uppercase tracking-wide text-ink-muted"
                   >
                     Administrador principal
                   </p>
@@ -123,18 +163,40 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                 </div>
               </div>
               <div
-                class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                class="flex items-center gap-4 rounded-2xl border border-line bg-slate-50/70 p-4"
               >
                 <div
                   class="flex flex-col items-center space-y-2"
                 >
-                  <img
-                    alt="Foto de perfil"
-                    class="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
-                    src="https://placehold.co/100x100/e2e8f0/a0aec0?text=Foto"
-                  />
+                  <div
+                    aria-label="Sin foto de perfil"
+                    class="w-24 h-24 rounded-full bg-surface-muted border border-line flex items-center justify-center text-gray-400 dark:text-gray-500"
+                    role="img"
+                  >
+                    <svg
+                      class="lucide lucide-user"
+                      fill="none"
+                      height="36"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="36"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+                      />
+                      <circle
+                        cx="12"
+                        cy="7"
+                        r="4"
+                      />
+                    </svg>
+                  </div>
                   <label
-                    class="cursor-pointer bg-gray-200 text-gray-700 text-sm py-1 px-3 rounded-lg hover:bg-gray-300 flex items-center gap-2"
+                    class="cursor-pointer border border-line bg-surface text-ink text-sm font-medium h-8 px-3 rounded-lg hover:bg-surface-muted flex items-center gap-2 shadow-sm"
                     for="companyPreview"
                   >
                     <svg
@@ -162,7 +224,7 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                         y2="15"
                       />
                     </svg>
-                    Cargar Foto
+                    Cargar foto
                   </label>
                   <input
                     accept="image/*"
@@ -175,12 +237,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-lg font-semibold text-slate-900"
+                    class="text-lg font-semibold text-ink"
                   >
                     Mi Empresa
                   </p>
                   <p
-                    class="text-xs uppercase tracking-wide text-slate-500"
+                    class="text-xs uppercase tracking-wide text-ink-muted"
                   >
                     Datos de la empresa
                   </p>
@@ -196,13 +258,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
               class="grid gap-4 md:grid-cols-2"
             >
               <section
-                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+                class="rounded-2xl border border-line bg-white/60 shadow-sm"
               >
                 <header
-                  class="border-b border-slate-200 px-4 py-3"
+                  class="border-b border-line px-4 py-3"
                 >
                   <p
-                    class="text-sm font-semibold text-slate-700"
+                    class="text-sm font-semibold text-ink-soft"
                   >
                     Administrador
                   </p>
@@ -219,12 +281,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Nombres
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       Juan
                     </p>
@@ -233,12 +295,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Apellidos
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       Pérez
                     </p>
@@ -247,12 +309,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Correo electrónico
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       juan@example.com
                     </p>
@@ -261,12 +323,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Cargo
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       Administrador
                     </p>
@@ -275,12 +337,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Género
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -289,12 +351,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Identificación
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       001-1234567-8
                     </p>
@@ -303,12 +365,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       ID de empleado
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -317,12 +379,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Empresa declarada
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -330,13 +392,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                 </div>
               </section>
               <section
-                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+                class="rounded-2xl border border-line bg-white/60 shadow-sm"
               >
                 <header
-                  class="border-b border-slate-200 px-4 py-3"
+                  class="border-b border-line px-4 py-3"
                 >
                   <p
-                    class="text-sm font-semibold text-slate-700"
+                    class="text-sm font-semibold text-ink-soft"
                   >
                     Contacto del administrador
                   </p>
@@ -353,12 +415,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Teléfono
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       809-555-1234
                     </p>
@@ -367,12 +429,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Celular
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -381,12 +443,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Calle
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -395,12 +457,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Sector
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -409,12 +471,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Ciudad
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -423,12 +485,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Código postal
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -437,12 +499,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       País
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -454,13 +516,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
               class="grid gap-4 md:grid-cols-2"
             >
               <section
-                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+                class="rounded-2xl border border-line bg-white/60 shadow-sm"
               >
                 <header
-                  class="border-b border-slate-200 px-4 py-3"
+                  class="border-b border-line px-4 py-3"
                 >
                   <p
-                    class="text-sm font-semibold text-slate-700"
+                    class="text-sm font-semibold text-ink-soft"
                   >
                     Empresa
                   </p>
@@ -477,12 +539,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Nombre comercial
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       Mi Empresa
                     </p>
@@ -491,12 +553,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       RNC
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       101-23456-7
                     </p>
@@ -505,12 +567,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Teléfono
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       809-555-0000
                     </p>
@@ -519,12 +581,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Correo
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       info@miempresa.com
                     </p>
@@ -533,12 +595,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Página web
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -547,12 +609,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Divisa principal
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -561,12 +623,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Permite personalización
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -575,12 +637,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Tema
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -588,13 +650,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                 </div>
               </section>
               <section
-                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+                class="rounded-2xl border border-line bg-white/60 shadow-sm"
               >
                 <header
-                  class="border-b border-slate-200 px-4 py-3"
+                  class="border-b border-line px-4 py-3"
                 >
                   <p
-                    class="text-sm font-semibold text-slate-700"
+                    class="text-sm font-semibold text-ink-soft"
                   >
                     Dirección de la empresa
                   </p>
@@ -611,12 +673,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Calle
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       Calle Falsa
                     </p>
@@ -625,12 +687,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Sector
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       Centro
                     </p>
@@ -639,12 +701,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Ciudad
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       Santo Domingo
                     </p>
@@ -653,12 +715,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Código postal
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -667,12 +729,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       País
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -684,13 +746,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
               class="grid gap-4 md:grid-cols-2"
             >
               <section
-                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+                class="rounded-2xl border border-line bg-white/60 shadow-sm"
               >
                 <header
-                  class="border-b border-slate-200 px-4 py-3"
+                  class="border-b border-line px-4 py-3"
                 >
                   <p
-                    class="text-sm font-semibold text-slate-700"
+                    class="text-sm font-semibold text-ink-soft"
                   >
                     Preferencias
                   </p>
@@ -707,12 +769,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Sonidos activos
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -721,12 +783,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Volumen de notificaciones
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -735,12 +797,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Categorías de clientes
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -749,12 +811,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Modo de impresión
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -763,12 +825,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Impresora registrada
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -776,13 +838,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                 </div>
               </section>
               <section
-                class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+                class="rounded-2xl border border-line bg-white/60 shadow-sm"
               >
                 <header
-                  class="border-b border-slate-200 px-4 py-3"
+                  class="border-b border-line px-4 py-3"
                 >
                   <p
-                    class="text-sm font-semibold text-slate-700"
+                    class="text-sm font-semibold text-ink-soft"
                   >
                     Caja y terminales
                   </p>
@@ -799,12 +861,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Tolerancia de cierre
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -813,12 +875,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Requiere supervisor si excede
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       —
                     </p>
@@ -827,12 +889,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Cantidad de terminales
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       0
                     </p>
@@ -841,12 +903,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     class="space-y-1"
                   >
                     <p
-                      class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       Terminal 1
                     </p>
                     <p
-                      class="text-sm font-medium text-slate-900 break-words"
+                      class="text-sm font-medium text-ink break-words"
                     >
                       ID: — · Nombre: — · Activo: —
                     </p>
@@ -855,13 +917,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
               </section>
             </div>
             <section
-              class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              class="rounded-2xl border border-line bg-white/60 shadow-sm"
             >
               <header
-                class="border-b border-slate-200 px-4 py-3"
+                class="border-b border-line px-4 py-3"
               >
                 <p
-                  class="text-sm font-semibold text-slate-700"
+                  class="text-sm font-semibold text-ink-soft"
                 >
                   Descuentos por categoría
                 </p>
@@ -878,12 +940,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     Sin categorías definidas
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -891,13 +953,13 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
               </div>
             </section>
             <section
-              class="rounded-2xl border border-slate-200 bg-white/60 shadow-sm"
+              class="rounded-2xl border border-line bg-white/60 shadow-sm"
             >
               <header
-                class="border-b border-slate-200 px-4 py-3"
+                class="border-b border-line px-4 py-3"
               >
                 <p
-                  class="text-sm font-semibold text-slate-700"
+                  class="text-sm font-semibold text-ink-soft"
                 >
                   Datos bancarios
                 </p>
@@ -914,12 +976,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     Tipo de entidad
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -928,12 +990,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     Banco
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -942,12 +1004,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     Beneficiario
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -956,12 +1018,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     ID del beneficiario
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -970,12 +1032,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     Tipo de cuenta
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -984,12 +1046,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     Número de cuenta
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -998,12 +1060,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                   class="space-y-1"
                 >
                   <p
-                    class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     Correo bancario
                   </p>
                   <p
-                    class="text-sm font-medium text-slate-900 break-words"
+                    class="text-sm font-medium text-ink break-words"
                   >
                     —
                   </p>
@@ -1017,12 +1079,12 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                 class="flex flex-col gap-2 sm:flex-row"
               >
                 <button
-                  class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-700 sm:w-auto"
+                  class="w-full rounded-lg border border-line bg-surface px-4 py-3 text-sm font-medium text-ink-soft transition-colors hover:border-brand-300 hover:text-brand-700 sm:w-auto"
                 >
                   Editar administrador
                 </button>
                 <button
-                  class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-700 sm:w-auto"
+                  class="w-full rounded-lg border border-line bg-surface px-4 py-3 text-sm font-medium text-ink-soft transition-colors hover:border-brand-300 hover:text-brand-700 sm:w-auto"
                 >
                   Editar empresa
                 </button>
@@ -1033,7 +1095,7 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                 </button>
               </div>
               <button
-                class="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-colors sm:w-auto bg-indigo-600 hover:bg-indigo-700"
+                class="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-colors sm:w-auto bg-brand-600 hover:bg-brand-700"
               >
                 Confirmar y crear cuenta
               </button>

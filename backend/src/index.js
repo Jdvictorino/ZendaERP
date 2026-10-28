@@ -42,17 +42,24 @@ app.use(helmet({
 // Lista blanca de orígenes permitidos
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://tudominio.com', // Cambia por tu dominio real
-  'https://www.tudominio.com',
-  'https://localhost:5177', // Vite dev server (HTTPS)
-  'http://localhost:5177',  // Vite dev server (HTTP)
-  // Agrega aquí otros orígenes explícitos
+  'https://admin.zendaerp.online',
+  'https://api.zendaerp.online',
+  'https://zendaerp.online',
+  'https://www.zendaerp.online',
+  'https://app.zendaerp.online',
+  'https://localhost:5177',
+  'http://localhost:5177',
+  'https://localhost:5173',
+  'http://localhost:5173',
 ];
 
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin) return callback(null, true); // Permite herramientas locales (Postman)
-    if (allowedOrigins.includes(origin)) {
+    if (!origin) return callback(null, true); // Permite herramientas locales (Postman, curl, server-to-server)
+    if (
+      allowedOrigins.includes(origin) ||
+      /^https?:\/\/(?:[a-zA-Z0-9-]+\.)?zendaerp\.online(?::\d+)?$/.test(origin)
+    ) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));

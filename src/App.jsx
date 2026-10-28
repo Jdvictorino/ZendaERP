@@ -68,7 +68,11 @@ export default function App() {
         return <MobileScannerView />;
     }
 
-    if (typeof window !== 'undefined' && window.location.pathname === '/platform-billing') {
+    if (
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/platform-billing' ||
+         window.location.hostname === 'admin.zendaerp.online')
+    ) {
         return <PlatformBillingControlView />;
     }
 
@@ -469,12 +473,12 @@ export default function App() {
 
     if (!isAuthReady) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-100 dark:from-[#0a0f1e] dark:via-[#0f172a] dark:to-[#0a0f1e]">
+            <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-100 dark:from-night-950 dark:via-night-900 dark:to-night-950">
                 <div className="animate-slideUp flex flex-col items-center">
-                    <div className="w-20 h-20 rounded-[1.75rem] bg-brand-500 shadow-2xl shadow-brand-500/30 flex items-center justify-center mb-6">
+                    <div className="w-20 h-20 rounded-3xl bg-brand-500 shadow-2xl shadow-brand-500/30 flex items-center justify-center mb-6">
                         <Edit className="h-9 w-9 text-white animate-pulse" />
                     </div>
-                    <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">Zenda ERP</h1>
+                    <h1 className="text-2xl font-extrabold text-ink dark:text-white tracking-tight">Zenda ERP</h1>
                     <div className="mt-6 w-8 h-1 rounded-full bg-brand-500/30 overflow-hidden">
                         <div className="h-full w-1/2 bg-brand-500 rounded-full animate-pulse" />
                     </div>
@@ -506,7 +510,7 @@ export default function App() {
     }
 
     return (
-        <div className="flex h-screen bg-gray-50 dark:bg-[#0f172a] font-sans overflow-hidden">
+        <div className="flex h-screen bg-surface-muted dark:bg-night-900 font-sans overflow-hidden">
             <Sidebar setView={setViewWithGuard} currentView={view} isMasterUser={isMasterUser} currentRole={currentRole} />
             <main className="flex-1 flex flex-col overflow-hidden relative">
                 <Header 
@@ -521,7 +525,7 @@ export default function App() {
                     currentView={view}
                     onNavigate={setViewWithGuard}
                 />
-                <div className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-[#0f172a] p-4 md:p-8 pb-24 lg:pb-8 custom-scrollbar">
+                <div className="flex-1 overflow-x-hidden overflow-y-auto bg-surface-muted dark:bg-night-900 p-4 md:p-8 pb-24 lg:pb-8 custom-scrollbar">
                     <div key={view} className="view-enter">
                         {renderView()}
                     </div>

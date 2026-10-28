@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import reportFilters from '../utils/reportFilters.js';
 import { Download, Settings, BookOpen, TrendingUp, Users, ShoppingCart, DollarSign, Award, AlertCircle, Target, BarChart3 } from 'lucide-react';
+import KpiCard from '../components/ui/KpiCard.jsx';
 import toast from 'react-hot-toast';
 import { loadScript } from '../utils/loadScript.js';
 import NcfModal from '../components/modals/NcfModal.jsx';
@@ -16,6 +17,7 @@ import BarChartAnalysis from '../components/charts/BarChartAnalysis.jsx';
 import PieChartShare from '../components/charts/PieChartShare.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
 
 const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     // Cargar datos desde la API
@@ -242,7 +244,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
 
         const totalStatusCount = statusTotals.pendiente + statusTotals.completado + statusTotals.cancelado || 1;
         const statusBreakdown = [
-            { key: 'completado', label: 'Completados', value: statusTotals.completado, percent: (statusTotals.completado / totalStatusCount) * 100, accent: 'bg-emerald-500' },
+            { key: 'completado', label: 'Completados', value: statusTotals.completado, percent: (statusTotals.completado / totalStatusCount) * 100, accent: 'bg-success-500' },
             { key: 'pendiente', label: 'Pendientes', value: statusTotals.pendiente, percent: (statusTotals.pendiente / totalStatusCount) * 100, accent: 'bg-amber-400' },
             { key: 'cancelado', label: 'Cancelados', value: statusTotals.cancelado, percent: (statusTotals.cancelado / totalStatusCount) * 100, accent: 'bg-rose-500' },
         ];
@@ -319,10 +321,10 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     const trendMaxValue = analyticsSnapshot.trendSeries?.reduce((max, day) => Math.max(max, day.value), 0) || 0;
     const weeklyTopMax = weeklyTopProducts.length > 0 ? weeklyTopProducts[0][1] : 0;
     const paymentColorMap = {
-        efectivo: 'from-amber-500 to-orange-500',
-        tarjeta: 'from-indigo-500 to-purple-500',
-        transferencia: 'from-sky-500 to-cyan-500',
-        credito: 'from-rose-500 to-pink-500',
+        efectivo: 'bg-warning-500',
+        tarjeta: 'bg-brand-500',
+        transferencia: 'bg-sky-500',
+        credito: 'bg-danger-500',
     };
     const repeatRate = analyticsSnapshot.activeCustomers ? (analyticsSnapshot.returningCustomers / analyticsSnapshot.activeCustomers) * 100 : 0;
     const teamMax = analyticsSnapshot.teamPerformance?.reduce((max, member) => Math.max(max, member.total), 0) || 0;
@@ -607,15 +609,13 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
+            <PageSkeleton label="Cargando…" />
         );
     }
 
     return (
         <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 tracking-tight">Reportes</h2>
+            <h2 className="page-title mb-6">Reportes</h2>
             <Card>
                 <CardBody>
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -627,16 +627,16 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                     <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Desde</label>
-                                <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-base" />
+                                <label className="block text-sm text-ink-soft mb-1">Desde</label>
+                                <input aria-label="Desde" type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-base" />
                             </div>
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Hasta</label>
-                                <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-base" />
+                                <label className="block text-sm text-ink-soft mb-1">Hasta</label>
+                                <input aria-label="Hasta" type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-base" />
                             </div>
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Ámbito</label>
-                                <select value={reportScope} onChange={e => setReportScope(e.target.value)} className="input-base">
+                                <label className="block text-sm text-ink-soft mb-1">Ámbito</label>
+                                <select aria-label="Ámbito" value={reportScope} onChange={e => setReportScope(e.target.value)} className="input-base">
                                     <option value="sales">Ventas</option>
                                     <option value="purchases">Compras</option>
                                     <option value="both">Ambos</option>
@@ -645,22 +645,22 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Cliente</label>
-                                <select value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)} className="input-base">
+                                <label className="block text-sm text-ink-soft mb-1">Cliente</label>
+                                <select aria-label="Cliente" value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)} className="input-base">
                                     <option value="">-- Todos --</option>
                                     {(customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Categoría de Cliente</label>
-                                <select value={filterCustomerCategory} onChange={e => setFilterCustomerCategory(e.target.value)} className="input-base">
+                                <label className="block text-sm text-ink-soft mb-1">Categoría de Cliente</label>
+                                <select aria-label="Categoría de Cliente" value={filterCustomerCategory} onChange={e => setFilterCustomerCategory(e.target.value)} className="input-base">
                                     <option value="">-- Todas --</option>
                                     {customerCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm text-gray-600 mb-1">Producto</label>
-                                <select value={filterProduct} onChange={e => setFilterProduct(e.target.value)} className="input-base">
+                                <label className="block text-sm text-ink-soft mb-1">Producto</label>
+                                <select aria-label="Producto" value={filterProduct} onChange={e => setFilterProduct(e.target.value)} className="input-base">
                                     <option value="">-- Todos --</option>
                                     {(products || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
@@ -670,8 +670,8 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
 
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div>
-                            <label className="block text-sm text-gray-600 mb-1">Estado</label>
-                            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base">
+                            <label className="block text-sm text-ink-soft mb-1">Estado</label>
+                            <select aria-label="Estado" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base">
                                 <option value="">-- Todos --</option>
                                 <option value="Pendiente">Pendiente</option>
                                 <option value="Pagado">Pagado</option>
@@ -679,20 +679,20 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm text-gray-600 mb-1">Precio Min</label>
-                            <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} className="input-base" />
+                            <label className="block text-sm text-ink-soft mb-1">Precio Min</label>
+                            <input aria-label="Precio Min" type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} className="input-base" />
                         </div>
                         <div>
-                            <label className="block text-sm text-gray-600 mb-1">Precio Max</label>
-                            <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="input-base" />
+                            <label className="block text-sm text-ink-soft mb-1">Precio Max</label>
+                            <input aria-label="Precio Max" type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="input-base" />
                         </div>
                         <div>
-                            <label className="block text-sm text-gray-600 mb-1">Mes/Año</label>
+                            <label className="block text-sm text-ink-soft mb-1">Mes/Año</label>
                             <div className="flex gap-2">
-                                <select value={reportMonth} onChange={e => setReportMonth(parseInt(e.target.value))} className="input-base w-40">
+                                <select aria-label="Mes/Año" value={reportMonth} onChange={e => setReportMonth(parseInt(e.target.value))} className="input-base w-40">
                                     {[...Array(12).keys()].map(i => <option key={i} value={i}>{new Date(0, i).toLocaleString('es-DO', { month: 'short' })}</option>)}
                                 </select>
-                                <input type="number" value={reportYear} onChange={e => setReportYear(parseInt(e.target.value))} className="input-base w-28" />
+                                <input aria-label="Año" type="number" value={reportYear} onChange={e => setReportYear(parseInt(e.target.value))} className="input-base w-28" />
                             </div>
                         </div>
                     </div>
@@ -702,129 +702,33 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             <section className="mt-8 space-y-8">
                 <div>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
-                        <h3 className="text-lg font-semibold text-gray-900">Resumen ejecutivo</h3>
-                        <p className="text-sm text-gray-500">Basado en el período seleccionado</p>
+                        <h3 className="text-lg font-semibold text-ink">Resumen ejecutivo</h3>
+                        <p className="text-sm text-ink-muted">Basado en el período seleccionado</p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                        <div className="rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-sky-500 p-6 text-white shadow-xl hover:shadow-2xl transition-shadow relative overflow-hidden">
-                            <div className="absolute -right-8 -top-8 opacity-10"><DollarSign size={120} /></div>
-                            <div className="relative z-10">
-                                <div className="flex items-center justify-between mb-2">
-                                    <p className="text-xs uppercase tracking-wide text-white/70 font-semibold">Ventas netas</p>
-                                    <TrendingUp size={18} className="text-white/80" />
-                                </div>
-                                <p className="text-3xl font-bold">{formatCurrency(analyticsSnapshot.netSales || 0, currency)}</p>
-                                <p className="mt-3 text-xs text-white/80 flex items-center gap-2">
-                                    <span className={`${analyticsSnapshot.trendDelta >= 0 ? 'text-emerald-200' : 'text-rose-200'} font-bold text-sm`}>
-                                        {analyticsSnapshot.trendDelta >= 0 ? '↑' : '↓'} {Math.abs(analyticsSnapshot.trendDelta).toFixed(1)}%
-                                    </span>
-                                    <span>vs semana anterior</span>
-                                </p>
-                            </div>
-                        </div>
-                        <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 p-6 text-white shadow-xl hover:shadow-2xl transition-shadow relative overflow-hidden">
-                            <div className="absolute -right-8 -top-8 opacity-10"><Award size={120} /></div>
-                            <div className="relative z-10">
-                                <p className="text-xs uppercase tracking-wide text-white/70 font-semibold">Margen bruto</p>
-                                <p className="mt-2 text-3xl font-bold">{formatCurrency(analyticsSnapshot.grossMargin || 0, currency)}</p>
-                                <p className="mt-3 text-xs text-white/80">Margen <span className="font-bold">{analyticsSnapshot.marginRate.toFixed(1)}%</span></p>
-                            </div>
-                        </div>
-                        <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 p-6 text-white shadow-xl hover:shadow-2xl transition-shadow relative overflow-hidden">
-                            <div className="absolute -right-8 -top-8 opacity-10"><ShoppingCart size={120} /></div>
-                            <div className="relative z-10">
-                                <div className="flex items-center justify-between mb-2">
-                                    <p className="text-xs uppercase tracking-wide text-white/70 font-semibold">Pedidos completados</p>
-                                    <ShoppingCart size={18} className="text-white/80" />
-                                </div>
-                                <p className="text-3xl font-bold">{completedOrders}</p>
-                                <p className="mt-3 text-xs text-white/80">De <span className="font-bold">{analyticsSnapshot.orders}</span> evaluados</p>
-                            </div>
-                        </div>
-                        <div className="rounded-2xl bg-white p-6 shadow-xl hover:shadow-2xl transition-shadow border border-slate-200 relative overflow-hidden">
-                            <div className="absolute -right-8 -top-8 opacity-5"><Target size={120} /></div>
-                            <div className="relative z-10">
-                                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Ticket promedio</p>
-                                <p className="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(analyticsSnapshot.avgTicket || 0, currency)}</p>
-                                <p className="mt-3 text-xs text-slate-600"><span className="font-bold">{analyticsSnapshot.avgItems.toFixed(1)}</span> artículos/pedido</p>
-                            </div>
-                        </div>
+                    <div className="kpi-grid">
+                        <KpiCard label="Ventas netas" value={formatCurrency(analyticsSnapshot.netSales || 0, currency)} icon={DollarSign} tone="brand" trend={analyticsSnapshot.trendDelta} hint="vs semana anterior" />
+                        <KpiCard label="Margen bruto" value={formatCurrency(analyticsSnapshot.grossMargin || 0, currency)} icon={Award} tone="success" hint={`Margen ${analyticsSnapshot.marginRate.toFixed(1)}%`} />
+                        <KpiCard label="Pedidos completados" value={completedOrders} icon={ShoppingCart} tone="info" hint={`De ${analyticsSnapshot.orders} evaluados`} />
+                        <KpiCard label="Ticket promedio" value={formatCurrency(analyticsSnapshot.avgTicket || 0, currency)} icon={Target} tone="neutral" hint={`${analyticsSnapshot.avgItems.toFixed(1)} artículos/pedido`} />
                     </div>
                 </div>
 
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Clientes y operación</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                        <div className="rounded-xl bg-white p-5 shadow-lg border-l-4 border-l-blue-500 hover:shadow-xl transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Clientes activos</p>
-                                    <p className="mt-2 text-3xl font-bold text-slate-900">{analyticsSnapshot.activeCustomers}</p>
-                                </div>
-                                <Users size={32} className="text-blue-500 opacity-20" />
-                            </div>
-                            <p className="text-xs text-slate-500 mt-3">Con al menos un pedido</p>
-                        </div>
-                        <div className="rounded-xl bg-white p-5 shadow-lg border-l-4 border-l-emerald-500 hover:shadow-xl transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Clientes recurrentes</p>
-                                    <p className="mt-2 text-3xl font-bold text-slate-900">{analyticsSnapshot.returningCustomers}</p>
-                                </div>
-                                <Target size={32} className="text-emerald-500 opacity-20" />
-                            </div>
-                            <p className="text-xs text-emerald-600 mt-3 font-semibold">{repeatRate.toFixed(1)}% de la base</p>
-                        </div>
-                        <div className="rounded-xl bg-white p-5 shadow-lg border-l-4 border-l-purple-500 hover:shadow-xl transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Clientes nuevos</p>
-                                    <p className="mt-2 text-3xl font-bold text-slate-900">{analyticsSnapshot.newCustomers}</p>
-                                </div>
-                                <AlertCircle size={32} className="text-purple-500 opacity-20" />
-                            </div>
-                            <p className="text-xs text-slate-500 mt-3">En este período</p>
-                        </div>
-                        <div className="rounded-xl bg-white p-5 shadow-lg border-l-4 border-l-orange-500 hover:shadow-xl transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cesta promedio</p>
-                                    <p className="mt-2 text-2xl font-bold text-slate-900">{analyticsSnapshot.avgItems.toFixed(1)}</p>
-                                </div>
-                                <BarChart3 size={32} className="text-orange-500 opacity-20" />
-                            </div>
-                            <p className="text-xs text-slate-500 mt-3">productos por pedido</p>
-                        </div>
+                    <h3 className="text-lg font-semibold text-ink mb-3">Clientes y operación</h3>
+                    <div className="kpi-grid">
+                        <KpiCard label="Clientes activos" value={analyticsSnapshot.activeCustomers} icon={Users} tone="info" hint="Con al menos un pedido" />
+                        <KpiCard label="Clientes recurrentes" value={analyticsSnapshot.returningCustomers} icon={Target} tone="success" hint={`${repeatRate.toFixed(1)}% de la base`} />
+                        <KpiCard label="Clientes nuevos" value={analyticsSnapshot.newCustomers} icon={AlertCircle} tone="brand" hint="En este período" />
+                        <KpiCard label="Cesta promedio" value={analyticsSnapshot.avgItems.toFixed(1)} icon={BarChart3} tone="warning" hint="productos por pedido" />
                     </div>
                 </div>
 
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Indicadores fiscales</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 shadow-md border border-emerald-200 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-sm font-semibold text-slate-600">ITBIS Ventas (607)</p>
-                                <DollarSign size={18} className="text-emerald-600" />
-                            </div>
-                            <p className="text-3xl font-bold text-emerald-700">{formatCurrency(it1Summary.itbisVentas, currency)}</p>
-                            <p className="text-xs text-emerald-600 mt-2">Débito fiscal</p>
-                        </div>
-                        <div className="rounded-xl bg-gradient-to-br from-rose-50 to-rose-100 p-6 shadow-md border border-rose-200 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-sm font-semibold text-slate-600">ITBIS Compras (606)</p>
-                                <AlertCircle size={18} className="text-rose-600" />
-                            </div>
-                            <p className="text-3xl font-bold text-rose-700">{formatCurrency(it1Summary.itbisCompras, currency)}</p>
-                            <p className="text-xs text-rose-600 mt-2">Crédito fiscal</p>
-                        </div>
-                        <div className={`rounded-xl p-6 shadow-md border hover:shadow-lg transition-shadow ${it1Summary.itbisAPagar >= 0 ? 'bg-gradient-to-br from-sky-50 to-sky-100 border-sky-200' : 'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200'}`}>
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-sm font-semibold text-slate-600">ITBIS a Pagar (IT-1)</p>
-                                <TrendingUp size={18} className={it1Summary.itbisAPagar >= 0 ? 'text-sky-600' : 'text-amber-600'} />
-                            </div>
-                            <p className={`text-3xl font-bold ${it1Summary.itbisAPagar >= 0 ? 'text-sky-700' : 'text-amber-700'}`}>{formatCurrency(it1Summary.itbisAPagar, currency)}</p>
-                            <p className={`text-xs mt-2 ${it1Summary.itbisAPagar >= 0 ? 'text-sky-600' : 'text-amber-600'}`}>{it1Summary.itbisAPagar >= 0 ? 'A favor del estado' : 'A recuperar'}</p>
-                        </div>
+                    <h3 className="text-lg font-semibold text-ink mb-3">Indicadores fiscales</h3>
+                    <div className="kpi-grid">
+                        <KpiCard label="ITBIS Ventas (607)" value={formatCurrency(it1Summary.itbisVentas, currency)} icon={DollarSign} tone="success" hint="Débito fiscal" />
+                        <KpiCard label="ITBIS Compras (606)" value={formatCurrency(it1Summary.itbisCompras, currency)} icon={AlertCircle} tone="danger" hint="Crédito fiscal" />
+                        <KpiCard label="ITBIS a Pagar (IT-1)" value={formatCurrency(it1Summary.itbisAPagar, currency)} icon={TrendingUp} tone={it1Summary.itbisAPagar >= 0 ? 'info' : 'warning'} hint={it1Summary.itbisAPagar >= 0 ? 'A favor del estado' : 'A recuperar'} />
                     </div>
                 </div>
             </section>
@@ -834,19 +738,19 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                     <CardBody>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
                             <div>
-                                <h3 className="text-lg font-semibold text-slate-900">Actividad de ventas (últimos 7 días)</h3>
-                                <p className="text-sm text-slate-500">Total semanal {formatCurrency(analyticsSnapshot.weeklyVolume || 0, currency)}</p>
+                                <h3 className="text-lg font-semibold text-ink">Actividad de ventas (últimos 7 días)</h3>
+                                <p className="text-sm text-ink-muted">Total semanal {formatCurrency(analyticsSnapshot.weeklyVolume || 0, currency)}</p>
                             </div>
                         </div>
                         <div className="space-y-3">
                             {analyticsSnapshot.trendSeries?.map(day => (
                                 <div key={day.key}>
-                                    <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                    <div className="flex items-center justify-between text-xs text-ink-muted mb-1">
                                         <span>{day.label}</span>
                                         <span>{formatCurrency(day.value, currency)}</span>
                                     </div>
                                     <div className="h-2 rounded-full bg-slate-100">
-                                        <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-sky-500" style={{ width: `${trendMaxValue ? Math.min(100, (day.value / trendMaxValue) * 100) : 0}%` }}></div>
+                                        <div className="h-full rounded-full bg-brand-500" style={{ width: `${trendMaxValue ? Math.min(100, (day.value / trendMaxValue) * 100) : 0}%` }}></div>
                                     </div>
                                 </div>
                             ))}
@@ -856,41 +760,41 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                 <div className="grid grid-cols-1 gap-6">
                     <Card>
                         <CardBody>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-4">Mix de medios de pago</h3>
+                            <h3 className="text-lg font-semibold text-ink mb-4">Mix de medios de pago</h3>
                             {analyticsSnapshot.paymentMix && analyticsSnapshot.paymentMix.length > 0 ? (
                                 <div className="space-y-4">
                                     {analyticsSnapshot.paymentMix.map(method => (
                                         <div key={method.key}>
-                                            <div className="flex items-center justify-between text-sm text-slate-600 mb-1">
+                                            <div className="flex items-center justify-between text-sm text-ink-soft mb-1">
                                                 <span>{method.label}</span>
                                                 <span className="font-semibold">{method.percent.toFixed(1)}%</span>
                                             </div>
                                             <div className="h-2 rounded-full bg-slate-100">
-                                                <div className={`h-full rounded-full bg-gradient-to-r ${paymentColorMap[method.key] || 'from-slate-500 to-slate-400'}`} style={{ width: `${Math.min(100, method.percent)}%` }}></div>
+                                                <div className={`h-full rounded-full ${paymentColorMap[method.key] || 'bg-slate-500'}`} style={{ width: `${Math.min(100, method.percent)}%` }}></div>
                                             </div>
-                                            <p className="text-xs text-slate-400 mt-1">{formatCurrency(method.amount, currency)}</p>
+                                            <p className="text-xs text-ink-muted mt-1">{formatCurrency(method.amount, currency)}</p>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-sm text-slate-500">Sin pagos registrados en el período.</p>
+                                <p className="text-sm text-ink-muted">Sin pagos registrados en el período.</p>
                             )}
                         </CardBody>
                     </Card>
                     <Card>
                         <CardBody>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-4">Estado de pedidos</h3>
+                            <h3 className="text-lg font-semibold text-ink mb-4">Estado de pedidos</h3>
                             <div className="space-y-4">
                                 {analyticsSnapshot.statusBreakdown.map(status => (
                                     <div key={status.key}>
-                                        <div className="flex items-center justify-between text-sm text-slate-600 mb-1">
+                                        <div className="flex items-center justify-between text-sm text-ink-soft mb-1">
                                             <span>{status.label}</span>
                                             <span className="font-semibold">{status.value}</span>
                                         </div>
                                         <div className="h-2 rounded-full bg-slate-100">
                                             <div className={`${status.accent} h-full rounded-full`} style={{ width: `${Math.min(100, status.percent)}%` }}></div>
                                         </div>
-                                        <p className="text-xs text-slate-400 mt-1">{status.percent.toFixed(1)}% del total</p>
+                                        <p className="text-xs text-ink-muted mt-1">{status.percent.toFixed(1)}% del total</p>
                                     </div>
                                 ))}
                             </div>
@@ -902,45 +806,45 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             <section className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                     <CardBody>
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Top productos por ingresos</h3>
+                        <h3 className="text-lg font-semibold text-ink mb-4">Top productos por ingresos</h3>
                         {analyticsSnapshot.topProducts && analyticsSnapshot.topProducts.length > 0 ? (
                             <div className="space-y-4">
                                 {analyticsSnapshot.topProducts.map(product => (
                                     <div key={product.name}>
-                                        <div className="flex items-center justify-between text-sm text-slate-600 mb-1">
+                                        <div className="flex items-center justify-between text-sm text-ink-soft mb-1">
                                             <span>{product.name}</span>
                                             <span className="font-semibold">{formatCurrency(product.total, currency)}</span>
                                         </div>
                                         <div className="h-2 rounded-full bg-slate-100">
-                                            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500" style={{ width: `${analyticsSnapshot.topProducts[0].total ? Math.min(100, (product.total / analyticsSnapshot.topProducts[0].total) * 100) : 0}%` }}></div>
+                                            <div className="h-full rounded-full bg-brand-500" style={{ width: `${analyticsSnapshot.topProducts[0].total ? Math.min(100, (product.total / analyticsSnapshot.topProducts[0].total) * 100) : 0}%` }}></div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-slate-500">No hay productos con ventas en este período.</p>
+                            <p className="text-sm text-ink-muted">No hay productos con ventas en este período.</p>
                         )}
                     </CardBody>
                 </Card>
                 <Card>
                     <CardBody>
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Productos más vendidos (unidades semanales)</h3>
+                        <h3 className="text-lg font-semibold text-ink mb-4">Productos más vendidos (unidades semanales)</h3>
                         {weeklyTopProducts.length > 0 ? (
                             <div className="space-y-4">
                                 {weeklyTopProducts.map(([name, quantity], index) => (
                                     <div key={name}>
-                                        <div className="flex items-center justify-between text-sm text-slate-600 mb-1">
+                                        <div className="flex items-center justify-between text-sm text-ink-soft mb-1">
                                             <span className="flex items-center gap-2"><span className="text-xs text-slate-400">#{index + 1}</span>{name}</span>
                                             <span className="font-semibold">{quantity} u.</span>
                                         </div>
                                         <div className="h-2 rounded-full bg-slate-100">
-                                            <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500" style={{ width: `${weeklyTopMax ? Math.min(100, (quantity / weeklyTopMax) * 100) : 0}%` }}></div>
+                                            <div className="h-full rounded-full bg-warning-500" style={{ width: `${weeklyTopMax ? Math.min(100, (quantity / weeklyTopMax) * 100) : 0}%` }}></div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-slate-500">No se registran ventas en la última semana.</p>
+                            <p className="text-sm text-ink-muted">No se registran ventas en la última semana.</p>
                         )}
                     </CardBody>
                 </Card>
@@ -949,46 +853,46 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             <section className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                     <CardBody>
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Rendimiento del equipo</h3>
+                        <h3 className="text-lg font-semibold text-ink mb-4">Rendimiento del equipo</h3>
                         {analyticsSnapshot.teamPerformance && analyticsSnapshot.teamPerformance.length > 0 ? (
                             <div className="space-y-4">
                                 {analyticsSnapshot.teamPerformance.map(member => (
                                     <div key={member.name}>
-                                        <div className="flex items-center justify-between text-sm text-slate-600 mb-1">
+                                        <div className="flex items-center justify-between text-sm text-ink-soft mb-1">
                                             <span>{member.name}</span>
                                             <span className="font-semibold">{formatCurrency(member.total, currency)}</span>
                                         </div>
                                         <div className="h-2 rounded-full bg-slate-100">
-                                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${teamMax ? Math.min(100, (member.total / teamMax) * 100) : 0}%` }}></div>
+                                            <div className="h-full rounded-full bg-success-500" style={{ width: `${teamMax ? Math.min(100, (member.total / teamMax) * 100) : 0}%` }}></div>
                                         </div>
-                                        <p className="text-xs text-slate-400 mt-1">{member.orders} pedidos atendidos</p>
+                                        <p className="text-xs text-ink-muted mt-1">{member.orders} pedidos atendidos</p>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-slate-500">No hay pedidos asociados a usuarios en este período.</p>
+                            <p className="text-sm text-ink-muted">No hay pedidos asociados a usuarios en este período.</p>
                         )}
                     </CardBody>
                 </Card>
                 <Card>
                     <CardBody>
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Gastos por categoría</h3>
+                        <h3 className="text-lg font-semibold text-ink mb-4">Gastos por categoría</h3>
                         {analyticsSnapshot.expenseBreakdown && analyticsSnapshot.expenseBreakdown.length > 0 ? (
                             <div className="space-y-4">
                                 {analyticsSnapshot.expenseBreakdown.map(entry => (
                                     <div key={entry.label}>
-                                        <div className="flex items-center justify-between text-sm text-slate-600 mb-1">
+                                        <div className="flex items-center justify-between text-sm text-ink-soft mb-1">
                                             <span>{entry.label}</span>
                                             <span className="font-semibold">{formatCurrency(entry.amount, currency)}</span>
                                         </div>
                                         <div className="h-2 rounded-full bg-slate-100">
-                                            <div className="h-full rounded-full bg-gradient-to-r from-rose-500 to-pink-500" style={{ width: `${expenseMax ? Math.min(100, (entry.amount / expenseMax) * 100) : 0}%` }}></div>
+                                            <div className="h-full rounded-full bg-danger-500" style={{ width: `${expenseMax ? Math.min(100, (entry.amount / expenseMax) * 100) : 0}%` }}></div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-slate-500">No hay gastos en el período filtrado.</p>
+                            <p className="text-sm text-ink-muted">No hay gastos en el período filtrado.</p>
                         )}
                     </CardBody>
                 </Card>
@@ -1009,7 +913,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                     dataKey="value"
                     xAxisKey="name"
                     currency={currency}
-                    color="#8b5cf6"
+                    color="#4f46e5"
                     height={350}
                 />
             </section>
@@ -1028,7 +932,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                     dataKey="value"
                     xAxisKey="name"
                     currency={currency}
-                    color="#f59e0b"
+                    color="#0ea5e9"
                     height={350}
                 />
             </section>

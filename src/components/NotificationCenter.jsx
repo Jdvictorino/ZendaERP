@@ -8,6 +8,8 @@ import { notificationService } from '../utils/notificationService.js';
 import { notificationChannels } from '../utils/notificationChannels.js';
 import { Trash2, Eye, EyeOff, Filter, Settings, X, Check } from 'lucide-react';
 import './NotificationCenter.css';
+import { confirmDialog } from '../utils/confirmDialog.jsx';
+import Button from './ui/Button.jsx';
 
 export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState([]);
@@ -79,8 +81,8 @@ export const NotificationCenter = () => {
     updateNotifications();
   };
 
-  const deleteAllRead = () => {
-    if (window.confirm('¿Eliminar todas las notificaciones leídas?')) {
+  const deleteAllRead = async () => {
+    if (await confirmDialog('¿Eliminar todas las notificaciones leídas?', { confirmText: 'Eliminar' })) {
       const unreadIds = new Set();
       notifications.forEach(n => {
         if (!readNotifications.has(n.id)) {
@@ -112,8 +114,8 @@ export const NotificationCenter = () => {
     notificationService.setPreferences(newPrefs);
   };
 
-  const handleClearHistory = () => {
-    if (window.confirm('¿Está seguro de limpiar el historial completo?')) {
+  const handleClearHistory = async () => {
+    if (await confirmDialog('Se borrará todo el historial de notificaciones.', { title: 'Limpiar historial', confirmText: 'Limpiar' })) {
       notificationService.clearHistory();
       setReadNotifications(new Set());
       localStorage.removeItem('notification_read_status');
@@ -274,15 +276,15 @@ export const NotificationCenter = () => {
             </label>
 
             <div className="settings-buttons">
-              <button className="btn-secondary" onClick={markAllAsRead}>
+              <Button size="sm" variant="secondary" className="gap-1.5" onClick={markAllAsRead}>
                 Marcar todo como leído
-              </button>
-              <button className="btn-danger" onClick={deleteAllRead}>
+              </Button>
+              <Button size="sm" variant="danger" className="gap-1.5" onClick={deleteAllRead}>
                 Eliminar leídas
-              </button>
-              <button className="btn-danger" onClick={handleClearHistory}>
+              </Button>
+              <Button size="sm" variant="danger" className="gap-1.5" onClick={handleClearHistory}>
                 <Trash2 size={14} /> Limpiar todo
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -505,15 +507,15 @@ export const NotificationCenter = () => {
               </label>
 
               <div className="settings-section-actions">
-                <button className="btn-primary" onClick={markAllAsRead}>
+                <Button size="sm" variant="primary" className="gap-1.5" onClick={markAllAsRead}>
                   <Check size={16} /> Marcar todo como leído
-                </button>
-                <button className="btn-secondary" onClick={deleteAllRead}>
+                </Button>
+                <Button size="sm" variant="secondary" className="gap-1.5" onClick={deleteAllRead}>
                   Limpiar notificaciones leídas
-                </button>
-                <button className="btn-danger" onClick={handleClearHistory}>
+                </Button>
+                <Button size="sm" variant="danger" className="gap-1.5" onClick={handleClearHistory}>
                   <Trash2 size={16} /> Eliminar todo el historial
-                </button>
+                </Button>
               </div>
             </div>
           </div>

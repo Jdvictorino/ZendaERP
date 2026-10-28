@@ -4,14 +4,18 @@
 
 import React, { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, Loader2, AlertTriangle, Clock } from 'lucide-react';
 import Card, { CardBody } from '../components/ui/Card.jsx';
+import { badgeClass } from '../components/ui/Badge.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
 // API PostgreSQL
 import { useApiCrud } from '../hooks/useApi.js';
+import { confirmDialog } from '../utils/confirmDialog.jsx';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
   const currency = companyProfile?.currency || 'USD';
@@ -96,7 +100,7 @@ export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
   const handleDeleteShift = async (shift) => {
     if (!isAdminUser) return;
     if (!shift?.id) return;
-    const confirmed = window.confirm('¿Eliminar este turno de caja? Esta acción no se puede deshacer.');
+    const confirmed = await confirmDialog('Esta acción no se puede deshacer.', { title: '¿Eliminar este turno de caja?', confirmText: 'Eliminar' });
     if (!confirmed) return;
     try {
       await remove(shift.id);
@@ -110,10 +114,7 @@ export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
   // Estados de carga y error
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin text-indigo-500" size={48} />
-        <p className="ml-4 text-gray-500">Cargando turnos...</p>
-      </div>
+      <PageSkeleton kpis={0} label="Cargando turnos..." />
     );
   }
 
@@ -130,7 +131,7 @@ export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-6 gap-2">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+        <h2 className="page-title">
           Turnos de Caja
         </h2>
         <div className="flex items-center gap-2">
@@ -140,17 +141,17 @@ export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
       <Card className="mb-4">
         <CardBody className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <Input placeholder="Buscar por usuario" value={q} onChange={e => setQ(e.target.value)} />
-          <select className="input-base" value={status} onChange={e => setStatus(e.target.value)}>
+          <select aria-label="Estado del turno" className="input-base" value={status} onChange={e => setStatus(e.target.value)}>
             <option value="">Todos</option>
             <option value="open">Abiertos</option>
             <option value="closed">Cerrados</option>
           </select>
-          <select className="input-base" value={registerId} onChange={e => setRegisterId(e.target.value)}>
+          <select aria-label="Caja" className="input-base" value={registerId} onChange={e => setRegisterId(e.target.value)}>
             <option value="">Todas las cajas</option>
             {registers.map(r => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
           </select>
-          <input type="date" className="input-base" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-          <input type="date" className="input-base" value={toDate} onChange={e => setToDate(e.target.value)} />
+          <input aria-label="Desde" type="date" className="input-base" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          <input aria-label="Hasta" type="date" className="input-base" value={toDate} onChange={e => setToDate(e.target.value)} />
         </CardBody>
       </Card>
       <Card>
@@ -158,32 +159,32 @@ export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
           <table className="w-full text-left min-w-[1000px]">
             <thead>
               <tr className="border-b bg-gray-50/60">
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Apertura</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Cierre</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Caja</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Fondo</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Esperado</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Contado</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Diferencia</th>
-                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Ventas (Efe/Tar/Trf/Cr)</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Estado</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Apertura</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Cierre</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Caja</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Fondo</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Esperado</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Contado</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Diferencia</th>
+                <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Ventas (Efe/Tar/Trf/Cr)</th>
                 {isAdminUser && (
-                  <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">Acciones</th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted text-right">Acciones</th>
                 )}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdminUser ? 10 : 9} className="p-4 text-center text-gray-500">No hay turnos registrados</td>
+                  <td colSpan={isAdminUser ? 10 : 9} className="p-0"><EmptyState icon={Clock} title="No hay turnos registrados" description="Los turnos aparecen aquí cuando un cajero abre la caja." /></td>
                 </tr>
               ) : (
                 filtered.map(s => {
                   const openedAt = parseDate(s.openedAt);
                   const closedAt = parseDate(s.closedAt);
                   return (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full ${s.status === 'open' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{s.status}</span></td>
+                    <tr key={s.id} className="border-b hover:bg-surface-muted">
+                      <td className="p-3"><span className={badgeClass(s.status === 'open' ? 'warning' : 'success')}>{s.status === 'open' ? 'Abierto' : s.status === 'closed' ? 'Cerrado' : s.status}</span></td>
                       <td className="p-3">{openedAt ? openedAt.toLocaleString() : ''}</td>
                       <td className="p-3">{closedAt ? closedAt.toLocaleString() : ''}</td>
                       <td className="p-3 font-mono text-sm">{s.registerId || '-'}</td>

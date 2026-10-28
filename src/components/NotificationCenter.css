@@ -222,46 +222,6 @@
   flex-wrap: wrap;
 }
 
-.btn-primary, .btn-secondary, .btn-danger {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-primary {
-  background: #667eea;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #5568d3;
-}
-
-.btn-secondary {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.btn-secondary:hover {
-  background: #d1d5db;
-}
-
-.btn-danger {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.btn-danger:hover {
-  background: #fecaca;
-}
-
 /* Recent Tab */
 .notif-recent-tab {
   display: flex;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zenda-erp-v1';
+const CACHE_NAME = 'zenda-erp-v2';
 
 // Assets estáticos que se cachean al instalar
 const STATIC_ASSETS = [
@@ -34,14 +34,19 @@ self.addEventListener('activate', (event) => {
 // Fetch: Network-first para API, Cache-first para assets
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+
+  // Ignorar esquemas no soportados (extensiones, etc.) y métodos no GET
+  if (!request.url.startsWith('http://') && !request.url.startsWith('https://')) {
+    return;
+  }
+  if (request.method !== 'GET') {
+    return;
+  }
+
   const url = new URL(request.url);
 
-  // API calls: siempre network-first
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .catch(() => caches.match(request))
-    );
+  // API calls o dominios de API: siempre a la red directa
+  if (url.pathname.startsWith('/api/') || url.hostname.startsWith('api.')) {
     return;
   }
 
@@ -50,8 +55,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
         .catch(() => caches.match('/index.html'))
@@ -64,8 +71,8 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
-        // Solo cachear respuestas válidas
-        if (response.status === 200 && response.type === 'basic') {
+        // Solo cachear respuestas válidas de origen propio
+        if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }

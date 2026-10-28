@@ -3,9 +3,13 @@ import { parseXlsxFile } from '../utils/importProducts.js';
 import { downloadProductTemplate } from '../utils/productTemplate.js';
 import { products as productsApi } from '../api/client.js';
 import toast from 'react-hot-toast';
+import { Upload, Download } from 'lucide-react';
+import Button from '../components/ui/Button.jsx';
 
-const ProductsImportViewSQL = ({ onImportComplete }) => {
+// embedded: dentro del modal de Inventario, que ya muestra su propio título
+const ProductsImportViewSQL = ({ onImportComplete, embedded = false }) => {
     const [file, setFile] = useState(null);
+    const [fileName, setFileName] = useState('');
     const [preview, setPreview] = useState([]);
     const [errors, setErrors] = useState([]);
     const [importing, setImporting] = useState(false);
@@ -66,15 +70,19 @@ const ProductsImportViewSQL = ({ onImportComplete }) => {
 
     return (
         <div>
-            <h2 className="text-3xl font-bold mb-6">Importar Productos (Excel)</h2>
-            <div className="bg-white p-6 rounded shadow mb-6">
-                <div className="flex gap-3 items-center">
-                    <input type="file" accept=".xlsx,.xls" onChange={handleFile} />
-                    <button onClick={() => downloadProductTemplate()} className="bg-gray-200 py-2 px-3 rounded">Descargar plantilla</button>
-                    <button onClick={handleImport} disabled={importing} className={`ml-auto ${importing ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'} text-white py-2 px-4 rounded`}>{importing ? 'Importando...' : 'Importar'}</button>
+            {!embedded && <h2 className="page-title mb-6">Importar productos (Excel)</h2>}
+            <div className="card p-5 mb-4">
+                <div className="flex flex-wrap gap-3 items-center">
+                    <label className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-dashed border-line dark:border-gray-600 bg-surface-muted text-sm font-medium text-ink cursor-pointer hover:border-brand-400 transition-colors">
+                        <Upload size={16} />
+                        <span className="max-w-[16rem] truncate">{fileName || 'Seleccionar archivo .xlsx'}</span>
+                        <input type="file" accept=".xlsx,.xls" onChange={(e) => { setFileName(e.target.files?.[0]?.name || ''); handleFile(e); }} className="sr-only" />
+                    </label>
+                    <Button variant="secondary" onClick={() => downloadProductTemplate()} className="gap-2"><Download size={16} /> Descargar plantilla</Button>
+                    <Button onClick={handleImport} disabled={importing} className="ml-auto">{importing ? 'Importando…' : 'Importar'}</Button>
                 </div>
                 {errors && errors.length > 0 && (
-                    <div className="mt-4 text-sm text-red-600">
+                    <div className="mt-4 text-sm text-danger-600">
                         <strong>Errores:</strong>
                         <ul className="max-h-40 overflow-y-auto">
                             {errors.map((er, i) => <li key={i}>Fila {er.row}: {er.error}</li>)}
@@ -83,29 +91,29 @@ const ProductsImportViewSQL = ({ onImportComplete }) => {
                 )}
             </div>
 
-            <div className="bg-white p-6 rounded shadow">
-                <h3 className="font-semibold mb-3">Vista previa (primeras 200 filas)</h3>
-                {preview.length === 0 && <p className="text-sm text-gray-500">No hay datos a mostrar.</p>}
+            <div className="card p-5">
+                <h3 className="text-base font-semibold text-ink mb-3">Vista previa (primeras 200 filas)</h3>
+                {preview.length === 0 && <p className="text-sm text-ink-muted">Selecciona un archivo para ver aquí las filas antes de importarlas.</p>}
                 {preview.length > 0 && (
                     <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
+                        <table className="min-w-full text-sm text-left">
                             <thead>
-                                <tr>
-                                    <th className="border px-2 py-1">Nombre</th>
-                                    <th className="border px-2 py-1">Código (entrada)</th>
-                                    <th className="border px-2 py-1">SKU</th>
-                                    <th className="border px-2 py-1">PrecioVenta</th>
-                                    <th className="border px-2 py-1">Stock</th>
+                                <tr className="bg-gray-50/60 dark:bg-gray-800 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                                    <th className="px-3 py-2 border-b border-line">Nombre</th>
+                                    <th className="px-3 py-2 border-b border-line">Código (entrada)</th>
+                                    <th className="px-3 py-2 border-b border-line">SKU</th>
+                                    <th className="px-3 py-2 border-b border-line">PrecioVenta</th>
+                                    <th className="px-3 py-2 border-b border-line">Stock</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {preview.map((r, idx) => (
-                                    <tr key={idx} className="odd:bg-gray-50">
-                                        <td className="border px-2 py-1">{r.name}</td>
-                                        <td className="border px-2 py-1">{r.barcode || r.codigoProducto || ''}</td>
-                                        <td className="border px-2 py-1">{r.sku}</td>
-                                        <td className="border px-2 py-1">{r.salePrice}</td>
-                                        <td className="border px-2 py-1">{r.stock}</td>
+                                    <tr key={idx} className="border-b border-line last:border-0">
+                                        <td className="px-3 py-2">{r.name}</td>
+                                        <td className="px-3 py-2">{r.barcode || r.codigoProducto || ''}</td>
+                                        <td className="px-3 py-2">{r.sku}</td>
+                                        <td className="px-3 py-2">{r.salePrice}</td>
+                                        <td className="px-3 py-2">{r.stock}</td>
                                     </tr>
                                 ))}
                             </tbody>

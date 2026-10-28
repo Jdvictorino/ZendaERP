@@ -3,10 +3,14 @@ import { z } from 'zod';
 import prisma from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
-import { emitEcf } from '../services/ecfService.js';
+import { emitEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
 
 const router = Router();
 router.use(authenticate);
+
+// Anular/cancelar y modificar facturas ya emitidas queda para gerencia; cajeros y supervisores solo venden y cobran.
+const VOID_STATUSES = ['Anulado', 'Cancelado'];
+const canManageInvoices = (user) => !!user?.isAdmin || ['admin', 'manager'].includes(user?.role);
 
 const invoiceItemSchema = z.object({
   productId: z.string().uuid().optional(),
@@ -30,7 +34,8 @@ const invoiceSchema = z.object({
   amountPaid: z.number().min(0).default(0),
   deliveryType: z.string().optional(),
   notes: z.string().optional(),
-  status: z.string().default('Pendiente')
+  status: z.string().default('Pendiente'),
+  paymentTermDays: z.number().int().min(0).max(365).optional()
 });
 
 /**
@@ -186,6 +191,9 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
           taxAmount,
           total,
           paymentMethod: data.paymentMethod,
+          // venta a crédito: vence en la fecha de la venta + plazo; de contado no lleva vencimiento propio
+          paymentTermDays: data.paymentTermDays || null,
+          dueDate: data.paymentTermDays ? new Date(Date.now() + data.paymentTermDays * 24 * 60 * 60 * 1000) : null,
           amountPaid: data.amountPaid,
           changeAmount,
           deliveryType: data.deliveryType,
@@ -261,9 +269,19 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
 router.patch('/:id/status', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
   try {
     const { status } = req.body;
-    
+
+    const existing = await prisma.invoice.findFirst({
+      where: { id: req.params.id, companyId: req.companyId }
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Factura no encontrada' });
+    }
+    if (VOID_STATUSES.includes(status) && !canManageInvoices(req.user)) {
+      return res.status(403).json({ error: 'Solo un gerente o administrador puede anular o cancelar facturas.' });
+    }
+
     const invoice = await prisma.invoice.update({
-      where: { id: req.params.id },
+      where: { id: existing.id },
       data: { status }
     });
 
@@ -301,6 +319,16 @@ router.put('/:id', authorize('admin', 'manager', 'cashier'), async (req, res, ne
     }
     if (req.body.paymentStatus !== undefined) {
       updateData.status = req.body.paymentStatus;
+    }
+
+    if (!canManageInvoices(req.user)) {
+      if (VOID_STATUSES.includes(updateData.status)) {
+        return res.status(403).json({ error: 'Solo un gerente o administrador puede anular o cancelar facturas.' });
+      }
+      const amountFields = ['items', 'total', 'discountAmount', 'appliedCoupon'].filter(f => updateData[f] !== undefined);
+      if (invoice.isBilled && amountFields.length) {
+        return res.status(403).json({ error: 'Una factura ya emitida no se puede modificar. Pide a un gerente una nota de crédito o débito.' });
+      }
     }
 
     // Si se actualizan los items, actualizarlos en cascada
@@ -350,7 +378,8 @@ router.put('/:id', authorize('admin', 'manager', 'cashier'), async (req, res, ne
  * POST /api/invoices/:id/bill
  * Facturar un pedido (asignar NCF)
  */
-router.post('/:id/bill', authorize('admin', 'manager'), async (req, res, next) => {
+// Facturar asigna el comprobante automáticamente (NCF o e-CF); el cajero no elige ni edita la secuencia.
+router.post('/:id/bill', authorize('admin', 'manager', 'supervisor', 'cashier'), async (req, res, next) => {
   try {
     const { ncfType, customerRnc } = req.body;
     
@@ -378,19 +407,28 @@ router.post('/:id/bill', authorize('admin', 'manager'), async (req, res, next) =
         await prisma.invoice.update({ where: { id: req.params.id }, data: { customerRnc } });
       }
 
-      const result = await emitEcf(req.params.id, ncfType, req.companyId);
-
-      // Marcar como facturado
-      const updatedInvoice = await prisma.invoice.update({
-        where: { id: req.params.id },
-        data: { isBilled: true, billedDate: new Date(), invoiceNumber: invoice.orderNumber },
-        include: { items: true, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } }
+      // Si esta factura ya tiene un e-CF que no llegó a la DGII, se reintenta ese mismo documento
+      // en lugar de generar otro (no se gasta un e-NCF nuevo). Un e-CF rechazado sí requiere uno nuevo.
+      const unsent = await prisma.ecfDocument.findFirst({
+        where: { invoiceId: req.params.id, companyId: req.companyId, dgiiStatus: { in: ['error', 'pendiente'] } },
+        orderBy: { createdAt: 'desc' },
       });
+      const result = unsent
+        ? await retryEcfSend(unsent.id, req.companyId)
+        : await emitEcf(req.params.id, ncfType, req.companyId);
+      const ecfDocumentId = unsent?.id || result.ecfDocument?.id;
+      const ecfResult = { ...result, ecfDocument: result.ecfDocument || result.document };
 
-      return res.json({
-        ...updatedInvoice,
-        ecfResult: result,
-      });
+      // La factura solo queda facturada si la DGII recibió el e-CF
+      const updatedInvoice = ecfDocumentId ? await syncInvoiceWithEcf(ecfDocumentId) : null;
+      if (!result.success || !updatedInvoice?.isBilled) {
+        return res.status(502).json({
+          error: `La DGII no recibió el e-CF${ecfResult.ecfDocument?.eNcf ? ' ' + ecfResult.ecfDocument.eNcf : ''}: ${result.error || ecfResult.ecfDocument?.dgiiMessage || 'sin respuesta'}. La venta queda pendiente de facturar y se puede reintentar.`,
+          ecfResult,
+        });
+      }
+
+      return res.json({ ...updatedInvoice, ecfResult });
     }
 
     // ── NCF Tradicional (B01, B02, NoFiscal) ──

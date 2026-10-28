@@ -4,6 +4,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Trash2, Users, PlusCircle, Download, TrendingUp, Award, UserPlus, Clock, Settings, Power, Loader2, AlertTriangle } from 'lucide-react';
+import KpiCard from '../components/ui/KpiCard.jsx';
 import toast from 'react-hot-toast';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import ConfirmationModal from '../components/modals/ConfirmationModal.jsx';
@@ -14,6 +15,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 
 // API PostgreSQL
 import { useApiCrud } from '../hooks/useApi.js';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -252,10 +254,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
     // Estados de carga y error
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Loader2 className="animate-spin text-indigo-500" size={48} />
-                <p className="ml-4 text-gray-500">Cargando clientes...</p>
-            </div>
+            <PageSkeleton label="Cargando clientes..." />
         );
     }
 
@@ -286,7 +285,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                <h2 className="page-title">
                     Cartera de Clientes
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
@@ -298,74 +297,28 @@ const CustomersViewSQL = ({ companyProfile }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">Clientes activos</p>
-                                <p className="text-2xl font-semibold text-gray-900">{customerAnalytics.activeCustomers} / {customerAnalytics.totalCustomers}</p>
-                            </div>
-                            <Users size={28} className="text-indigo-500" />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">{customerAnalytics.inactiveCustomers} inactivos</p>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">Clientes nuevos (30 días)</p>
-                                <p className="text-2xl font-semibold text-gray-900">{customerAnalytics.newCustomers30}</p>
-                            </div>
-                            <UserPlus size={28} className="text-teal-500" />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">Incremento reciente de tu cartera</p>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">Facturación del mes</p>
-                                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(customerAnalytics.monthRevenue, currency)}</p>
-                            </div>
-                            <TrendingUp size={28} className="text-emerald-500" />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">Basado en facturas del período</p>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">Cliente destacado</p>
-                                <p className="text-lg font-semibold text-gray-900">{customerAnalytics.topCustomer?.name || 'Sin registros'}</p>
-                                <p className="text-sm text-gray-500">{customerAnalytics.topCustomer ? formatCurrency(customerAnalytics.topCustomer.total, currency) : ''}</p>
-                            </div>
-                            <Award size={28} className="text-amber-500" />
-                        </div>
-                        {customerAnalytics.topCustomer?.lastDate && (
-                            <p className="text-xs text-gray-500 mt-3">Última compra: {formatDate(customerAnalytics.topCustomer.lastDate)}</p>
-                        )}
-                    </CardBody>
-                </Card>
+            <div className="kpi-grid">
+                <KpiCard label="Clientes activos" value={`${customerAnalytics.activeCustomers} / ${customerAnalytics.totalCustomers}`} icon={Users} tone="brand" hint={`${customerAnalytics.inactiveCustomers} inactivos`} />
+                <KpiCard label="Clientes nuevos (30 días)" value={customerAnalytics.newCustomers30} icon={UserPlus} tone="success" hint="Incremento reciente de tu cartera" />
+                <KpiCard label="Facturación del mes" value={formatCurrency(customerAnalytics.monthRevenue, currency)} icon={TrendingUp} tone="info" hint="Basado en facturas del período" />
+                <KpiCard label="Cliente destacado" value={customerAnalytics.topCustomer?.name || 'Sin registros'} icon={Award} tone="warning"
+                    hint={customerAnalytics.topCustomer ? `${formatCurrency(customerAnalytics.topCustomer.total, currency)}${customerAnalytics.topCustomer.lastDate ? ` · Última compra: ${formatDate(customerAnalytics.topCustomer.lastDate)}` : ''}` : undefined} />
             </div>
 
             <Card>
                 <CardBody className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="md:col-span-2">
-                        <label className="block text-sm text-gray-600 mb-1">Buscar cliente</label>
-                        <input className="input-base" placeholder="Nombre, código o teléfono" value={q} onChange={e => setQ(e.target.value)} />
+                        <label className="block text-sm text-ink-soft mb-1">Buscar cliente</label>
+                        <input aria-label="Buscar cliente" className="input-base" placeholder="Nombre, código o teléfono" value={q} onChange={e => setQ(e.target.value)} />
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-600 mb-1">Categoría</label>
-                        <select className="input-base" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+                        <label className="block text-sm text-ink-soft mb-1">Categoría</label>
+                        <select aria-label="Categoría" className="input-base" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
                             <option value="">Todas las categorías</option>
                             {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
-                    <div className="md:col-span-3 flex justify-between text-sm text-gray-500">
+                    <div className="md:col-span-3 flex justify-between text-sm text-ink-muted">
                         <span>Mostrando {filteredCustomers.length} de {safeCustomers.length} clientes</span>
                         <span>Ticket promedio: {formatCurrency(customerAnalytics.averageTicket, currency)}</span>
                     </div>
@@ -375,11 +328,11 @@ const CustomersViewSQL = ({ companyProfile }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
                     <CardBody>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top 5 clientes por facturación</h3>
+                        <h3 className="text-lg font-semibold text-ink mb-4">Top 5 clientes por facturación</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="text-xs uppercase tracking-wide text-gray-500 border-b">
+                                    <tr className="text-xs uppercase tracking-wide text-ink-muted border-b">
                                         <th className="py-2">Cliente</th>
                                         <th className="py-2">Total vendido</th>
                                         <th className="py-2">Última compra</th>
@@ -388,14 +341,14 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                 <tbody>
                                     {customerAnalytics.topCustomers.length === 0 && (
                                         <tr>
-                                            <td colSpan="3" className="py-3 text-sm text-gray-500 text-center">Aún no hay ventas registradas.</td>
+                                            <td colSpan="3" className="py-3 text-sm text-ink-muted text-center">Aún no hay ventas registradas.</td>
                                         </tr>
                                     )}
                                     {customerAnalytics.topCustomers.map(item => (
                                         <tr key={item.customerId} className="border-b last:border-0">
-                                            <td className="py-2 text-sm font-medium text-gray-800">{item.name}</td>
-                                            <td className="py-2 text-sm text-gray-600">{formatCurrency(item.total, currency)}</td>
-                                            <td className="py-2 text-sm text-gray-500">{formatDate(item.lastDate)}</td>
+                                            <td className="py-2 text-sm font-medium text-ink">{item.name}</td>
+                                            <td className="py-2 text-sm text-ink-soft">{formatCurrency(item.total, currency)}</td>
+                                            <td className="py-2 text-sm text-ink-muted">{formatDate(item.lastDate)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -406,30 +359,30 @@ const CustomersViewSQL = ({ companyProfile }) => {
                 <Card>
                     <CardBody className="space-y-4">
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">Actividad reciente</h3>
+                            <h3 className="text-lg font-semibold text-ink mb-2">Actividad reciente</h3>
                             <ul className="space-y-3">
-                                {customerAnalytics.recentInvoices.length === 0 && <li className="text-sm text-gray-500">Sin movimientos recientes.</li>}
+                                {customerAnalytics.recentInvoices.length === 0 && <li className="text-sm text-ink-muted">Sin movimientos recientes.</li>}
                                 {customerAnalytics.recentInvoices.map(item => (
                                     <li key={item.id || `${item.customer}-${item.date?.toISOString()}`}
                                         className="flex items-center justify-between text-sm">
                                         <div>
-                                            <p className="font-medium text-gray-800">{item.customer}</p>
-                                            <p className="text-xs text-gray-500 flex items-center gap-1"><Clock size={14} /> {formatDate(item.date)}</p>
+                                            <p className="font-medium text-ink">{item.customer}</p>
+                                            <p className="text-xs text-ink-muted flex items-center gap-1"><Clock size={14} /> {formatDate(item.date)}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-semibold text-gray-900">{formatCurrency(item.amount, currency)}</p>
-                                            {item.reference && <p className="text-xs text-gray-500">Ref. {item.reference}</p>}
+                                            <p className="font-semibold text-ink">{formatCurrency(item.amount, currency)}</p>
+                                            {item.reference && <p className="text-xs text-ink-muted">Ref. {item.reference}</p>}
                                         </div>
                                     </li>
                                 ))}
                             </ul>
                         </div>
-                        <div className="border-t border-gray-100 pt-3">
-                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Distribución por categoría</h4>
+                        <div className="border-t border-line pt-3">
+                            <h4 className="text-sm font-semibold text-ink-soft mb-2">Distribución por categoría</h4>
                             {customerAnalytics.categoryBreakdown.length === 0 ? (
-                                <p className="text-sm text-gray-500">Sin datos de categorías.</p>
+                                <p className="text-sm text-ink-muted">Sin datos de categorías.</p>
                             ) : (
-                                <ul className="space-y-1 text-sm text-gray-600">
+                                <ul className="space-y-1 text-sm text-ink-soft">
                                     {customerAnalytics.categoryBreakdown.map(item => (
                                         <li key={item.category} className="flex justify-between">
                                             <span>{item.category}</span>
@@ -447,8 +400,8 @@ const CustomersViewSQL = ({ companyProfile }) => {
                 <Card>
                     <CardBody className="text-center py-12">
                         <Users size={48} className="mx-auto text-gray-400" />
-                        <h3 className="mt-4 text-xl font-semibold text-gray-900">No tienes clientes</h3>
-                        <p className="mt-2 text-gray-500">Aún no has añadido ningún cliente. ¡Empieza por aquí!</p>
+                        <h3 className="mt-4 text-xl font-semibold text-ink">No tienes clientes</h3>
+                        <p className="mt-2 text-ink-muted">Aún no has añadido ningún cliente. ¡Empieza por aquí!</p>
                         <Button onClick={() => setEditingCustomer({})} className="mt-6">
                             <PlusCircle size={20} className="mr-2"/> Crear mi primer cliente
                         </Button>
@@ -461,35 +414,35 @@ const CustomersViewSQL = ({ companyProfile }) => {
                         <table className="hidden lg:table w-full text-left min-w-[900px]">
                             <thead>
                                 <tr className="border-b bg-gray-50/60 dark:bg-gray-800">
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Código</th>
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre</th>
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Categoría</th>
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo Cuenta</th>
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Identificación</th>
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Teléfono</th>
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Código</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Nombre</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Categoría</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Tipo Cuenta</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Identificación</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Teléfono</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                            <tbody className="bg-surface dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
                                 {filteredCustomers.map(c => (
-                                    <tr key={c.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    <tr key={c.id} className="border-b hover:bg-surface-muted dark:hover:bg-gray-800 transition-colors">
                                         <td className="p-3 text-sm font-mono dark:text-gray-400">{c.customerCode}</td>
                                         <td className="p-3 text-sm font-medium dark:text-gray-100">{c.name}</td>
-                                        <td className="p-3 text-sm text-gray-600 dark:text-gray-400">{c.category || 'Sin categoría'}</td>
-                                        <td className="p-3 text-sm text-gray-600 dark:text-gray-400">{(c.accountType || 'contado') === 'credito' ? 'Crédito' : 'Contado'}</td>
+                                        <td className="p-3 text-sm text-ink-soft dark:text-gray-400">{c.category || 'Sin categoría'}</td>
+                                        <td className="p-3 text-sm text-ink-soft dark:text-gray-400">{(c.accountType || 'contado') === 'credito' ? 'Crédito' : 'Contado'}</td>
                                         <td className="p-3 text-sm dark:text-gray-400">{c.identificationNumber}{c.type ? ` (${c.type})` : ''}</td>
                                         <td className="p-3 text-sm dark:text-gray-400">{c.phone}</td>
-                                        <td className="p-3 flex flex-wrap gap-2 items-center">
+                                        <td className="p-3"><div className="flex flex-wrap gap-2 items-center">
                                             <Button variant="ghost" size="sm" onClick={() => setEditingCustomer(c)} title="Editar cliente">
-                                                <Settings size={18} className="text-indigo-600" />
+                                                <Settings size={18} className="text-brand-600" />
                                             </Button>
                                             <Button variant="ghost" size="sm" onClick={() => toggleStatus(c)} title={c.status !== 'inactive' ? 'Desactivar' : 'Activar'}>
-                                                <Power size={18} className={c.status !== 'inactive' ? 'text-amber-600' : 'text-emerald-600'} />
+                                                <Power size={18} className={c.status !== 'inactive' ? 'text-amber-600' : 'text-success-600'} />
                                             </Button>
                                             <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(c)} title="Eliminar">
                                                 <Trash2 size={18} className="text-red-600" />
                                             </Button>
-                                        </td>
+                                        </div></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -501,24 +454,24 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                 <div key={c.id} className="p-4 active:bg-gray-50 dark:active:bg-gray-800 transition-colors">
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-mono text-gray-500 uppercase">{c.customerCode}</span>
-                                            <span className="font-bold text-gray-900 dark:text-gray-100 text-lg leading-tight">{c.name}</span>
+                                            <span className="text-xs font-mono text-ink-muted uppercase">{c.customerCode}</span>
+                                            <span className="font-bold text-ink dark:text-gray-100 text-lg leading-tight">{c.name}</span>
                                             <span className="text-xs text-brand-600 dark:text-brand-400 font-medium mt-0.5">{c.category || 'Sin categoría'}</span>
                                         </div>
                                         <div className="flex flex-col items-end">
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                                            <span className={`text-xs uppercase font-bold px-2 py-0.5 rounded-full ${
                                                 (c.accountType || 'contado') === 'credito' ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'
                                             }`}>
                                                 {(c.accountType || 'contado') === 'credito' ? 'Crédito' : 'Contado'}
                                             </span>
-                                            {c.phone && <span className="text-xs text-gray-500 mt-2">{c.phone}</span>}
+                                            {c.phone && <span className="text-xs text-ink-muted mt-2">{c.phone}</span>}
                                         </div>
                                     </div>
                                     
                                     <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50 dark:border-gray-800">
                                         <div className="flex gap-2">
                                             <button onClick={() => toggleStatus(c)} className={`p-2 rounded-lg transition-colors ${
-                                                c.status !== 'inactive' ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'
+                                                c.status !== 'inactive' ? 'text-amber-600 hover:bg-amber-50' : 'text-success-600 hover:bg-success-50'
                                             }`}>
                                                 <Power size={18} />
                                             </button>
@@ -533,7 +486,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                 </div>
                             ))}
                             {filteredCustomers.length === 0 && (
-                                <div className="p-8 text-center text-gray-500">No se encontraron clientes</div>
+                                <div className="p-8 text-center text-ink-muted">No se encontraron clientes</div>
                             )}
                         </div>
                     </CardBody>

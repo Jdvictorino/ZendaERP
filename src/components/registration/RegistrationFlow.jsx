@@ -4,6 +4,7 @@ import './RegistrationFlow.css';
 import StepAdminForm from './StepAdminForm.jsx';
 import StepCompanyForm from './StepCompanyForm.jsx';
 import StepReview from './StepReview.jsx';
+import { confirmDialog } from '../../utils/confirmDialog.jsx';
 
 const STEPS = [
   { number: 1, title: 'Administrador', desc: 'Cuenta de acceso' },
@@ -26,8 +27,8 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
   const handleCompanyNext = (data) => { setCompanyData(data); goTo(3); };
   const handleConfirm = () => onFinalize(adminData, companyData);
 
-  const handleClear = () => {
-    if (window.confirm('¿Cancelar el registro? Se borrarán todos los datos ingresados.')) {
+  const handleClear = async () => {
+    if (await confirmDialog('Se borrarán todos los datos ingresados.', { title: '¿Cancelar el registro?', confirmText: 'Cancelar registro', cancelText: 'Seguir' })) {
       onCancel();
     }
   };
@@ -41,22 +42,22 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
   };
 
   const stepCircleClass = (s) => {
-    if (step > s) return 'bg-emerald-400 text-white shadow';
-    if (step === s) return 'bg-white text-indigo-700 shadow-lg scale-110';
-    return 'bg-indigo-600/60 border border-indigo-400 text-indigo-300';
+    if (step > s) return 'bg-success-400 text-white shadow';
+    if (step === s) return 'bg-white text-brand-700 shadow-lg scale-110';
+    return 'bg-brand-600/60 border border-brand-400 text-brand-300';
   };
 
   return (
-    <div className="fixed inset-0 flex bg-gray-50 z-50">
+    <div className="fixed inset-0 flex bg-surface-muted z-50">
       {/* ─── Left panel ─── */}
-      <aside className="hidden lg:flex flex-col justify-between w-80 xl:w-96 flex-shrink-0 bg-gradient-to-b from-indigo-700 to-indigo-900 text-white p-10">
+      <aside className="hidden lg:flex flex-col justify-between w-80 xl:w-96 flex-shrink-0 bg-gradient-to-b from-brand-700 to-brand-900 text-white p-10">
         <div>
           {/* Logo */}
             <div className="flex items-center gap-3 text-2xl font-bold mb-12">
             <Edit size={28} />
             <span>Zenda ERP</span>
           </div>
-          <p className="text-indigo-200 text-sm mb-10 leading-relaxed">
+          <p className="text-brand-200 text-sm mb-10 leading-relaxed">
             Completa los tres pasos para crear tu cuenta y comenzar a usar el sistema.
           </p>
 
@@ -72,11 +73,11 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
                     </div>
                     <div className="pt-0.5">
                       <h4 className={`font-semibold text-sm transition-opacity ${isPending ? 'opacity-50' : ''}`}>{s.title}</h4>
-                      <p className="text-xs text-indigo-300 mt-0.5">{s.desc}</p>
+                      <p className="text-xs text-brand-300 mt-0.5">{s.desc}</p>
                     </div>
                   </div>
                   {idx < STEPS.length - 1 && (
-                    <div className="w-px h-5 bg-indigo-600/50 ml-4 my-1" />
+                    <div className="w-px h-5 bg-brand-600/50 ml-4 my-1" />
                   )}
                 </React.Fragment>
               );
@@ -85,7 +86,7 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
         </div>
 
         <button type="button" onClick={handleClear}
-          className="flex items-center gap-2 text-sm text-indigo-300 hover:text-white transition-colors mt-8">
+          className="flex items-center gap-2 text-sm text-brand-300 hover:text-white transition-colors mt-8">
           <X size={14} /> Cancelar registro
         </button>
       </aside>
@@ -93,15 +94,16 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
       {/* ─── Right panel ─── */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-2 lg:hidden text-indigo-700 font-bold">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-surface">
+          <div className="flex items-center gap-2 lg:hidden text-brand-700 font-bold whitespace-nowrap">
             <Edit size={20} /><span>Zenda ERP</span>
           </div>
           <div className="hidden lg:block" />
-          <div className="flex items-center gap-1.5 text-sm text-gray-500">
+          {/* En móvil el paso ya se muestra como "Paso X de 3" en el contenido */}
+          <div className="hidden sm:flex items-center gap-1.5 text-sm text-ink-muted">
             {STEPS.map((s, idx) => (
               <React.Fragment key={s.number}>
-                <span className={`font-medium ${step === s.number ? 'text-indigo-600' : step > s.number ? 'text-emerald-600' : ''}`}>
+                <span className={`font-medium ${step === s.number ? 'text-brand-600' : step > s.number ? 'text-success-600' : ''}`}>
                   {s.title}
                 </span>
                 {idx < STEPS.length - 1 && <ChevronRight size={14} className="text-gray-300" />}
@@ -130,10 +132,10 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
         </div>
 
         {/* Footer */}
-        <footer className="flex items-center justify-between gap-4 px-6 py-4 md:px-12 border-t border-gray-200 bg-white">
+        <footer className="flex items-center justify-between gap-4 px-6 py-4 md:px-12 border-t border-line bg-surface">
           {step > 1 ? (
             <button type="button" onClick={() => goTo(step - 1)} disabled={isProcessing}
-              className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-40 transition-colors">
+              className="flex items-center gap-2 text-sm font-medium text-ink-soft hover:text-gray-900 disabled:opacity-40 transition-colors">
               <ArrowLeft size={16} /> Atrás
             </button>
           ) : (
@@ -145,12 +147,12 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
 
           {step < 3 ? (
             <button type="button" onClick={triggerStep}
-              className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+              className="flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
               Siguiente <ChevronRight size={16} />
             </button>
           ) : (
             <button type="button" onClick={handleConfirm} disabled={isProcessing}
-              className={`flex items-center gap-2 px-8 py-2.5 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm ${isProcessing ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+              className={`flex items-center gap-2 px-8 py-2.5 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm ${isProcessing ? 'bg-brand-300 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700'}`}>
               {isProcessing ? 'Creando cuenta...' : 'Confirmar y crear cuenta'}
             </button>
           )}

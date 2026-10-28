@@ -4,17 +4,22 @@ import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 import { initTheme } from './utils/theme.js'
+import { installModalA11y } from './utils/modalA11y.js'
 import { ScannerProvider } from './context/ScannerContext.jsx'
 import { Toaster } from 'react-hot-toast'
 
 // Inicializa el tema antes de renderizar la app
 initTheme()
+installModalA11y()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ScannerProvider>
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-center"
+          toastOptions={{ className: '!bg-surface !text-ink !border !border-line !shadow-lg !rounded-xl !text-sm' }}
+        />
         <App />
       </ScannerProvider>
     </ErrorBoundary>

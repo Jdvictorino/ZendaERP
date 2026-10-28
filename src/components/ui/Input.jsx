@@ -10,6 +10,8 @@ export default function Input({ className = '', leftIcon = null, rightIcon = nul
       )}
       <input
         className={`input-base ${leftIcon ? 'pl-9' : ''} ${rightIcon ? 'pr-9' : ''}`}
+        // sin etiqueta visible asociada, el placeholder sirve de nombre accesible (lo sobrescribe un aria-label explícito)
+        aria-label={props.id ? undefined : props.placeholder}
         {...props}
       />
       {rightIcon && (

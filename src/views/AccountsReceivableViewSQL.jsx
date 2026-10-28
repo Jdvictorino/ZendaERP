@@ -1,15 +1,19 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import Card, { CardBody } from '../components/ui/Card.jsx';
+import { badgeClass } from '../components/ui/Badge.jsx';
+import KpiCard from '../components/ui/KpiCard.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ReceivableDetailModal from '../components/modals/ReceivableDetailModal.jsx';
-import { AlertTriangle, CalendarDays, Clock, Users, ChevronDown, Mail } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Clock, Users, ChevronDown, Mail, Wallet, FileText } from 'lucide-react';
 import { useApiCrud } from '../hooks/useApi.js';
 import toast from 'react-hot-toast';
 import { generatePDF, generateAccountStatementPDF } from '../utils/pdfGenerator.js';
 import SendEmailModal from '../components/modals/SendEmailModal.jsx';
+import PageSkeleton from '../components/ui/Skeleton.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -498,8 +502,8 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
     };
 
     const getSortIndicator = (key) => {
-        if (sortConfig.key !== key) return 'â†•';
-        return sortConfig.direction === 'asc' ? 'â†‘' : 'â†“';
+        if (sortConfig.key !== key) return '↕';
+        return sortConfig.direction === 'asc' ? '↑' : '↓';
     };
 
     const updateColumnFilter = (key, value) => {
@@ -559,9 +563,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
+            <PageSkeleton label="Cargando…" />
         );
     }
 
@@ -569,37 +571,17 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Gestión de Cobros</h2>
-                    <p className="text-slate-500 dark:text-slate-400">Monitorea tus cuentas por cobrar y registra pagos parciales o totales.</p>
+                    <h2 className="page-title">Gestión de Cobros</h2>
+                    <p className="page-subtitle">Monitorea tus cuentas por cobrar y registra pagos parciales o totales.</p>
                 </div>
             </div>
 
-            <Card>
-                <CardBody className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Total por Cobrar</p>
-                        <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(summary.totalOutstanding, currency)}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Facturas Pendientes</p>
-                        <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{summary.totalInvoices}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 flex items-center gap-3">
-                        <Users className="h-8 w-8 text-slate-400" />
-                        <div>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">Clientes con Saldo</p>
-                            <p className="text-xl font-semibold text-slate-800 dark:text-slate-100">{summary.customersWithBalance}</p>
-                        </div>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 flex items-center gap-3">
-                        <AlertTriangle className="h-8 w-8 text-amber-500" />
-                        <div>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">En mora</p>
-                            <p className="text-xl font-semibold text-slate-800 dark:text-slate-100">{summary.overdueCount}</p>
-                        </div>
-                    </div>
-                </CardBody>
-            </Card>
+            <div className="kpi-grid">
+                <KpiCard label="Total por Cobrar" value={formatCurrency(summary.totalOutstanding, currency)} icon={Wallet} tone="brand" />
+                <KpiCard label="Facturas Pendientes" value={summary.totalInvoices} icon={FileText} tone="info" />
+                <KpiCard label="Clientes con Saldo" value={summary.customersWithBalance} icon={Users} tone="neutral" />
+                <KpiCard label="En mora" value={summary.overdueCount} icon={AlertTriangle} tone="warning" />
+            </div>
 
             <Card>
                 <CardBody>
@@ -609,7 +591,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Buscar por cliente o # de factura"
                         />
-                        <select className="input-base" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <select aria-label="Estado" className="input-base" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="todos">Todos los estados</option>
                             <option value="pendiente">Pendiente</option>
                             <option value="parcial">Pago Parcial</option>
@@ -622,31 +604,31 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
             <Card>
                 <CardBody className="overflow-x-auto">
                     <table className="w-full min-w-[960px] text-left text-sm">
-                        <thead className="bg-slate-50 text-slate-600 uppercase tracking-wide text-xs">
+                        <thead className="bg-slate-50 dark:bg-gray-800 text-ink-soft uppercase tracking-wide text-xs">
                             <tr>
                                 <th className="relative p-3">
                                     <button
                                         type="button"
                                         onClick={() => handleHeaderSortClick('invoice')}
                                         onDoubleClick={() => handleHeaderDoubleClick('invoice')}
-                                        className="flex items-center gap-1 text-slate-600"
+                                        className="flex items-center gap-1 text-ink-soft"
                                     >
                                         Factura
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('invoice')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'invoice' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('invoice')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'invoice' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'invoice' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Buscar factura</p>
-                                            <input
-                                                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Buscar factura</p>
+                                            <input aria-label="Buscar factura"
+                                                className="mt-2 w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
                                                 placeholder="Ej. PED-045"
                                                 value={columnFilters.invoiceId}
                                                 onChange={e => updateColumnFilter('invoiceId', e.target.value)}
                                             />
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['invoiceId'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['invoiceId'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -656,17 +638,17 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('customer')}
                                         onDoubleClick={() => handleHeaderDoubleClick('customer')}
-                                        className="flex items-center gap-1 text-slate-600"
+                                        className="flex items-center gap-1 text-ink-soft"
                                     >
                                         Cliente
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('customer')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'customer' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('customer')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'customer' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'customer' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Selecciona cliente</p>
-                                            <select
-                                                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Selecciona cliente</p>
+                                            <select aria-label="Selecciona cliente"
+                                                className="mt-2 w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
                                                 value={columnFilters.customer}
                                                 onChange={e => updateColumnFilter('customer', e.target.value)}
                                             >
@@ -676,8 +658,8 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                                 ))}
                                             </select>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['customer'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['customer'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -687,28 +669,28 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('issueDate')}
                                         onDoubleClick={() => handleHeaderDoubleClick('issueDate')}
-                                        className="flex items-center gap-1 text-slate-600"
+                                        className="flex items-center gap-1 text-ink-soft"
                                     >
                                         Fecha
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('issueDate')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'issueDate' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('issueDate')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'issueDate' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'issueDate' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Fecha de emisión</p>
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Fecha de emisión</p>
                                             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Desde</span>
-                                                    <input type="date" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.issueFrom} onChange={e => updateColumnFilter('issueFrom', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Desde</span>
+                                                    <input type="date" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.issueFrom} onChange={e => updateColumnFilter('issueFrom', e.target.value)} />
                                                 </label>
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Hasta</span>
-                                                    <input type="date" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.issueTo} onChange={e => updateColumnFilter('issueTo', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Hasta</span>
+                                                    <input type="date" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.issueTo} onChange={e => updateColumnFilter('issueTo', e.target.value)} />
                                                 </label>
                                             </div>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['issueFrom','issueTo'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['issueFrom','issueTo'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -718,28 +700,28 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('dueDate')}
                                         onDoubleClick={() => handleHeaderDoubleClick('dueDate')}
-                                        className="flex items-center gap-1 text-slate-600"
+                                        className="flex items-center gap-1 text-ink-soft"
                                     >
                                         Vence
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('dueDate')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'dueDate' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('dueDate')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'dueDate' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'dueDate' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Fecha de vencimiento</p>
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Fecha de vencimiento</p>
                                             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Desde</span>
-                                                    <input type="date" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.dueFrom} onChange={e => updateColumnFilter('dueFrom', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Desde</span>
+                                                    <input type="date" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.dueFrom} onChange={e => updateColumnFilter('dueFrom', e.target.value)} />
                                                 </label>
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Hasta</span>
-                                                    <input type="date" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.dueTo} onChange={e => updateColumnFilter('dueTo', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Hasta</span>
+                                                    <input type="date" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.dueTo} onChange={e => updateColumnFilter('dueTo', e.target.value)} />
                                                 </label>
                                             </div>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['dueFrom','dueTo'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['dueFrom','dueTo'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -749,28 +731,28 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('total')}
                                         onDoubleClick={() => handleHeaderDoubleClick('total')}
-                                        className="flex w-full items-center justify-end gap-1 text-slate-600"
+                                        className="flex w-full items-center justify-end gap-1 text-ink-soft"
                                     >
                                         Total
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('total')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'total' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('total')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'total' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'total' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Rango de montos</p>
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Rango de montos</p>
                                             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Mínimo</span>
-                                                    <input type="number" min="0" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.minTotal} onChange={e => updateColumnFilter('minTotal', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Mínimo</span>
+                                                    <input type="number" min="0" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.minTotal} onChange={e => updateColumnFilter('minTotal', e.target.value)} />
                                                 </label>
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Máximo</span>
-                                                    <input type="number" min="0" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.maxTotal} onChange={e => updateColumnFilter('maxTotal', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Máximo</span>
+                                                    <input type="number" min="0" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.maxTotal} onChange={e => updateColumnFilter('maxTotal', e.target.value)} />
                                                 </label>
                                             </div>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['minTotal','maxTotal'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['minTotal','maxTotal'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -780,28 +762,28 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('paid')}
                                         onDoubleClick={() => handleHeaderDoubleClick('paid')}
-                                        className="flex w-full items-center justify-end gap-1 text-slate-600"
+                                        className="flex w-full items-center justify-end gap-1 text-ink-soft"
                                     >
                                         Pagado
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('paid')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'paid' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('paid')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'paid' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'paid' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Rango pagado</p>
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Rango pagado</p>
                                             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Mínimo</span>
-                                                    <input type="number" min="0" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.minPaid} onChange={e => updateColumnFilter('minPaid', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Mínimo</span>
+                                                    <input type="number" min="0" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.minPaid} onChange={e => updateColumnFilter('minPaid', e.target.value)} />
                                                 </label>
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Máximo</span>
-                                                    <input type="number" min="0" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.maxPaid} onChange={e => updateColumnFilter('maxPaid', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Máximo</span>
+                                                    <input type="number" min="0" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.maxPaid} onChange={e => updateColumnFilter('maxPaid', e.target.value)} />
                                                 </label>
                                             </div>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['minPaid','maxPaid'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['minPaid','maxPaid'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -811,28 +793,28 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('outstanding')}
                                         onDoubleClick={() => handleHeaderDoubleClick('outstanding')}
-                                        className="flex w-full items-center justify-end gap-1 text-slate-600"
+                                        className="flex w-full items-center justify-end gap-1 text-ink-soft"
                                     >
                                         Saldo
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('outstanding')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'outstanding' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('outstanding')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'outstanding' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'outstanding' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Saldo pendiente</p>
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Saldo pendiente</p>
                                             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Mínimo</span>
-                                                    <input type="number" min="0" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.minOutstanding} onChange={e => updateColumnFilter('minOutstanding', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Mínimo</span>
+                                                    <input type="number" min="0" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.minOutstanding} onChange={e => updateColumnFilter('minOutstanding', e.target.value)} />
                                                 </label>
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Máximo</span>
-                                                    <input type="number" min="0" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.maxOutstanding} onChange={e => updateColumnFilter('maxOutstanding', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Máximo</span>
+                                                    <input type="number" min="0" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.maxOutstanding} onChange={e => updateColumnFilter('maxOutstanding', e.target.value)} />
                                                 </label>
                                             </div>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['minOutstanding','maxOutstanding'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['minOutstanding','maxOutstanding'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -842,28 +824,28 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('days')}
                                         onDoubleClick={() => handleHeaderDoubleClick('days')}
-                                        className="flex items-center gap-1 text-slate-600"
+                                        className="flex items-center gap-1 text-ink-soft"
                                     >
                                         Días
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('days')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'days' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('days')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'days' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'days' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Rango de días</p>
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Rango de días</p>
                                             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Mínimo</span>
-                                                    <input type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.minDays} onChange={e => updateColumnFilter('minDays', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Mínimo</span>
+                                                    <input type="number" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.minDays} onChange={e => updateColumnFilter('minDays', e.target.value)} />
                                                 </label>
                                                 <label className="space-y-1">
-                                                    <span className="text-xs text-slate-500">Máximo</span>
-                                                    <input type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none" value={columnFilters.maxDays} onChange={e => updateColumnFilter('maxDays', e.target.value)} />
+                                                    <span className="text-xs text-ink-muted">Máximo</span>
+                                                    <input type="number" className="w-full rounded-lg border border-line px-3 py-2 focus:border-brand-500 focus:outline-none" value={columnFilters.maxDays} onChange={e => updateColumnFilter('maxDays', e.target.value)} />
                                                 </label>
                                             </div>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['minDays','maxDays'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['minDays','maxDays'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
@@ -873,21 +855,21 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         type="button"
                                         onClick={() => handleHeaderSortClick('status')}
                                         onDoubleClick={() => handleHeaderDoubleClick('status')}
-                                        className="flex items-center gap-1 text-slate-600"
+                                        className="flex items-center gap-1 text-ink-soft"
                                     >
                                         Estado
-                                        <span className="text-[10px] leading-none text-slate-500">{getSortIndicator('status')}</span>
-                                        <ChevronDown size={14} className={activeHeaderFilter === 'status' ? 'text-indigo-600' : 'text-slate-400'} />
+                                        <span className="text-xs leading-none text-ink-muted">{getSortIndicator('status')}</span>
+                                        <ChevronDown size={14} className={activeHeaderFilter === 'status' ? 'text-brand-600' : 'text-slate-400'} />
                                     </button>
                                     {activeHeaderFilter === 'status' && (
-                                        <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-2xl">
-                                            <p className="text-sm font-semibold text-slate-900">Estados</p>
+                                        <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-line bg-surface p-4 text-ink-soft shadow-2xl">
+                                            <p className="text-sm font-semibold text-ink">Estados</p>
                                             <div className="mt-2 space-y-2 text-sm">
                                                 {statusOptions.map(option => (
                                                     <label key={option.value} className="flex items-center gap-2">
                                                         <input
                                                             type="checkbox"
-                                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                            className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                                                             checked={columnFilters.statuses.includes(option.value)}
                                                             onChange={() => toggleArrayFilterValue('statuses', option.value)}
                                                         />
@@ -896,19 +878,19 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                                 ))}
                                             </div>
                                             <div className="mt-3 flex items-center justify-between text-sm">
-                                                <button type="button" className="text-slate-500 hover:text-slate-700" onClick={() => clearFilterGroup(['statuses'])}>Limpiar</button>
-                                                <button type="button" className="font-semibold text-indigo-600 hover:text-indigo-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
+                                                <button type="button" className="text-ink-muted hover:text-slate-700" onClick={() => clearFilterGroup(['statuses'])}>Limpiar</button>
+                                                <button type="button" className="font-semibold text-brand-600 hover:text-brand-500" onClick={() => setActiveHeaderFilter(null)}>Cerrar</button>
                                             </div>
                                         </div>
                                     )}
                                 </th>
-                                <th className="p-3 text-right">Acciones</th>
+                                <th className="p-3 text-right sticky right-0 z-10 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] bg-slate-50 dark:bg-gray-800">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredEntries.length === 0 && (
                                 <tr>
-                                    <td colSpan="10" className="p-6 text-center text-slate-500">No hay cuentas por cobrar con los filtros seleccionados.</td>
+                                    <td colSpan="10" className="p-0"><EmptyState icon={Wallet} title="No hay cuentas por cobrar" description="No hay facturas pendientes con los filtros seleccionados. Prueba con otro estado o búsqueda." /></td>
                                 </tr>
                             )}
                             {filteredEntries.map(entry => {
@@ -920,46 +902,44 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 cursor-pointer"
                                         onDoubleClick={() => handleViewDetails(entry)}
                                     >
-                                        <td className="p-3 font-mono">{invoice.orderNumber || invoice.invoiceNumber || invoice.id}</td>
+                                        <td className="p-3 font-mono whitespace-nowrap">{invoice.orderNumber || invoice.invoiceNumber || invoice.id}</td>
                                         <td className="p-3">{entry.customerName}</td>
                                         <td className="p-3">{invoiceDate ? invoiceDate.toLocaleDateString() : 'N/D'}</td>
-                                        <td className="p-3 flex items-center gap-2">
-                                            <CalendarDays className="h-4 w-4 text-slate-400" />
-                                            {entry.dueDate ? entry.dueDate.toLocaleDateString() : 'Sin fecha'}
+                                        <td className="p-3">
+                                            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                                                <CalendarDays className="h-4 w-4 text-slate-400" />
+                                                {entry.dueDate ? entry.dueDate.toLocaleDateString() : 'Sin fecha'}
+                                            </span>
                                         </td>
-                                        <td className="p-3 text-right font-semibold">{formatCurrency(entry.total, currency)}</td>
-                                        <td className="p-3 text-right">{formatCurrency(entry.paid, currency)}</td>
-                                        <td className="p-3 text-right text-indigo-600 font-semibold">{formatCurrency(entry.outstanding, currency)}</td>
-                                        <td className={`p-3 font-medium flex items-center gap-2 ${entry.overdueDays > 0 ? 'text-red-600' : 'text-slate-500'}`}>
-                                            <Clock className="h-4 w-4" />
-                                            {entry.overdueDays > 0 ? `${entry.overdueDays} días` : 'Al día'}
+                                        <td className="p-3 text-right font-semibold tabular-nums whitespace-nowrap">{formatCurrency(entry.total, currency)}</td>
+                                        <td className="p-3 text-right tabular-nums whitespace-nowrap">{formatCurrency(entry.paid, currency)}</td>
+                                        <td className="p-3 text-right text-ink font-semibold tabular-nums whitespace-nowrap">{formatCurrency(entry.outstanding, currency)}</td>
+                                        <td className={`p-3 font-medium ${entry.overdueDays > 0 ? 'text-danger-600 dark:text-danger-400' : 'text-ink-muted'}`}>
+                                            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                                                <Clock className="h-4 w-4" />
+                                                {entry.overdueDays > 0 ? `${entry.overdueDays} días` : 'Al día'}
+                                            </span>
                                         </td>
                                         <td className="p-3">
-                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${entry.overdueDays > 0 ? 'bg-red-100 text-red-700' : entry.paid > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                            <span className={badgeClass(entry.overdueDays > 0 ? 'danger' : entry.paid > 0 ? 'warning' : 'neutral')}>
                                                 {entry.overdueDays > 0 ? 'Vencido' : entry.status}
                                             </span>
                                         </td>
-                                        <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <td className="p-3 text-right sticky right-0 z-10 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] bg-surface" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex gap-2 justify-end">
-                                                <Button 
-                                                    variant="secondary" 
-                                                    size="sm" 
+                                                <Button variant="secondary" size="sm" className="w-8 px-0"
                                                     onClick={() => handleQuickSendInvoice(entry)}
-                                                    title="Enviar Factura por Correo"
-                                                    className="flex items-center gap-1.5"
+                                                    title="Enviar factura por correo" aria-label="Enviar factura por correo"
                                                 >
-                                                    <Mail size={14} /> Factura
+                                                    <Mail size={14} />
                                                 </Button>
-                                                <Button 
-                                                    variant="secondary" 
-                                                    size="sm" 
+                                                <Button variant="secondary" size="sm" className="w-8 px-0"
                                                     onClick={() => handleQuickSendStatement(entry)}
-                                                    title="Enviar Estado de Cuentas por Correo"
-                                                    className="flex items-center gap-1.5"
+                                                    title="Enviar estado de cuenta por correo" aria-label="Enviar estado de cuenta por correo"
                                                 >
-                                                    <Mail size={14} className="text-amber-500" /> Estado
+                                                    <FileText size={14} />
                                                 </Button>
-                                                <Button size="sm" onClick={() => handleRegisterPayment(invoice)}>Registrar Pago</Button>
+                                                <Button size="sm" className="whitespace-nowrap" onClick={() => handleRegisterPayment(invoice)}>Registrar pago</Button>
                                             </div>
                                         </td>
                                     </tr>
@@ -971,13 +951,16 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
             </Card>
 
             <Card>
-                <CardBody className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <CardBody>
+                    <h3 className="text-base font-semibold text-ink mb-4">Antigüedad de saldos</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {Object.entries(summary.aging).map(([label, value]) => (
-                        <div key={label} className="rounded-lg border border-slate-200 p-4 text-center dark:border-slate-700">
-                            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
-                            <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(value, currency)}</p>
+                        <div key={label} className="rounded-lg bg-surface-muted p-4">
+                            <p className="text-xs font-medium text-ink-muted">{label === 'Al día' ? label : `${label} días`}</p>
+                            <p className="mt-1 text-lg font-semibold text-ink tabular-nums">{formatCurrency(value, currency)}</p>
                         </div>
                     ))}
+                    </div>
                 </CardBody>
             </Card>
 

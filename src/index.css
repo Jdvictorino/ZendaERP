@@ -4,6 +4,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tokens de superficie (canales RGB para soportar opacidad: bg-surface/50) */
+:root {
+  --surface: 255 255 255;       /* white */
+  --surface-muted: 248 250 252; /* slate-50 */
+  --line: 229 231 235;          /* gray-200 */
+  --ink: 17 24 39;              /* gray-900 */
+  --ink-soft: 75 85 99;         /* gray-600 */
+  --ink-muted: 107 114 128;     /* gray-500 */
+}
+.dark {
+  --surface: 17 24 39;          /* gray-900 */
+  --surface-muted: 15 23 42;    /* slate-900 */
+  --line: 31 41 55;             /* gray-800 */
+  --ink: 243 244 246;           /* gray-100 */
+  --ink-soft: 209 213 219;      /* gray-300 */
+  --ink-muted: 156 163 175;     /* gray-400 */
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: #f8fafc; /* Tailwind's slate-50 */
@@ -24,6 +42,9 @@ body {
 
 /* Tipografía base y compatibilidad modo oscuro */
 @layer base {
+  /* color de borde por defecto: token que cambia solo en oscuro */
+  *, ::before, ::after { border-color: rgb(var(--line)); }
+
   body { @apply text-gray-900; }
   .dark body { @apply text-gray-100; }
 
@@ -49,17 +70,43 @@ body {
 }
 
 /* Utilidades de diseño modernas - Premium Feel */
-.card {
-  @apply bg-white rounded-2xl shadow-sm border border-gray-100 transition-all duration-300;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-}
+/* Estilo único de tarjeta: lo usan <Card> y cualquier contenedor con className="card" */
+@layer components {
+  .card {
+    @apply bg-surface rounded-xl border border-line shadow-sm;
+  }
 
-.card:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
-}
+  .dark .card {
+    @apply shadow-none border-line;
+  }
 
-.dark .card {
-  @apply bg-gray-900 border-gray-800;
+  /* Cuadrícula de KPIs: las columnas se ajustan al ancho real (p. ej. con el panel de notificaciones abierto) */
+  .kpi-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+
+  /* Encabezado de página único para todas las vistas */
+  .page-title {
+    @apply text-2xl font-bold tracking-tight text-ink leading-tight;
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-sm text-ink-muted;
+  }
+
+  /* Estilo único de modales hechos a mano: fondo y panel */
+  .modal-backdrop {
+    @apply bg-gray-950/50 backdrop-blur-[2px];
+  }
+
+  .modal-panel {
+    @apply bg-surface text-ink rounded-2xl border border-line shadow-2xl;
+  }
+
+  .modal-close {
+    @apply inline-flex w-8 h-8 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors;
+  }
 }
 
 /* Glassmorphism utility */
@@ -75,30 +122,28 @@ body {
   -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
-/* Overrides útiles para clases comunes en vistas antiguas */
-.dark .bg-white { @apply bg-gray-900; }
-.dark .bg-gray-50 { @apply bg-gray-900; }
+/* Parches de oscuro que quedan: chips grises sin variante dark: (los neutros ya usan tokens surface/line/ink) */
 .dark .bg-gray-100 { @apply bg-gray-800; }
 .dark .bg-gray-200 { @apply bg-gray-700; }
-.dark .border-gray-100 { @apply border-gray-800; }
-.dark .border-gray-200 { @apply border-gray-700; }
-.dark .border-gray-300 { @apply border-gray-700; }
-.dark .text-gray-900 { @apply text-gray-100; }
-.dark .text-gray-800 { @apply text-gray-100; }
-.dark .text-gray-700 { @apply text-gray-300; }
-.dark .text-gray-600 { @apply text-gray-400; }
-.dark .text-gray-500 { @apply text-gray-400; }
-
-/* Bordes por defecto y divisores en modo oscuro (fallback) */
-.dark .border { @apply border-gray-700; }
-
-/* Tablas y filas con estados de hover claros en tema claro → equivalentes en oscuro */
-.dark .hover\:bg-gray-50:hover { @apply bg-gray-800; }
-.dark .hover\:bg-gray-100:hover { @apply bg-gray-700; }
 .dark .bg-gray-50\/60 { background-color: rgba(31, 41, 55, 0.60) !important; }
 
 /* Ajustes de enfoque en oscuro: offset acorde al fondo */
 .dark :focus { --tw-ring-offset-color: #0f172a; }
+
+/* Foco visible solo con teclado, en el color de marca (reemplaza el anillo por defecto del navegador) */
+:focus-visible { outline: 2px solid theme('colors.brand.500'); outline-offset: 2px; }
+.dark :focus-visible { outline-color: theme('colors.brand.400'); }
+
+/* Respeta "reducir movimiento" del sistema: sin animaciones de entrada ni escalado al pulsar */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  [class*="active:scale"]:active { transform: none !important; }
+}
 
 /* Scrollbars (WebKit) para mejor integración en oscuro */
 .dark ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -106,63 +151,55 @@ body {
 .dark ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 8px; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #374151; }
 
-.btn-base {
-  @apply inline-flex items-center justify-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-xl disabled:opacity-50 disabled:pointer-events-none active:scale-95;
-}
+/* En @layer para que un ancho puntual (input-base w-24) gane sobre w-full */
+@layer components {
+  .input-base {
+    @apply block w-full h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 shadow-sm transition-colors focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed;
+  }
 
-.btn-primary {
-  @apply btn-base bg-brand-600 hover:bg-brand-700 text-white focus:ring-brand-600 shadow-sm shadow-brand-500/20;
-}
+  textarea.input-base { @apply h-auto; }
 
-.dark .btn-primary {
-  @apply bg-brand-500 hover:bg-brand-600 text-white focus:ring-brand-700;
-}
+  /* Campo con error: se marca con aria-invalid="true" (lo anuncian los lectores de pantalla) */
+  .input-base[aria-invalid="true"] {
+    @apply border-danger-500 focus:border-danger-500 focus:ring-danger-500/15;
+  }
 
-.btn-secondary {
-  @apply btn-base bg-gray-100 hover:bg-gray-200 text-gray-900 focus:ring-gray-300;
-}
+  .field-error {
+    @apply mt-1 text-xs font-medium text-danger-600 dark:text-danger-400;
+  }
 
-.dark .btn-secondary {
-  @apply bg-gray-800 hover:bg-gray-700 text-gray-100 focus:ring-gray-600;
-}
-
-.btn-ghost {
-  @apply btn-base bg-transparent hover:bg-gray-100 text-gray-700 focus:ring-gray-200;
-}
-
-.dark .btn-ghost {
-  @apply bg-transparent hover:bg-gray-800 text-gray-200 focus:ring-gray-700;
-}
-
-.btn-danger {
-  @apply btn-base bg-red-600 hover:bg-red-700 text-white focus:ring-red-600 shadow-sm shadow-red-500/20;
-}
-
-.dark .btn-danger {
-  @apply bg-red-500 hover:bg-red-600 text-white focus:ring-red-700;
-}
-
-.input-base {
-  @apply block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition-all focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none;
-}
-
-.dark .input-base {
-  @apply border-gray-700 bg-gray-900 text-gray-100 placeholder-gray-400 focus:border-brand-400 focus:ring-brand-400/10;
+  .dark .input-base {
+    @apply border-gray-700 bg-gray-900 text-gray-100 placeholder-gray-400 focus:border-brand-400 focus:ring-brand-400/10 disabled:bg-gray-800;
+  }
 }
 
 /* Estado de badges comunes (fallback mínimo) */
 .dark .bg-yellow-100 { @apply bg-yellow-900/30; }
-.dark .bg-green-100 { @apply bg-green-900/30; }
+.dark .bg-success-100 { @apply bg-success-900/30; }
 .dark .bg-blue-100 { @apply bg-blue-900/30; }
 .dark .bg-purple-100 { @apply bg-purple-900/30; }
 .dark .bg-red-100 { @apply bg-red-900/30; }
 .dark .bg-gray-200 { @apply bg-gray-700; }
 .dark .text-yellow-800 { @apply text-yellow-300; }
-.dark .text-green-800 { @apply text-green-300; }
+.dark .text-success-800 { @apply text-success-300; }
 .dark .text-blue-800 { @apply text-blue-300; }
 .dark .text-purple-800 { @apply text-purple-300; }
 .dark .text-red-800 { @apply text-red-300; }
-.dark .text-gray-800 { @apply text-gray-200; }
+
+/* Gráficos (recharts): ejes, cuadrícula, leyenda y tooltip siguen los tokens, también en oscuro */
+.recharts-cartesian-grid line { stroke: rgb(var(--line)); }
+.recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: rgb(var(--line)); }
+.recharts-cartesian-axis-tick-value, .recharts-pie-label-text { fill: rgb(var(--ink-muted)); font-size: 12px; }
+.recharts-legend-item-text { color: rgb(var(--ink-muted)) !important; font-size: 12px; }
+.recharts-default-tooltip {
+  background-color: rgb(var(--surface)) !important;
+  border: 1px solid rgb(var(--line)) !important;
+  border-radius: 0.5rem;
+  color: rgb(var(--ink));
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.recharts-tooltip-cursor { fill: rgb(var(--ink) / 0.05); }
 
 /* Animaciones para modales y componentes */
 @keyframes fadeIn {
@@ -204,10 +241,7 @@ body {
     font-size: 16px !important; /* Evita el zoom automático en iOS al enfocar */
   }
   
-  .btn-base {
-    min-height: 48px; /* Un poco más grande que el mínimo para mejor ergonomía */
   }
-}
 
 /* Animación específica para modales tipo bottom-sheet */
 @keyframes slideUpMobile {
@@ -277,4 +311,12 @@ button, a, [role="button"] {
 
 .view-enter {
   animation: viewFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Impresión (Reportes, Contabilidad, etc.): solo el contenido, sin navegación ni botones */
+@media print {
+  aside, header[data-tour="header"], nav, .no-print, button { display: none !important; }
+  body, .dark body { background: #fff !important; color: #000 !important; }
+  .card, .modal-panel { box-shadow: none !important; border-color: #d1d5db !important; break-inside: avoid; }
+  main { padding: 0 !important; margin: 0 !important; }
 }

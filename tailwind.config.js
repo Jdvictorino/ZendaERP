@@ -1,3 +1,5 @@
+const colors = require('tailwindcss/colors');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
@@ -22,6 +24,27 @@ module.exports = {
           700: '#4338ca',
           800: '#3730a3',
           900: '#312e81',
+          950: '#1e1b4b',
+        },
+        // Colores semánticos: usar estos en vez de green/emerald/amber/red directos
+        success: colors.emerald,
+        warning: colors.amber,
+        danger: colors.red,
+        // Superficies y tinta: cambian solas en modo oscuro (variables en index.css)
+        surface: {
+          DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
+          muted: 'rgb(var(--surface-muted) / <alpha-value>)',
+        },
+        line: 'rgb(var(--line) / <alpha-value>)',
+        ink: {
+          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
+          soft: 'rgb(var(--ink-soft) / <alpha-value>)',
+          muted: 'rgb(var(--ink-muted) / <alpha-value>)',
+        },
+        // Fondos oscuros de marca (Sidebar, Login)
+        night: {
+          900: '#0f172a',
+          950: '#0a0f1e',
         },
         accent: {
           500: '#8b5cf6',

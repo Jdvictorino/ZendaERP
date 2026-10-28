@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button.jsx';
 
@@ -18,13 +19,13 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose, onSend
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-md">
+        <div className="fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4">
+            <div className="modal-panel p-6 w-full max-w-md">
                 <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-gray-900">Recuperar cuenta</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>
+                    <h3 className="text-lg font-semibold text-ink">Recuperar cuenta</h3>
+                    <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
-                <p className="text-sm text-gray-600 mb-4">Introduce tu correo y recibirás un enlace para restablecer tu contraseña.</p>
+                <p className="text-sm text-ink-soft mb-4">Introduce tu correo y recibirás un enlace para restablecer tu contraseña.</p>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input-base" placeholder="Correo electrónico" />
                     <div className="flex justify-end gap-2">

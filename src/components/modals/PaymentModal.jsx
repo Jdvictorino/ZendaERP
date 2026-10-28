@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import api from '../../api/client.js';
 import notificationService from '../../utils/notificationService.js';
@@ -229,44 +230,44 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
     }, [handlePayment, onClose]);
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-            <div className="bg-white rounded-2xl shadow-card p-6 w-full max-w-lg">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[60] p-4">
+            <div className="modal-panel p-6 w-full max-w-lg">
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-2 gap-2">
-                    <h3 className="text-lg md:text-2xl font-semibold text-gray-900">Registrar Pago</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" aria-label="Cerrar">&times;</button>
+                    <h3 className="text-lg font-semibold text-ink">Registrar Pago</h3>
+                    <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
-                <p className="text-gray-600 mb-4">Pedido: {invoice.invoiceNumber}</p>
+                <p className="text-ink-soft mb-4">Pedido: {invoice.invoiceNumber}</p>
                 
                 <div className="space-y-4">
-                    <div className="p-4 bg-gray-50 rounded-lg text-center">
-                        <p className="text-gray-600">Monto Pendiente</p>
-                        <p className="text-3xl font-bold text-indigo-600">{formatCurrency(amountDue, currency)}</p>
+                    <div className="p-4 bg-surface-muted rounded-lg text-center">
+                        <p className="text-ink-soft">Monto Pendiente</p>
+                        <p className="text-3xl font-bold text-brand-600">{formatCurrency(amountDue, currency)}</p>
                     </div>
                     
                     <fieldset className="border p-4 rounded-lg">
                         <legend className="font-semibold px-2">Desglose del Pago</legend>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-gray-700 mb-1">Efectivo</label>
+                                <label className="block text-ink-soft mb-1">Efectivo</label>
                                 <input type="number" name="efectivo" value={payments.efectivo} onChange={handleChange} className="input-base" min="0" step="0.01" />
                             </div>
                             <div>
-                                <label className="block text-gray-700 mb-1">Cheque/Transf./Depósito</label>
+                                <label className="block text-ink-soft mb-1">Cheque/Transf./Depósito</label>
                                 <input type="number" name="chequeTransferencia" value={payments.chequeTransferencia} onChange={handleChange} className="input-base" min="0" step="0.01" />
                             </div>
                             <div>
-                                <label className="block text-gray-700 mb-1">Tarjeta Débito/Crédito</label>
+                                <label className="block text-ink-soft mb-1">Tarjeta Débito/Crédito</label>
                                 <input type="number" name="tarjeta" value={payments.tarjeta} onChange={handleChange} className="input-base" min="0" step="0.01" />
                             </div>
                             <div>
-                                <label className="block text-gray-700 mb-1">Venta a Crédito</label>
+                                <label className="block text-ink-soft mb-1">Venta a Crédito</label>
                                 <input type="number" name="credito" value={payments.credito} onChange={handleChange} className="input-base" min="0" step="0.01" />
                             </div>
                         </div>
                     </fieldset>
 
                     <div className="p-4 bg-blue-50 rounded-lg text-right">
-                        <p className="text-gray-600">Total Ingresado</p>
+                        <p className="text-ink-soft">Total Ingresado</p>
                         <p className="text-2xl font-bold text-blue-700">{formatCurrency(totalPaid, currency)}</p>
                     </div>
                 </div>
@@ -275,8 +276,8 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                     <div className="mt-6 border rounded-lg p-4 space-y-3">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                             <div>
-                                <h4 className="font-semibold text-gray-800">Cobro mediante Gateway</h4>
-                                <p className="text-sm text-gray-500">Genera un enlace de pago o sincroniza el estado con tu pasarela.</p>
+                                <h4 className="font-semibold text-ink">Cobro mediante Gateway</h4>
+                                <p className="text-sm text-ink-muted">Genera un enlace de pago o sincroniza el estado con tu pasarela.</p>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 <Button size="sm" variant="secondary" onClick={handleCreateGatewayIntent} disabled={isGatewayBusy}>
@@ -291,14 +292,14 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                             </div>
                         </div>
                         {gatewayInfo ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm bg-gray-50 rounded-md p-3 border border-dashed border-gray-200">
-                                <div><span className="font-semibold text-gray-600">Proveedor:</span> {gatewayInfo.provider || 'N/D'}</div>
-                                <div><span className="font-semibold text-gray-600">Estado:</span> {gatewayInfo.status || 'Sin estado'}</div>
-                                <div className="truncate"><span className="font-semibold text-gray-600">Intento:</span> {gatewayInfo.intentId || 'N/D'}</div>
-                                <div><span className="font-semibold text-gray-600">Última sincronización:</span> {gatewayInfo.lastSyncedAt?.toDate?.().toLocaleString?.() || gatewayInfo.lastSyncedAt || 'N/D'}</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm bg-surface-muted rounded-md p-3 border border-dashed border-line">
+                                <div><span className="font-semibold text-ink-soft">Proveedor:</span> {gatewayInfo.provider || 'N/D'}</div>
+                                <div><span className="font-semibold text-ink-soft">Estado:</span> {gatewayInfo.status || 'Sin estado'}</div>
+                                <div className="truncate"><span className="font-semibold text-ink-soft">Intento:</span> {gatewayInfo.intentId || 'N/D'}</div>
+                                <div><span className="font-semibold text-ink-soft">Última sincronización:</span> {gatewayInfo.lastSyncedAt?.toDate?.().toLocaleString?.() || gatewayInfo.lastSyncedAt || 'N/D'}</div>
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500">Aún no se ha generado ningún intento de cobro mediante el gateway configurado.</p>
+                            <p className="text-sm text-ink-muted">Aún no se ha generado ningún intento de cobro mediante el gateway configurado.</p>
                         )}
                         {isGatewayBusy && <p className="text-xs text-blue-600">Comunicando con el gateway...</p>}
                     </div>

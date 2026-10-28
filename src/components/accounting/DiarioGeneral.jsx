@@ -27,13 +27,13 @@ export default function DiarioGeneral({ entries = [], currency = 'DOP' }) {
     <Card>
       <CardHeader title="Diario General" icon={<BookOpen size={18} />} actions={
         <button onClick={() => exportDiarioCsv(entries, currency)} disabled={!entries.length}
-          className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-40">
+          className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-800 font-medium disabled:opacity-40">
           <Download size={14} /> Exportar
         </button>
       } />
       <CardBody className="overflow-x-auto">
         <table className="w-full text-left text-sm min-w-[800px]">
-          <thead className="bg-gray-50 uppercase text-xs tracking-wide text-gray-500">
+          <thead className="bg-surface-muted uppercase text-xs tracking-wide text-ink-muted">
             <tr>
               <th className="p-3">Fecha</th>
               <th className="p-3">Referencia</th>
@@ -49,34 +49,34 @@ export default function DiarioGeneral({ entries = [], currency = 'DOP' }) {
               <tr><td colSpan={7} className="p-6 text-center text-gray-400">No hay asientos en este período.</td></tr>
             )}
             {entries.map((e, i) => (
-              <tr key={i} className="border-b last:border-transparent hover:bg-gray-50">
-                <td className="p-3 whitespace-nowrap text-gray-700">{e.date ? new Date(e.date).toLocaleDateString() : '—'}</td>
-                <td className="p-3 font-mono text-xs text-gray-500">{e.ref}</td>
-                <td className="p-3 font-mono text-xs text-indigo-600">{e.account.code}</td>
-                <td className={`p-3 font-medium ${e.credit > 0 && e.debit === 0 ? 'pl-8 text-gray-600' : 'text-gray-800'}`}>
+              <tr key={i} className="border-b last:border-transparent hover:bg-surface-muted">
+                <td className="p-3 whitespace-nowrap text-ink-soft">{e.date ? new Date(e.date).toLocaleDateString() : '—'}</td>
+                <td className="p-3 font-mono text-xs text-ink-muted">{e.ref}</td>
+                <td className="p-3 font-mono text-xs text-brand-600">{e.account.code}</td>
+                <td className={`p-3 font-medium ${e.credit > 0 && e.debit === 0 ? 'pl-8 text-ink-soft' : 'text-ink'}`}>
                   {e.account.name}
                 </td>
-                <td className="p-3 text-gray-600 max-w-[200px] truncate">{e.desc}</td>
-                <td className="p-3 text-right font-semibold text-gray-800">
+                <td className="p-3 text-ink-soft max-w-[200px] truncate">{e.desc}</td>
+                <td className="p-3 text-right font-semibold text-ink">
                   {e.debit > 0 ? formatCurrency(e.debit, currency) : ''}
                 </td>
-                <td className="p-3 text-right font-semibold text-gray-800">
+                <td className="p-3 text-right font-semibold text-ink">
                   {e.credit > 0 ? formatCurrency(e.credit, currency) : ''}
                 </td>
               </tr>
             ))}
           </tbody>
           {entries.length > 0 && (
-            <tfoot className="bg-gray-50 font-bold text-sm">
+            <tfoot className="bg-surface-muted font-bold text-sm">
               <tr>
                 <td colSpan={5} className="p-3 text-right">Totales:</td>
-                <td className="p-3 text-right text-indigo-700">{formatCurrency(totalDebit, currency)}</td>
-                <td className="p-3 text-right text-indigo-700">{formatCurrency(totalCredit, currency)}</td>
+                <td className="p-3 text-right text-brand-700">{formatCurrency(totalDebit, currency)}</td>
+                <td className="p-3 text-right text-brand-700">{formatCurrency(totalCredit, currency)}</td>
               </tr>
               <tr>
                 <td colSpan={7} className="p-3 text-right">
                   {Math.abs(totalDebit - totalCredit) < 0.01
-                    ? <span className="text-emerald-600 font-semibold">✅ Cuadre verificado</span>
+                    ? <span className="text-success-600 font-semibold">✅ Cuadre verificado</span>
                     : <span className="text-red-600 font-semibold">⚠️ Descuadre: {formatCurrency(Math.abs(totalDebit - totalCredit), currency)}</span>
                   }
                 </td>

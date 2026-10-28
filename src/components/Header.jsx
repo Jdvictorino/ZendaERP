@@ -27,7 +27,7 @@ const Header = ({ user, isMasterUser, companyProfile, onLogout, onProfileUpdate,
                                 <Building size={20} className="text-brand-600 dark:text-brand-400" />
                             </div>
                         )}
-                        <span className="hidden sm:inline text-gray-900 dark:text-gray-100 font-bold tracking-tight">
+                        <span className="hidden sm:inline text-ink dark:text-gray-100 font-bold tracking-tight">
                             {companyProfile.name || 'Mi Empresa'}
                         </span>
                     </button>
@@ -54,14 +54,14 @@ const Header = ({ user, isMasterUser, companyProfile, onLogout, onProfileUpdate,
                                         {photoUrl ? (
                                             <img src={photoUrl} alt="Avatar" className="w-full h-full object-cover" />
                                         ) : (
-                                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{initials || (user?.email ? (user.email[0] || 'U').toUpperCase() : 'U')}</span>
+                                            <span className="text-xs font-bold text-ink-soft dark:text-gray-300">{initials || (user?.email ? (user.email[0] || 'U').toUpperCase() : 'U')}</span>
                                         )}
                                     </button>
 
-                                    <div className="hidden sm:flex flex-col text-sm text-gray-600 dark:text-gray-300">
-                                        <span className="font-bold text-gray-900 dark:text-gray-100 leading-tight">{displayName || user?.email}</span>
+                                    <div className="hidden sm:flex flex-col text-sm text-ink-soft dark:text-gray-300">
+                                        <span className="font-bold text-ink dark:text-gray-100 leading-tight">{displayName || user?.email}</span>
                                         <span className="text-xs">
-                                            <span className={`${isMasterUser ? 'inline-flex items-center gap-1 bg-emerald-100/80 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider' : 'inline-flex items-center gap-1 bg-brand-100/80 text-brand-800 dark:bg-brand-900/30 dark:text-brand-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider'}`}>
+                                            <span className={`${isMasterUser ? 'inline-flex items-center gap-1 bg-success-100/80 text-success-800 dark:bg-success-900/30 dark:text-success-400 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider' : 'inline-flex items-center gap-1 bg-brand-100/80 text-brand-800 dark:bg-brand-900/30 dark:text-brand-400 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider'}`}>
                                                 <ShieldCheck size={10} />
                                                 {roleLabel}
                                             </span>
@@ -69,7 +69,7 @@ const Header = ({ user, isMasterUser, companyProfile, onLogout, onProfileUpdate,
                                     </div>
                                     {/* Mobile: show badge under avatar when screen is small */}
                                     <div className="sm:hidden flex items-center">
-                                        <span className={`${isMasterUser ? 'bg-emerald-500 w-2 h-2 rounded-full ring-2 ring-white dark:ring-gray-900 absolute top-2 right-2' : 'bg-brand-500 w-2 h-2 rounded-full ring-2 ring-white dark:ring-gray-900 absolute top-2 right-2'}`}></span>
+                                        <span className={`${isMasterUser ? 'bg-success-500 w-2 h-2 rounded-full ring-2 ring-white dark:ring-gray-900 absolute top-2 right-2' : 'bg-brand-500 w-2 h-2 rounded-full ring-2 ring-white dark:ring-gray-900 absolute top-2 right-2'}`}></span>
                                     </div>
                                 </div>
                             );
@@ -83,7 +83,7 @@ const Header = ({ user, isMasterUser, companyProfile, onLogout, onProfileUpdate,
                         {/* Botón de tema */}
                         <button 
                             onClick={() => toggleTheme()} 
-                            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
+                            className="p-2 rounded-xl hover:bg-surface-muted dark:hover:bg-gray-800 transition-colors text-ink-soft dark:text-gray-400"
                             aria-label="Cambiar tema"
                         >
                             <Sun size={18} className="hidden dark:inline" />

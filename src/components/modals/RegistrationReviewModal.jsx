@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { X } from 'lucide-react';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import AnimatedModal from '../common/AnimatedModal.jsx';
 
@@ -12,17 +13,17 @@ const displayValue = (value) => {
 
 const Field = ({ label, value }) => (
     <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-        <p className="text-sm font-medium text-slate-900 break-words">{displayValue(value)}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+        <p className="text-sm font-medium text-ink break-words">{displayValue(value)}</p>
     </div>
 );
 
 const Section = ({ title, description, columns = 2, children }) => {
     const gridClass = columns === 1 ? 'grid-cols-1' : columns === 3 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2';
     return (
-        <section className="rounded-2xl border border-slate-200 bg-white/60 shadow-sm">
-            <header className="border-b border-slate-200 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-700">{title}</p>
+        <section className="rounded-2xl border border-line bg-white/60 shadow-sm">
+            <header className="border-b border-line px-4 py-3">
+                <p className="text-sm font-semibold text-ink-soft">{title}</p>
                 {description && <p className="text-xs text-slate-400">{description}</p>}
             </header>
             <div className={`grid gap-4 px-4 py-4 ${gridClass}`}>
@@ -50,35 +51,35 @@ export default function RegistrationReviewModal({ adminData = {}, companyData = 
         <AnimatedModal onClose={onClose}>
             {(close) => (
                 <div className="w-full max-w-4xl">
-                    <div className="relative rounded-3xl border border-slate-100 bg-white shadow-2xl">
-                        <header className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="relative rounded-3xl border border-line bg-surface shadow-2xl">
+                        <header className="flex flex-col gap-4 border-b border-line px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                                <p className="text-xs uppercase tracking-[0.28em] text-indigo-500">Resumen</p>
-                                <h3 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">Confirma los datos antes de crear la cuenta</h3>
-                                <p className="mt-2 text-sm text-slate-500">
+                                <p className="text-xs uppercase tracking-[0.28em] text-brand-500">Resumen</p>
+                                <h3 className="mt-1 text-2xl font-bold text-ink sm:text-3xl">Confirma los datos antes de crear la cuenta</h3>
+                                <p className="mt-2 text-sm text-ink-muted">
                                     Verifica la información del administrador y la empresa. Puedes volver para editar o reiniciar el proceso en cualquier momento.
                                 </p>
                             </div>
-                            <button onClick={close} aria-label="Cerrar" className="self-start text-2xl text-slate-400 transition-colors hover:text-slate-600 sm:self-center">&times;</button>
+                            <button onClick={close} aria-label="Cerrar" aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                         </header>
 
                         <div className="space-y-6 px-6 py-6">
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                                <div className="flex items-center gap-4 rounded-2xl border border-line bg-slate-50/70 p-4">
                                     <ProfilePicture photoURL={adminData.photoURL} handleImageChange={() => {}} id="adminPreview" />
                                     <div className="space-y-1">
-                                        <p className="text-lg font-semibold text-slate-900">
+                                        <p className="text-lg font-semibold text-ink">
                                             {displayValue(`${adminData.firstName || ''} ${adminData.lastName || ''}`.trim())}
                                         </p>
-                                        <p className="text-xs uppercase tracking-wide text-slate-500">Administrador principal</p>
+                                        <p className="text-xs uppercase tracking-wide text-ink-muted">Administrador principal</p>
                                         <p className="text-xs text-slate-400">Será el responsable de gestionar la nueva instancia.</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                                <div className="flex items-center gap-4 rounded-2xl border border-line bg-slate-50/70 p-4">
                                     <ProfilePicture photoURL={companyData.logo} handleImageChange={() => {}} id="companyPreview" />
                                     <div className="space-y-1">
-                                        <p className="text-lg font-semibold text-slate-900">{displayValue(companyData.name)}</p>
-                                        <p className="text-xs uppercase tracking-wide text-slate-500">Datos de la empresa</p>
+                                        <p className="text-lg font-semibold text-ink">{displayValue(companyData.name)}</p>
+                                        <p className="text-xs uppercase tracking-wide text-ink-muted">Datos de la empresa</p>
                                         <p className="text-xs text-slate-400">Información fiscal y comercial para tus registros.</p>
                                     </div>
                                 </div>
@@ -166,14 +167,14 @@ export default function RegistrationReviewModal({ adminData = {}, companyData = 
 
                             <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4">
                                 <div className="flex flex-col gap-2 sm:flex-row">
-                                    <button onClick={onBackToAdmin} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-700 sm:w-auto">Editar administrador</button>
-                                    <button onClick={onBackToCompany} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-700 sm:w-auto">Editar empresa</button>
+                                    <button onClick={onBackToAdmin} className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-sm font-medium text-ink-soft transition-colors hover:border-brand-300 hover:text-brand-700 sm:w-auto">Editar administrador</button>
+                                    <button onClick={onBackToCompany} className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-sm font-medium text-ink-soft transition-colors hover:border-brand-300 hover:text-brand-700 sm:w-auto">Editar empresa</button>
                                     <button onClick={onClear} className="w-full rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 transition-colors hover:border-red-200 hover:bg-red-100 sm:w-auto">Cancelar y borrar todo</button>
                                 </div>
                                 <button
                                     onClick={onConfirm}
                                     disabled={isProcessing}
-                                    className={`w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-colors sm:w-auto ${isProcessing ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                                    className={`w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-colors sm:w-auto ${isProcessing ? 'bg-brand-300 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700'}`}
                                 >
                                     {isProcessing ? 'Creando cuenta...' : 'Confirmar y crear cuenta'}
                                 </button>
@@ -182,10 +183,10 @@ export default function RegistrationReviewModal({ adminData = {}, companyData = 
 
                         {isProcessing && (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/85 backdrop-blur-sm">
-                                <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-xl">
-                                    <p className="mb-4 text-sm font-semibold text-slate-700">{progressMessage || 'Procesando...'}</p>
+                                <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 text-center shadow-xl">
+                                    <p className="mb-4 text-sm font-semibold text-ink-soft">{progressMessage || 'Procesando...'}</p>
                                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                                        <div className="h-full bg-indigo-500 transition-all" style={{ width: `${Math.min(100, (progressStep / 4) * 100)}%` }} />
+                                        <div className="h-full bg-brand-500 transition-all" style={{ width: `${Math.min(100, (progressStep / 4) * 100)}%` }} />
                                     </div>
                                     <p className="mt-3 text-xs text-slate-400">Mantén la ventana abierta hasta finalizar.</p>
                                 </div>

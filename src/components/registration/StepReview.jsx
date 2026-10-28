@@ -12,7 +12,7 @@ const displayValue = (v) => {
 const Field = ({ label, value }) => (
   <div className="space-y-0.5">
     <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-    <p className="text-sm font-medium text-gray-800 break-words">{displayValue(value)}</p>
+    <p className="text-sm font-medium text-ink break-words">{displayValue(value)}</p>
   </div>
 );
 
@@ -22,7 +22,7 @@ const ReviewSection = ({ title, children, onEdit }) => (
       <h3>{title}</h3>
       {onEdit && (
         <button type="button" onClick={onEdit}
-          className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+          className="text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors">
           Editar →
         </button>
       )}
@@ -53,22 +53,22 @@ export default function StepReview({
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="card flex items-center gap-4 p-4">
           <ProfilePicture photoURL={adminData.photoURL} handleImageChange={() => {}} id="reviewAdmin" />
           <div>
-            <p className="font-semibold text-gray-900">
+            <p className="font-semibold text-ink">
               {[adminData.firstName, adminData.lastName].filter(Boolean).join(' ') || '—'}
             </p>
             <p className="text-xs text-gray-400 uppercase tracking-wide mt-0.5">Administrador</p>
-            <p className="text-xs text-gray-500 mt-0.5">{adminData.email || '—'}</p>
+            <p className="text-xs text-ink-muted mt-0.5">{adminData.email || '—'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="card flex items-center gap-4 p-4">
           <ProfilePicture photoURL={companyData.logo} handleImageChange={() => {}} id="reviewCompany" />
           <div>
-            <p className="font-semibold text-gray-900">{companyData.name || '—'}</p>
+            <p className="font-semibold text-ink">{companyData.name || '—'}</p>
             <p className="text-xs text-gray-400 uppercase tracking-wide mt-0.5">Empresa</p>
-            <p className="text-xs text-gray-500 mt-0.5">{companyData.rnc ? `RNC: ${companyData.rnc}` : 'Sin RNC'}</p>
+            <p className="text-xs text-ink-muted mt-0.5">{companyData.rnc ? `RNC: ${companyData.rnc}` : 'Sin RNC'}</p>
           </div>
         </div>
       </div>
@@ -98,14 +98,14 @@ export default function StepReview({
 
       {/* Progress overlay when processing */}
       {isProcessing && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-6 text-center">
-          <Loader2 className="mx-auto animate-spin text-indigo-500 mb-3" size={32} />
-          <p className="text-sm font-semibold text-indigo-800">{progressMessage || 'Procesando...'}</p>
-          <div className="mt-4 h-2 w-full rounded-full bg-indigo-200 overflow-hidden">
-            <div className="h-full bg-indigo-500 transition-all duration-500 rounded-full"
+        <div className="rounded-xl border border-brand-100 bg-brand-50 p-6 text-center">
+          <Loader2 className="mx-auto animate-spin text-brand-500 mb-3" size={32} />
+          <p className="text-sm font-semibold text-brand-800">{progressMessage || 'Procesando...'}</p>
+          <div className="mt-4 h-2 w-full rounded-full bg-brand-200 overflow-hidden">
+            <div className="h-full bg-brand-500 transition-all duration-500 rounded-full"
               style={{ width: `${Math.min(100, (progressStep / 3) * 100)}%` }} />
           </div>
-          <p className="text-xs text-indigo-400 mt-2">Mantén la ventana abierta hasta finalizar.</p>
+          <p className="text-xs text-brand-400 mt-2">Mantén la ventana abierta hasta finalizar.</p>
         </div>
       )}
 
