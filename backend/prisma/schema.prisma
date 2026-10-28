@@ -332,6 +332,8 @@ model Invoice {
   
   // Pago
   paymentMethod String?
+  paymentTermDays Int?      // plazo de crédito en días (null/0 = contado)
+  dueDate         DateTime? // vencimiento: fecha de la venta + plazo
   amountPaid    Decimal @default(0) @db.Decimal(12, 2)
   changeAmount  Decimal @default(0) @db.Decimal(12, 2)
   

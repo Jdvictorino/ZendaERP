@@ -2,7 +2,7 @@
  * ecf.js — Rutas API para Facturación Electrónica (e-CF) DGII
  */
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import prisma from '../db.js';
 import ecfService from '../services/ecfService.js';
 
@@ -10,6 +10,10 @@ const router = Router();
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
+
+// Configurar e-CF (certificado, secuencias, ambiente) y emitir/reintentar a mano es tarea de gerencia.
+// La emisión normal ocurre al facturar (POST /api/invoices/:id/bill), disponible también para cajeros.
+const manageEcf = authorize('admin', 'manager');
 
 // =============================================
 // CONFIGURACIÓN e-CF
@@ -48,7 +52,7 @@ router.get('/config', async (req, res, next) => {
 });
 
 /** PUT /api/ecf/config — Actualizar configuración e-CF */
-router.put('/config', async (req, res, next) => {
+router.put('/config', manageEcf, async (req, res, next) => {
   try {
     const { ecfEnabled, ecfEnvironment } = req.body;
     const updateData = {};
@@ -71,7 +75,7 @@ router.put('/config', async (req, res, next) => {
 });
 
 /** POST /api/ecf/upload-certificate — Subir certificado .p12 */
-router.post('/upload-certificate', async (req, res, next) => {
+router.post('/upload-certificate', manageEcf, async (req, res, next) => {
   try {
     const { certificateBase64, password } = req.body;
 
@@ -129,7 +133,7 @@ router.post('/upload-certificate', async (req, res, next) => {
 });
 
 /** POST /api/ecf/test-connection — Probar conexión con DGII */
-router.post('/test-connection', async (req, res, next) => {
+router.post('/test-connection', manageEcf, async (req, res, next) => {
   try {
     const result = await ecfService.testConnection(req.companyId);
     res.json(result);
@@ -156,7 +160,7 @@ router.get('/sequences', async (req, res, next) => {
 });
 
 /** POST /api/ecf/sequences — Crear secuencia */
-router.post('/sequences', async (req, res, next) => {
+router.post('/sequences', manageEcf, async (req, res, next) => {
   try {
     const { tipoEcf, nombre, rangoDesde, rangoHasta, fechaVencimiento } = req.body;
 
@@ -187,7 +191,7 @@ router.post('/sequences', async (req, res, next) => {
 });
 
 /** PUT /api/ecf/sequences/:id — Actualizar secuencia */
-router.put('/sequences/:id', async (req, res, next) => {
+router.put('/sequences/:id', manageEcf, async (req, res, next) => {
   try {
     const { nombre, rangoDesde, rangoHasta, secuencial, fechaVencimiento, estado } = req.body;
 
@@ -216,7 +220,7 @@ router.put('/sequences/:id', async (req, res, next) => {
 });
 
 /** DELETE /api/ecf/sequences/:id — Eliminar secuencia */
-router.delete('/sequences/:id', async (req, res, next) => {
+router.delete('/sequences/:id', manageEcf, async (req, res, next) => {
   try {
     const existing = await prisma.ecfSequence.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
@@ -298,7 +302,7 @@ router.get('/documents/:id', async (req, res, next) => {
 // =============================================
 
 /** POST /api/ecf/emit — Emitir e-CF para una factura */
-router.post('/emit', async (req, res, next) => {
+router.post('/emit', manageEcf, async (req, res, next) => {
   try {
     const { invoiceId, tipoEcf } = req.body;
 
@@ -317,6 +321,7 @@ router.post('/emit', async (req, res, next) => {
 router.get('/status/:id', async (req, res, next) => {
   try {
     const result = await ecfService.checkTrackIdStatus(req.params.id, req.companyId);
+    await ecfService.syncInvoiceWithEcf(req.params.id); // si la DGII lo rechazó, la factura deja de contar como facturada
     res.json(result);
   } catch (error) {
     next(error);
@@ -324,9 +329,10 @@ router.get('/status/:id', async (req, res, next) => {
 });
 
 /** POST /api/ecf/retry/:id — Reintentar envío de un documento */
-router.post('/retry/:id', async (req, res, next) => {
+router.post('/retry/:id', manageEcf, async (req, res, next) => {
   try {
     const result = await ecfService.retryEcfSend(req.params.id, req.companyId);
+    await ecfService.syncInvoiceWithEcf(req.params.id);
     res.json(result);
   } catch (error) {
     next(error);
