@@ -1,7 +1,7 @@
 {
   "name": "zenda-erp",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "commonjs",
   "description": "El Mejor Amigo de Tus Finanzas.",
   "author": {
@@ -70,7 +70,8 @@
       "menu.js"
     ],
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     },
     "npmRebuild": false,
     "win": {
