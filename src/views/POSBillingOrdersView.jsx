@@ -2,11 +2,15 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import api from '../api/client.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import { 
-  Search, Plus, Trash2, Receipt, ChevronDown, Check, X, Bell, User, ShoppingCart, Smartphone, XCircle, UserPlus, Archive 
+  Search, Plus, Minus, Trash2, Receipt, ChevronDown, Check, ShoppingCart, Smartphone, XCircle, UserPlus
 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import Button from '../components/ui/Button.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { badgeClass } from '../components/ui/Badge.jsx';
+import { formatCurrency } from '../utils/formatCurrency.js';
+import { ECF_TYPE_MAP } from '../utils/ecfConstants.js';
 import toast from 'react-hot-toast';
-import PostOrderActionsModal from '../components/modals/PostOrderActionsModal.jsx';
-import BillingTypeModal from '../components/modals/BillingTypeModal.jsx';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ScannerLinkModal from '../components/modals/ScannerLinkModal.jsx';
 import CustomerModal from '../components/modals/CustomerModal.jsx';
@@ -20,76 +24,80 @@ import { generatePDF } from '../utils/pdfGenerator.js';
 import { generateThermalReceiptHTML } from '../utils/escposGenerator.js';
 import { printEscPosReceipt } from '../utils/printer.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
+import { confirmDialog } from '../utils/confirmDialog.jsx';
 
 const TAX_RATE = 0.18;
 
-const fmt = (n) =>
-  "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// shortcut: la moneda se toma del perfil en cada render del POS (ver posCurrency = ... abajo); si fmt se usa fuera de esta vista, pasar la moneda explícita
+let posCurrency = 'DOP';
+const fmt = (n) => formatCurrency(Number(n) || 0, posCurrency);
+
+// Totales con ITBIS incluido en el precio (igual que el backend). El descuento general se aplica después del de cada línea.
+// % de descuento a enviar por línea: combina el de la línea con el general (100 * (1 - (1-d)(1-g)))
+export function combinedDiscount(lineDisc, globalDisc) {
+  const d = (Number(lineDisc) || 0) / 100, g = (Number(globalDisc) || 0) / 100;
+  return Math.min(100, Number((100 * (1 - (1 - d) * (1 - g))).toFixed(4)));
+}
+
+export function computeTotals(rows, globalDisc) {
+  const g = 1 - (Number(globalDisc) || 0) / 100;
+  let gross = 0, total = 0, tax = 0;
+  for (const r of rows) {
+    const line = r.price * r.qty * (1 - r.disc / 100);
+    const lineNet = line * g;
+    gross += line; total += lineNet;
+    if (r.taxable) tax += lineNet - lineNet / (1 + TAX_RATE);
+  }
+  return { gross, discAmt: gross - total, tax, subtotal: total - tax, total };
+}
+
+const CONDICIONES = ['Contado', 'Crédito 30d', 'Crédito 60d'];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function TopBar({ children, invoiceNum }) {
+function TopBar({ children, badge }) {
   return (
-    <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14 glass border-b border-gray-200/50 dark:border-gray-800/50">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <div className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400 flex-shrink-0">
-          <Receipt size={18} />
-          <span className="hidden sm:inline text-lg font-bold tracking-tight">Zenda ERP</span>
-        </div>
-        <span className="bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold flex-shrink-0">POS</span>
-        {invoiceNum && (
-          <span className="text-xs font-medium text-gray-400 dark:text-gray-500 truncate">#{invoiceNum}</span>
-        )}
+    <div className="flex items-center justify-between gap-3 px-4 h-14 border-b border-line bg-surface">
+      <div className="flex items-center gap-2 min-w-0">
+        <Receipt size={18} className="text-brand-600 dark:text-brand-400 shrink-0" />
+        <h2 className="text-base font-semibold text-ink truncate">Punto de venta</h2>
+        {badge && <span className={badgeClass('brand', 'sm')}>{badge}</span>}
       </div>
-      {children && (
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {children}
-          </div>
-      )}
+      {children && <div className="flex items-center gap-2 shrink-0">{children}</div>}
     </div>
   );
 }
 
-function HeaderFields({ date, setDate, ncf, setNcf, condicion, setCondicion }) {
-  const inputCls = "w-full text-sm px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all";
-  const selectCls = inputCls + " appearance-none";
+function HeaderFields({ idPrefix, comprobante, setComprobante, options, ncfPreview, condicion, setCondicion }) {
+  const today = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* la fecha la asigna el servidor al guardar la venta; aquí solo se informa */}
       <Field label="Fecha">
-        <input className={inputCls} type="date" value={date} onChange={e => setDate(e.target.value)} />
+        <div className="input-base flex items-center bg-surface-muted text-ink-soft tabular-nums">{today}</div>
       </Field>
-      <Field label="Condición">
-        <div className="relative">
-          <select className={selectCls} value={condicion} onChange={e => setCondicion(e.target.value)}>
-            <option>Contado</option>
-            <option>Crédito 30d</option>
-            <option>Crédito 60d</option>
-          </select>
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"><ChevronDown size={14} /></div>
-        </div>
+      <Field label="Condición" htmlFor={`${idPrefix}-condicion`}>
+        <select id={`${idPrefix}-condicion`} className="input-base" value={condicion} onChange={e => setCondicion(e.target.value)}>
+          {CONDICIONES.map(c => <option key={c}>{c}</option>)}
+        </select>
       </Field>
-      <Field label="Comprobante">
-        <div className="relative">
-          <select className={selectCls} value={ncf} onChange={(e) => setNcf(e.target.value)}>
-            <option value="00">Sin comprobante</option>
-            <option value="01">Crédito fiscal</option>
-            <option value="02">Consumo</option>
-            <option value="11">Régimen especial</option>
-          </select>
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"><ChevronDown size={14} /></div>
-        </div>
+      <Field label="Comprobante" htmlFor={`${idPrefix}-comprobante`}>
+        <select id={`${idPrefix}-comprobante`} className="input-base" value={comprobante} onChange={e => setComprobante(e.target.value)}>
+          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
       </Field>
-      <Field label="NCF / Folio">
-        <input className={inputCls} defaultValue={ncf} />
+      <Field label="Próximo NCF">
+        <div className="input-base flex items-center bg-surface-muted font-mono text-ink-soft tabular-nums">{ncfPreview || '—'}</div>
       </Field>
     </div>
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, htmlFor, children }) {
+  const Label = htmlFor ? 'label' : 'span';
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.08em]">{label}</label>
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={htmlFor} className="text-xs font-medium text-ink-muted">{label}</Label>
       {children}
     </div>
   );
@@ -150,10 +158,10 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
     <div className="relative mt-2 flex flex-col sm:flex-row gap-2" ref={dropdownRef}>
       <div className="flex gap-2 flex-1 relative">
         <div className="relative flex-1">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Search size={18} /></div>
-          <input
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"><Search size={18} /></div>
+          <input aria-label="Buscar producto"
             ref={productRef}
-            className="w-full text-sm pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="input-base pl-10"
             placeholder="Buscar producto…"
             value={query}
             onChange={e => handleInput(e.target.value)}
@@ -161,8 +169,7 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
             onKeyDown={handleKeyDown}
           />
         </div>
-        <button 
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-colors shrink-0 active:scale-95 shadow-sm"
+        <Button className="gap-1.5 shrink-0"
           onClick={() => {
             if (open && results[highlightIdx]) { pick(results[highlightIdx]); }
             else if (query.trim()) {
@@ -172,242 +179,210 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
             } else { onAdd(null); }
           }}>
           <Plus size={16} /><span className="hidden sm:inline">Agregar</span>
-        </button>
+        </Button>
         {open && (
-          <div className="absolute top-[calc(100%+8px)] left-0 right-0 sm:right-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
+          <div className="absolute top-[calc(100%+6px)] left-0 right-0 sm:right-32 bg-surface border border-line rounded-xl shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto">
             {results.map((p, i) => (
-              <div key={p.id || i} className={`flex flex-col px-3 py-2.5 cursor-pointer transition-colors ${i === highlightIdx ? 'bg-brand-50 dark:bg-brand-900/50' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`} onClick={() => pick(p)} onMouseEnter={() => setHighlightIdx(i)}>
+              <div key={p.id || i} className={`flex flex-col px-3 py-2.5 cursor-pointer transition-colors ${i === highlightIdx ? 'bg-brand-50 dark:bg-brand-900/50' : 'hover:bg-surface-muted dark:hover:bg-gray-700'}`} onClick={() => pick(p)} onMouseEnter={() => setHighlightIdx(i)}>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">{p.name}</span>
+                  <span className="text-sm font-semibold text-ink">{p.name}</span>
                   {i === highlightIdx && <Check size={14} className="text-brand-600" />}
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{p.productCode || p.barcode || '-'} — {fmt(p.salePrice || p.price)}</span>
+                <span className="text-xs text-ink-muted dark:text-gray-400">{p.productCode || p.barcode || '-'} — {fmt(p.salePrice || p.price)}</span>
               </div>
             ))}
           </div>
         )}
       </div>
       <div className="hidden lg:flex gap-2">
-         <input type="text" placeholder="Escanear código..." value={barcodeScan || ''} onChange={e => setBarcodeScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleBarcodeScan(barcodeScan.trim()); }} className="w-48 text-sm p-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 bg-white dark:bg-gray-800" />
+         <input aria-label="Escanear código" type="text" placeholder="Escanear código..." value={barcodeScan || ''} onChange={e => setBarcodeScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleBarcodeScan(barcodeScan.trim()); }} className="input-base w-48" />
          {isConnected ? (
-             <div className="flex items-center bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-xl overflow-hidden shadow-sm shrink-0 border border-green-200 dark:border-green-800/50">
-                 <button onClick={() => setShowScannerModal(true)} className="flex items-center gap-1.5 px-3 py-2.5 hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors text-sm" title="Escáner remoto activo"><Smartphone size={16} /><span className="font-semibold hidden xl:inline">{linkedDeviceName || 'Conectado'}</span></button>
-                 <button onClick={() => disconnectDevice()} className="px-2 py-2.5 hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors border-l border-green-200/50 dark:border-green-800 text-sm" title="Desvincular"><XCircle size={16} /></button>
+             <div className="flex items-center bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400 rounded-xl overflow-hidden shadow-sm shrink-0 border border-success-200 dark:border-success-800/50">
+                 <button onClick={() => setShowScannerModal(true)} className="flex items-center gap-1.5 px-3 py-2.5 hover:bg-success-200 dark:hover:bg-success-800/50 transition-colors text-sm" title="Escáner remoto activo"><Smartphone size={16} /><span className="font-semibold hidden xl:inline">{linkedDeviceName || 'Conectado'}</span></button>
+                 <button onClick={() => disconnectDevice()} className="px-2 py-2.5 hover:bg-success-200 dark:hover:bg-success-800/50 transition-colors border-l border-success-200/50 dark:border-success-800 text-sm" title="Desvincular"><XCircle size={16} /></button>
              </div>
          ) : (
-             <button onClick={() => { initSession(); setShowScannerModal(true); }} className="flex items-center gap-1.5 bg-brand-50 border border-brand-200 text-brand-700 dark:bg-brand-900/30 dark:border-brand-800/50 dark:text-brand-400 px-3 py-2.5 rounded-xl hover:bg-brand-100 transition-colors shrink-0 text-sm"><Smartphone size={16} /><span className="hidden xl:inline">Vincular</span></button>
+             <Button variant="secondary" className="gap-1.5 shrink-0" onClick={() => { initSession(); setShowScannerModal(true); }} title="Vincular celular como escáner"><Smartphone size={16} /><span className="hidden xl:inline">Vincular</span></Button>
          )}
       </div>
     </div>
   );
 }
 
-function MobileGridCard({ row, index, onQty, onDisc, onPrice, onDelete }) {
-  const total = row.price * row.qty * (1 - row.disc / 100);
-  const qtyBtnCls = "w-8 h-8 flex justify-center items-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold active:scale-90 transition-transform";
+function LineDesc({ row, onDesc, className = '' }) {
+  if (row.originalId) return <span className={className}>{row.desc}</span>;
   return (
-    <div className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+    <input aria-label="Descripción del artículo" className="input-base h-8" placeholder="Descripción del artículo"
+      value={row.desc} onChange={e => onDesc(row.id, e.target.value)} />
+  );
+}
+
+const qtyBtnCls = "w-8 h-8 flex justify-center items-center rounded-lg border border-line bg-surface text-ink-soft hover:bg-surface-muted font-semibold";
+
+function MobileGridCard({ row, onQty, onPrice, onDelete, onDesc }) {
+  const total = row.price * row.qty * (1 - row.disc / 100);
+  return (
+    <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-line">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{row.desc}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5 font-mono">{row.code || '—'}</p>
+        <LineDesc row={row} onDesc={onDesc} className="block text-sm font-semibold text-ink truncate" />
+        <p className="text-xs text-ink-muted mt-0.5 font-mono">{row.code || '—'}</p>
         <div className="flex items-center gap-3 mt-2">
           <div className="flex items-center gap-1.5">
-            <button className={qtyBtnCls} onClick={() => onQty(row.id, -1)}>−</button>
-            <span className="text-sm font-bold w-6 text-center">{row.qty}</span>
-            <button className={qtyBtnCls} onClick={() => onQty(row.id, 1)}>+</button>
+            <button aria-label="Disminuir cantidad" className={qtyBtnCls} onClick={() => onQty(row.id, -1)}><Minus size={14} /></button>
+            <span className="text-sm font-semibold w-6 text-center tabular-nums">{row.qty}</span>
+            <button aria-label="Aumentar cantidad" className={qtyBtnCls} onClick={() => onQty(row.id, 1)}><Plus size={14} /></button>
           </div>
-          <span className="text-xs text-gray-400">×</span>
-          <input className="w-20 text-sm font-medium bg-gray-50 dark:bg-gray-700 rounded-lg px-2 py-1 border-0 focus:ring-2 focus:ring-brand-500 text-right" type="number" min="0" value={row.price} onChange={e => onPrice(row.id, e.target.value)} />
+          <span className="text-xs text-ink-muted">×</span>
+          <input aria-label="Precio unitario" className="input-base w-24 h-8 text-right tabular-nums" type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} />
         </div>
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <span className="text-base font-bold text-brand-600 dark:text-brand-400">{fmt(total)}</span>
-        <button className="p-1.5 text-red-400 hover:text-red-600 rounded-lg active:scale-90 transition-all" onClick={() => onDelete(row.id)}><Trash2 size={16} /></button>
+        <span className="text-base font-semibold text-ink tabular-nums">{fmt(total)}</span>
+        <button aria-label="Quitar línea" className="p-1.5 text-gray-400 hover:text-danger-600 rounded-lg" onClick={() => onDelete(row.id)}><Trash2 size={16} /></button>
       </div>
     </div>
   );
 }
 
-function GridRow({ row, index, onQty, onDisc, onPrice, onDelete }) {
+function GridRow({ row, index, onQty, onDisc, onPrice, onDelete, onDesc }) {
   const total = row.price * row.qty * (1 - row.disc / 100);
   const tax = row.taxable ? total - (total / (1 + TAX_RATE)) : 0;
+  const cellInput = "input-base h-8 px-2 text-right tabular-nums";
   return (
-    <tr className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group">
-      <td className="p-3 text-center text-xs text-gray-400">{index + 1}</td>
-      <td className="p-3 font-medium text-sm text-gray-800 dark:text-gray-200">{row.desc}</td>
-      <td className="p-3 text-xs text-gray-500 dark:text-gray-400">{row.code}</td>
-      <td className="p-3">
-        <div className="flex items-center gap-2">
-          <button className="w-6 h-6 flex justify-center items-center rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors" onClick={() => onQty(row.id, -1)}>−</button>
-          <span className="text-sm font-medium w-6 text-center">{row.qty}</span>
-          <button className="w-6 h-6 flex justify-center items-center rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors" onClick={() => onQty(row.id, 1)}>+</button>
+    <tr className="border-b border-line hover:bg-surface-muted/60 transition-colors group">
+      <td className="px-3 py-2 text-center text-xs text-ink-muted tabular-nums">{index + 1}</td>
+      <td className="px-3 py-2 text-sm font-medium text-ink"><LineDesc row={row} onDesc={onDesc} /></td>
+      <td className="px-3 py-2 text-xs text-ink-muted font-mono">{row.code}</td>
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <button aria-label="Disminuir cantidad" className="w-7 h-7 flex justify-center items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-surface-muted" onClick={() => onQty(row.id, -1)}><Minus size={12} /></button>
+          <span className="text-sm font-medium w-6 text-center tabular-nums">{row.qty}</span>
+          <button aria-label="Aumentar cantidad" className="w-7 h-7 flex justify-center items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-surface-muted" onClick={() => onQty(row.id, 1)}><Plus size={12} /></button>
         </div>
       </td>
-      <td className="p-3"><div className="flex items-center"><input className="w-14 text-sm bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-500 rounded px-1.5 py-1 focus:outline-none transition-colors" type="number" min="0" max="100" value={row.disc} onChange={e => onDisc(row.id, e.target.value)} /><span className="text-xs text-gray-400 ml-0.5">%</span></div></td>
-      <td className="p-3 text-right"><input className="w-20 text-sm text-right bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-500 rounded px-1.5 py-1 focus:outline-none transition-colors" type="number" min="0" value={row.price} onChange={e => onPrice(row.id, e.target.value)} /></td>
-      <td className={"p-3 text-right text-xs " + (row.taxable ? "text-gray-500" : "text-gray-300 dark:text-gray-600")}>{row.taxable ? fmt(tax) : "—"}</td>
-      <td className="p-3 text-right font-semibold text-brand-600 dark:text-brand-400">{fmt(total)}</td>
-      <td className="p-3 text-center"><button className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onDelete(row.id)}><Trash2 size={16} /></button></td>
+      <td className="px-3 py-2"><input aria-label="Descuento de la línea (%)" className={`${cellInput} w-16`} type="number" min="0" max="100" value={row.disc} onChange={e => onDisc(row.id, e.target.value)} /></td>
+      <td className="px-3 py-2 text-right"><input aria-label="Precio unitario" className={`${cellInput} w-24`} type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} /></td>
+      <td className="px-3 py-2 text-right text-xs text-ink-muted tabular-nums">{row.taxable ? fmt(tax) : 'Exento'}</td>
+      <td className="px-3 py-2 text-right text-sm font-semibold text-ink tabular-nums">{fmt(total)}</td>
+      <td className="px-3 py-2 text-center"><button aria-label="Quitar línea" className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onDelete(row.id)}><Trash2 size={16} /></button></td>
     </tr>
   );
 }
 
-function DataGrid({ rows, onQty, onDisc, onPrice, onDelete, onAddEmpty }) {
-  const thCls = "px-3 py-2.5 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider";
+function DataGrid({ rows, onQty, onDisc, onPrice, onDelete, onDesc, onAddEmpty }) {
+  const thCls = "px-3 py-2.5 text-xs font-semibold text-ink-muted uppercase tracking-wide";
+  const empty = <EmptyState icon={ShoppingCart} title="Sin artículos" description="Busca un producto (F2) o escanea su código para añadirlo." />;
   return (
-    <div className="flex flex-col flex-1 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 overflow-hidden mt-2">
+    <div className="flex flex-col flex-1 border border-line rounded-xl bg-surface overflow-hidden mt-3">
       <div className="flex-1 overflow-auto custom-scrollbar">
-        {/* Mobile cards */}
+        {/* Móvil: tarjetas */}
         <div className="lg:hidden flex flex-col gap-2 p-3">
-          {rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-400">
-              <ShoppingCart size={32} className="text-gray-300 dark:text-gray-600" />
-              <p className="text-sm">Sin productos agregados.</p>
-            </div>
-          ) : rows.map((r, i) => (
-            <MobileGridCard key={r.id} row={r} index={i} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} />
+          {rows.length === 0 ? empty : rows.map(r => (
+            <MobileGridCard key={r.id} row={r} onQty={onQty} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} />
           ))}
         </div>
-        {/* Desktop table */}
+        {/* Escritorio: tabla */}
         <table className="w-full text-left border-collapse hidden lg:table">
           <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+            <tr className="bg-surface-muted border-b border-line sticky top-0 z-10">
               <th className={`${thCls} w-[40px] text-center`}>#</th>
-              <th className={thCls}>Producto / Servicio</th>
-              <th className={`${thCls} w-[100px]`}>Código</th>
-              <th className={`${thCls} w-[110px]`}>Cant.</th>
-              <th className={`${thCls} w-[80px]`}>Desc%</th>
-              <th className={`${thCls} w-[100px] text-right`}>Precio unit.</th>
-              <th className={`${thCls} w-[90px] text-right`}>ITBIS</th>
-              <th className={`${thCls} w-[110px] text-right`}>Total</th>
-              <th className={`${thCls} w-[50px] text-center`}></th>
+              <th className={thCls}>Producto / servicio</th>
+              <th className={`${thCls} w-[110px]`}>Código</th>
+              <th className={`${thCls} w-[120px]`}>Cant.</th>
+              <th className={`${thCls} w-[90px]`}>Desc. %</th>
+              <th className={`${thCls} w-[120px] text-right`}>Precio unit.</th>
+              <th className={`${thCls} w-[100px] text-right`}>ITBIS</th>
+              <th className={`${thCls} w-[120px] text-right`}>Total</th>
+              <th className={`${thCls} w-[50px]`}><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan="9" className="p-8 text-center text-sm text-gray-400">
-                <div className="flex flex-col items-center justify-center gap-2">
-                  <ShoppingCart size={32} className="text-gray-300 dark:text-gray-600" />
-                  <p>Sin productos agregados.</p>
-                </div>
-              </td></tr>
+              <tr><td colSpan="9" className="p-0">{empty}</td></tr>
             ) : rows.map((r, i) => (
-              <GridRow key={r.id} row={r} index={i} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} />
+              <GridRow key={r.id} row={r} index={i} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} />
             ))}
           </tbody>
         </table>
       </div>
-      <button className="flex items-center gap-2 px-4 py-2.5 border-t border-dashed border-gray-200 dark:border-gray-700 text-xs font-bold text-brand-600 dark:text-brand-400 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors w-full active:scale-[0.98]" onClick={onAddEmpty}>
-        <Plus size={14} /> Agregar línea vacía
+      <button className="flex items-center gap-2 px-4 py-2.5 border-t border-dashed border-line text-xs font-semibold text-brand-600 dark:text-brand-400 hover:bg-surface-muted transition-colors w-full" onClick={onAddEmpty}>
+        <Plus size={14} /> Agregar línea libre
       </button>
     </div>
   );
 }
 
-function ClientCard({ customer }) {
-  if (!customer) {
-    return (
-      <div className="flex items-center gap-3 p-2.5 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-lg cursor-pointer hover:border-indigo-300 transition-colors">
-        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-400 flex justify-center items-center font-bold text-sm">?</div>
-        <div className="text-sm text-gray-500 italic">Consumidor Final</div>
-      </div>
-    );
-  }
-
-  const initials = customer.name?.substring(0, 2).toUpperCase() || "CL";
-  const doc = customer.rnc || customer.identificationNumber || "";
-  
-  return (
-    <div className="flex items-center gap-3 p-2.5 border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-lg cursor-pointer hover:border-indigo-300 transition-colors">
-      <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 flex justify-center items-center font-bold text-sm tracking-widest">{initials}</div>
-      <div className="flex flex-col">
-        <span className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{customer.name}</span>
-        {doc && <span className="text-[11px] text-gray-500 mt-0.5 font-mono">RNC/Doc: {doc}</span>}
-      </div>
-      <div className="ml-auto text-gray-400">
-        <ChevronDown size={16} />
-      </div>
-    </div>
-  );
-}
-
-function PayMethods({ active, setActive }) {
+function PayMethods({ active, setActive, disabled }) {
   const methods = ["Efectivo", "Tarjeta", "Transferencia", "Mixto"];
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-2 gap-1.5 sm:gap-2">
-      {methods.map(m => (
-        <button key={m} className={`py-2 text-[12px] sm:text-[13px] font-bold rounded-xl border transition-all active:scale-95 ${active === m ? "bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-700 text-brand-700 dark:text-brand-300 shadow-sm" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"}`} onClick={() => setActive(m)}>{m}</button>
-      ))}
+    <div role="radiogroup" aria-label="Forma de pago" className="grid grid-cols-2 gap-2">
+      {methods.map(m => {
+        const on = active === m;
+        return (
+          <button key={m} type="button" role="radio" aria-checked={on} disabled={disabled} onClick={() => setActive(m)}
+            className={`h-9 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${on
+              ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
+              : 'border-line bg-surface text-ink-soft hover:bg-surface-muted'}`}>
+            {m}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function Totals({ rows, globalDisc, onSubmit, isSubmitting }) {
-  const rawTotal = rows.reduce((a, r) => a + r.price * r.qty * (1 - r.disc / 100), 0);
-  const discAmt = rawTotal * (globalDisc / 100);
-  const finalTotal = rawTotal - discAmt;
-  const tax = rows.filter(r => r.taxable).reduce((a, r) => { const rowTotal = r.price * r.qty * (1 - r.disc / 100); return a + (rowTotal - (rowTotal / (1 + TAX_RATE))); }, 0) * (1 - globalDisc / 100);
-  const subtotal = finalTotal - tax;
+function Totals({ rows, globalDisc, onSubmit, isSubmitting, submitLabel }) {
+  const t = computeTotals(rows, globalDisc);
   return (
     <div className="mt-auto flex flex-col pt-4">
-      <TotalRow label="Subtotal" value={fmt(subtotal)} />
-      <TotalRow label={`Desc. (${globalDisc}%)`} value={`-${fmt(discAmt)}`} valueClass="text-red-500" />
-      <TotalRow label="ITBIS (18%)" value={fmt(tax)} />
-      <div className="flex justify-between items-center mt-3 p-4 bg-gray-900 dark:bg-black rounded-2xl shadow-inner">
-        <span className="text-gray-300 text-sm font-medium">Total</span>
-        <span className="text-white text-2xl font-extrabold tracking-tight">{fmt(finalTotal)}</span>
+      <TotalRow label="Subtotal" value={fmt(t.subtotal)} />
+      {t.discAmt > 0 && <TotalRow label={`Descuento general (${globalDisc}%)`} value={`−${fmt(t.discAmt)}`} valueClass="text-danger-700 dark:text-danger-400" />}
+      <TotalRow label="ITBIS (18%)" value={fmt(t.tax)} />
+      <div className="flex justify-between items-baseline mt-3 px-4 py-3 bg-night-900 dark:bg-black/40 dark:ring-1 dark:ring-inset dark:ring-line rounded-xl">
+        <span className="text-sm font-medium text-gray-300">Total</span>
+        <span className="text-2xl font-semibold text-white tabular-nums">{fmt(t.total)}</span>
       </div>
-      <button id="pos-pay-button" onClick={onSubmit} disabled={rows.length === 0 || isSubmitting} className="mt-3 w-full bg-green-600 text-white py-3.5 rounded-2xl font-bold hover:bg-green-700 disabled:bg-gray-400 transition-colors active:scale-[0.98] shadow-lg shadow-green-600/20">
-          {isSubmitting ? 'Procesando...' : 'Procesar Pedido'}
-      </button>
+      <Button size="lg" className="mt-3 w-full" onClick={onSubmit} disabled={rows.length === 0 || isSubmitting}>
+        {isSubmitting ? 'Procesando…' : submitLabel}
+      </Button>
+      {rows.length === 0 && <p className="mt-2 text-xs text-center text-ink-muted">Agrega al menos un artículo para continuar.</p>}
     </div>
   );
 }
 
 function TotalRow({ label, value, valueClass = "" }) {
   return (
-    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-      <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{label}</span>
-      <span className={`text-sm font-semibold text-gray-800 dark:text-gray-200 ${valueClass}`}>{value}</span>
+    <div className="flex justify-between items-center py-2 border-b border-line last:border-0">
+      <span className="text-sm text-ink-muted">{label}</span>
+      <span className={`text-sm font-semibold text-ink tabular-nums ${valueClass}`}>{value}</span>
     </div>
   );
 }
 
-function StatusBar({ rows, payMethod, condicion }) {
+function StatusBar({ rows, payMethod, condicion, comprobanteLabel, userLabel }) {
+  const isCredit = condicion !== 'Contado';
   return (
-    <div className="hidden lg:flex items-center justify-between px-5 h-10 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700">
+    <div className="hidden lg:flex items-center justify-between px-5 h-10 bg-surface-muted border-t border-line">
       <div className="flex gap-2">
-        <Chip ok>{rows.length} item{rows.length !== 1 ? "s" : ""}</Chip>
-        <Chip ok>Gravada</Chip>
-        <Chip warn>{payMethod}</Chip>
-        <Chip>{condicion}</Chip>
+        <span className={badgeClass('neutral', 'sm')}>{rows.length} artículo{rows.length !== 1 ? 's' : ''}</span>
+        <span className={badgeClass('brand', 'sm')}>{comprobanteLabel}</span>
+        <span className={badgeClass(isCredit ? 'warning' : 'success', 'sm')}>{isCredit ? condicion : `Contado · ${payMethod}`}</span>
       </div>
-      <span className="text-[11px] font-medium text-gray-400">Zenda ERP · Caja · Admin</span>
+      {userLabel && <span className="text-xs text-ink-muted">{userLabel}</span>}
     </div>
-  );
-}
-
-function Chip({ children, ok, warn }) {
-  const baseClasses = "text-[10px] font-semibold px-2 py-0.5 rounded-full border";
-  let classes = "bg-gray-100 border-gray-200 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300";
-  
-  if (ok) {
-    classes = "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800/50 dark:text-green-400";
-  } else if (warn) {
-    classes = "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-800/50 dark:text-amber-400";
-  }
-  
-  return (
-    <span className={`${baseClasses} ${classes}`}>
-      {children}
-    </span>
   );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function POSBillingOrdersView({ companyProfile, currentUserProfile, setView, adminUser }) {
-  const productSearchInputRef = useRef(null);
-  const customerSearchInputRef = useRef(null);
+  // Escritorio y móvil se renderizan a la vez (uno oculto por CSS): cada uno tiene su ref y los atajos eligen el visible
+  const productRefDesktop = useRef(null);
+  const productRefMobile = useRef(null);
+  const customerRefDesktop = useRef(null);
+  const customerRefMobile = useRef(null);
+  const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+  const focusProduct = () => (isDesktop() ? productRefDesktop : productRefMobile).current?.focus();
+  const focusCustomer = () => (isDesktop() ? customerRefDesktop : customerRefMobile).current?.focus();
 
   const { data: pData } = useApiCrud('/products');
   const { data: cData } = useApiCrud('/customers');
@@ -418,13 +393,13 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const invoicesData = Array.isArray(iData) ? iData : (iData?.data || []);
 
   const [rows, setRows] = useState([]);
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [condicion, setCondicion] = useState("Contado");
   const [payMethod, setPayMethod] = useState("Efectivo");
   const [globalDisc, setGlobalDisc] = useState(0);
-  const [invoiceNum, setInvoiceNum] = useState("FC-00000");
-  const [ncfType, setNcfType] = useState("00");
-  const [toastNotif, setToastNotif] = useState(null);
+  const actionsRef = useRef({ submit: () => {}, cancel: () => {} });
+  const [comprobante, setComprobante] = useState('NoFiscal');
+  const [ecfInfo, setEcfInfo] = useState({ enabled: false, sequences: [] });
+  const [ncfNextLocal, setNcfNextLocal] = useState({}); // avanza la vista previa tras cada venta (el perfil no se recarga aquí)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -434,8 +409,6 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   // Modal & Processing states
   const [paymentForOrder, setPaymentForOrder] = useState(null);
   const [isBillAndPayFlow, setIsBillAndPayFlow] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState(null);
-  const [billingOrder, setBillingOrder] = useState(null);
 
   // Modal states
   const [showOpenShift, setShowOpenShift] = useState(false);
@@ -443,19 +416,51 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const [showCierreCajaModal, setShowCierreCajaModal] = useState(false);
   const [showCierreReports, setShowCierreReports] = useState(false);
   const [adminPinAction, setAdminPinAction] = useState(null); // 'openShift' | 'closeShift'
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showBillingModal, setShowBillingModal] = useState(false);
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [showAdminPinModal, setShowAdminPinModal] = useState(false);
 
-  // Sounds (stubs if not defined)
-  const playSuccessSound = () => {};
-  const playErrorSound = () => {};
 
   // Settings modes
   const isDistributor = companyProfile?.orderMode === 'distributor' || companyProfile?.settings?.orderMode === 'distributor';
+  posCurrency = companyProfile?.currency || 'DOP';
+
+  // ── Comprobantes disponibles: NCF tradicional configurado + e-CF con secuencia activa ──
+  const loadEcf = useCallback(() => {
+    Promise.all([api.ecf.getConfig(), api.ecf.getSequences()])
+      .then(([cfg, seqs]) => setEcfInfo({ enabled: !!cfg?.ecfEnabled, sequences: Array.isArray(seqs) ? seqs : [] }))
+      .catch(() => setEcfInfo({ enabled: false, sequences: [] })); // sin permiso o sin e-CF: solo comprobantes tradicionales
+  }, []);
+  useEffect(() => { loadEcf(); }, [loadEcf]);
+
+  const comprobanteOptions = useMemo(() => {
+    const p = companyProfile || {};
+    const opts = [{ value: 'NoFiscal', label: 'Sin valor fiscal', requiresBuyer: false, preview: '' }];
+    const traditional = [
+      { value: 'B02', label: 'Consumo (B02)', prefix: p.ncfB02Prefix, next: p.ncfB02SequenceNext, end: p.ncfB02SequenceEnd, requiresBuyer: false },
+      { value: 'B01', label: 'Crédito fiscal (B01)', prefix: p.ncfB01Prefix, next: p.ncfB01SequenceNext, end: p.ncfB01SequenceEnd, requiresBuyer: true },
+    ];
+    for (const t of traditional) {
+      const next = ncfNextLocal[t.value] || t.next || 1;
+      if (t.prefix && (!t.end || next <= t.end)) {
+        opts.push({ value: t.value, label: t.label, requiresBuyer: t.requiresBuyer, preview: `${t.prefix}${String(next).padStart(8, '0')}` });
+      }
+    }
+    if (ecfInfo.enabled) {
+      const ECF_LABELS = { E32: 'e-CF Consumo (E32)', E31: 'e-CF Crédito fiscal (E31)', E44: 'e-CF Regímenes especiales (E44)', E45: 'e-CF Gubernamental (E45)' };
+      for (const code of Object.keys(ECF_LABELS)) {
+        const seq = ecfInfo.sequences.find(q => q.tipoEcf === code && q.estado === 'activa' && (!q.rangoHasta || q.secuencial <= q.rangoHasta));
+        if (seq) opts.push({ value: code, label: ECF_LABELS[code], requiresBuyer: !!ECF_TYPE_MAP[code]?.requiresBuyer, preview: `${code}${String(seq.secuencial).padStart(10, '0')}` });
+      }
+    }
+    return opts;
+  }, [companyProfile, ecfInfo, ncfNextLocal]);
+
+  const selectedComprobante = comprobanteOptions.find(o => o.value === comprobante) || comprobanteOptions[0];
+  // si el comprobante elegido deja de estar disponible (secuencia agotada, e-CF deshabilitado), volver a "Sin valor fiscal"
+  useEffect(() => {
+    if (!comprobanteOptions.some(o => o.value === comprobante)) setComprobante('NoFiscal');
+  }, [comprobanteOptions, comprobante]);
+  const isCredit = condicion !== 'Contado';
 
   // Shifts logic
   const cashShifts = Array.isArray(shiftsData) ? shiftsData : (shiftsData?.data || []);
@@ -473,8 +478,10 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     return openShift.movements || [];
   }, [openShift]);
 
-  const handleAdminPinSuccess = useCallback(async () => {
+  // onClose(true) = PIN correcto; onClose(false) = cancelado. Solo se abre/cierra el turno con PIN válido.
+  const handleAdminPinSuccess = useCallback(async (authorized) => {
     setShowAdminPinModal(false);
+    if (authorized !== true) { setAdminPinAction(null); return; }
     if (adminPinAction === 'openShift') {
         setShowOpenShift(true);
     } else if (adminPinAction === 'closeTurno') {
@@ -504,6 +511,8 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         else if (showScannerModal) setShowScannerModal(false);
         else if (showCierreReports) setShowCierreReports(false);
         else if (adminPinAction) setAdminPinAction(null);
+        // sin modales y sin estar escribiendo en un campo: Esc limpia la venta (pide confirmación si hay artículos)
+        else if (!document.querySelector('[role=dialog]') && !e.target.closest?.('input, select, textarea')) actionsRef.current.cancel();
         return;
       }
 
@@ -511,10 +520,10 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
       if (e.key === 'F2') {
         e.preventDefault();
-        productSearchInputRef.current?.focus();
+        focusProduct();
       } else if (e.key === 'F3') {
         e.preventDefault();
-        customerSearchInputRef.current?.focus();
+        focusCustomer();
       } else if (e.key === 'F9') {
         e.preventDefault();
         const next = condicion === 'Contado' ? 'Crédito 30d' : 'Contado';
@@ -522,10 +531,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         toast(`Condición: ${next}`, { icon: '💳' });
       } else if (e.key === 'F10') {
         e.preventDefault();
-        const payBtn = document.getElementById('pos-pay-button');
-        if (payBtn && !payBtn.disabled) {
-            payBtn.click();
-        }
+        actionsRef.current.submit();
       }
     };
 
@@ -536,7 +542,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   // Focus product search on mount
   useEffect(() => {
     if (isDistributor) {
-      setTimeout(() => productSearchInputRef.current?.focus(), 800);
+      setTimeout(focusProduct, 800);
     }
   }, [isDistributor]);
 
@@ -601,8 +607,8 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
           setRows(r => {
              const existing = r.find(x => x.originalId === found.id);
              if (existing) return r.map(x => x.originalId === found.id ? { ...x, qty: x.qty + 1 } : x);
-             return [...r, { 
-               id: Date.now(), 
+             return [...r, {
+               id: uuidv4(),  
                originalId: found.id,
                desc: found.name, 
                code: found.productCode || found.barcode || "-", 
@@ -612,11 +618,9 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
                taxable: found.hasTax ?? true 
              }];
           });
-          setToastNotif({ msg: `Agregado: ${found.name}`, type: "ok" });
-          setTimeout(() => setToastNotif(null), 3000);
+          toast.success(`Agregado: ${found.name}`);
       } else {
-          setToastNotif({ msg: `No encontrado: ${codeStr}`, type: "warn" });
-          setTimeout(() => setToastNotif(null), 3000);
+          toast.error(`No se encontró el código ${codeStr}`);
       }
       setBarcodeScan('');
   }, [catalog]);
@@ -626,14 +630,11 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       return () => unregisterScanHandler();
   }, [handleBarcodeScan, registerScanHandler, unregisterScanHandler]);
 
-  const showToast = (msg, type = "ok") => {
-    setToastNotif({ msg, type });
-    setTimeout(() => setToastNotif(null), 3000);
-  };
+  const showToast = (msg, type = "ok") => (type === 'warn' ? toast.error(msg) : toast.success(msg));
 
   const addProduct = (p) => {
     if (!p) {
-      setRows(r => [...r, { id: Date.now(), desc: "Nuevo producto", code: "", price: 0, qty: 1, disc: 0, taxable: true }]);
+      setRows(r => [...r, { id: uuidv4(), desc: "", code: "", price: 0, qty: 1, disc: 0, taxable: true }]);
     } else {
       setRows(r => {
         const existing = r.find(x => x.originalId === p.id);
@@ -641,8 +642,8 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         const codeStr = p.productCode || p.barcode || "-";
         const priceNum = p.salePrice || p.price || 0;
         const taxable = p.hasTax ?? true;
-        return [...r, { 
-          id: Date.now(), 
+        return [...r, {
+          id: uuidv4(),
           originalId: p.id,
           desc: p.name, 
           code: codeStr, 
@@ -659,17 +660,16 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const onDisc = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, disc: Math.min(100, Math.max(0, parseFloat(v) || 0)) } : x));
   const onPrice = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, price: Math.max(0, parseFloat(v) || 0) } : x));
   const onDelete = (id) => setRows(r => r.filter(x => x.id !== id));
+  const onDesc = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, desc: v } : x));
 
   const handleNew = () => {
     setRows([]);
-    setInvoiceNum("FC-" + Math.floor(Math.random() * 90000) + 10000);
     setGlobalDisc(0);
     setSelectedCustomer(null);
-    showToast("Nueva factura iniciada");
   };
 
-  const handleCancel = () => {
-    if (rows.length === 0 || window.confirm("¿Cancelar factura? Se perderán los cambios.")) {
+  const handleCancel = async () => {
+    if (rows.length === 0 || await confirmDialog('Se perderán los cambios de esta factura.', { title: '¿Cancelar factura?', confirmText: 'Cancelar factura', cancelText: 'Seguir' })) {
       setRows([]);
       setSelectedCustomer(null);
       showToast("Factura cancelada", "warn");
@@ -677,38 +677,26 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   };
 
   const handleProcessOrder = async () => {
-    if (rows.length === 0) { showToast("Agrega al menos un producto", "warn"); return; }
-    
-    const ncfMap = { "00": "NoFiscal", "01": "B01", "02": "B02", "11": "NoFiscal" };
-    const billingType = ncfMap[ncfType] || "NoFiscal";
+    if (isSubmitting) return;
+    if (rows.length === 0) { toast.error('Agrega al menos un artículo.'); return; }
+    const invalid = rows.find(r => !String(r.desc || '').trim() || !(Number(r.price) > 0) || !(r.qty > 0));
+    if (invalid) { toast.error('Revisa las líneas: cada artículo necesita descripción, cantidad y un precio mayor que 0.'); return; }
 
-    if (billingType === "B01") {
-        if (!companyProfile?.ncfB01Prefix || (companyProfile.ncfB01SequenceEnd && companyProfile.ncfB01SequenceNext > companyProfile.ncfB01SequenceEnd)) {
-            showToast("No hay NCF configurado o disponible para Crédito Fiscal.", "warn");
-            return;
-        }
-        if (!selectedCustomer || (!selectedCustomer.identificationNumber && !selectedCustomer.rnc)) {
-            showToast("El RNC es obligatorio para facturas de Crédito Fiscal.", "warn");
-            return;
-        }
-    } else if (billingType === "B02") {
-        if (!companyProfile?.ncfB02Prefix || (companyProfile.ncfB02SequenceEnd && companyProfile.ncfB02SequenceNext > companyProfile.ncfB02SequenceEnd)) {
-            showToast("No hay NCF configurado o disponible para Consumo.", "warn");
-            return;
-        }
-    }
+    const option = selectedComprobante;
+    const buyerDoc = selectedCustomer?.rnc || selectedCustomer?.identificationNumber || '';
+    if (option.requiresBuyer && !buyerDoc) { toast.error(`${option.label} requiere un cliente con RNC o cédula.`); focusCustomer(); return; }
+    if (isCredit && !selectedCustomer) { toast.error('Las ventas a crédito requieren un cliente registrado.'); focusCustomer(); return; }
 
     setIsSubmitting(true);
-    
-    // Calculate final actual tax logic
     const itemsData = rows.map(r => ({
-      productId: r.originalId,
+      productId: r.originalId || undefined,
       variantId: null,
-      productName: r.desc,
+      productName: String(r.desc).trim(),
       quantity: parseInt(r.qty, 10),
-      unitPrice: parseFloat(r.price) || 0,
-      discountPercent: parseFloat(r.disc) || 0,
-      taxRate: r.taxable ? (TAX_RATE * 100) : 0,
+      unitPrice: Number(r.price) || 0,
+      // el descuento general se combina con el de la línea para que el total facturado sea el mismo que ve el cajero
+      discountPercent: combinedDiscount(r.disc, globalDisc),
+      taxRate: r.taxable ? TAX_RATE * 100 : 0,
       customizationNotes: '',
       customImageUrls: [],
       variantInfo: null,
@@ -716,41 +704,58 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
     const orderData = {
       customerId: selectedCustomer?.id || null,
-      customerName: selectedCustomer ? selectedCustomer.name : 'Consumidor Final',
+      customerName: selectedCustomer?.name || 'Consumidor Final',
+      ...(buyerDoc ? { customerRnc: buyerDoc } : {}),
       items: itemsData,
-      paymentMethod: payMethod,
+      paymentMethod: isCredit ? 'Crédito' : payMethod,
       amountPaid: 0,
       deliveryType: 'store',
+      // "Crédito 30d" → 30 días; el backend calcula el vencimiento y CxC lo usa para la antigüedad
+      ...(isCredit ? { paymentTermDays: parseInt(condicion.replace(/\D/g, ''), 10) || 30 } : {}),
       notes: '',
       status: 'Pendiente',
     };
 
     try {
-      showToast("Procesando pedido...");
-      const result = await api.invoices.create(orderData);
-      
-      const finalOrder = { ...result, customerName: orderData.customerName };
-      
-      const rnc = selectedCustomer?.identificationNumber || selectedCustomer?.rnc || '';
+      const created = await api.invoices.create(orderData);
+      let finalOrder = { ...created, customerName: orderData.customerName };
       try {
-          const billedResult = await api.invoices.bill(result.id, billingType, rnc);
-          Object.assign(finalOrder, billedResult);
+        const billed = await api.invoices.bill(created.id, option.value, buyerDoc);
+        finalOrder = { ...finalOrder, ...billed };
+        const ecf = billed?.ecfResult;
+        if (ecf) {
+          const doc = ecf.ecfDocument || {};
+          if (ecf.success) toast.success(`e-CF ${doc.eNcf || ''} enviado a la DGII (${doc.dgiiStatus || 'pendiente'}).`);
+          else toast.error(`La DGII no aceptó el e-CF ${doc.eNcf || ''}: ${ecf.error || doc.dgiiMessage || 'error desconocido'}. Revísalo en Gestión Fiscal › e-CF.`);
+          loadEcf(); // la secuencia avanzó
+        } else if (billed?.ncfNumber && (option.value === 'B01' || option.value === 'B02')) {
+          const used = parseInt(String(billed.ncfNumber).replace(/\D/g, '').slice(-8), 10);
+          if (used) setNcfNextLocal(prev => ({ ...prev, [option.value]: used + 1 }));
+        }
       } catch (billErr) {
-          console.error("Error al facturar pedido automáticamente:", billErr);
-          showToast("Pedido creado pero ocurrió un error al asignar NCF / Facturar.", "warn");
+        console.error('Error al facturar:', billErr);
+        toast.error(`La venta ${created.orderNumber || ''} se guardó, pero no se pudo emitir el comprobante: ${billErr.message}. Puedes facturarla desde Pedidos/Facturas.`);
       }
 
-      setPaymentForOrder(finalOrder);
       playSuccessSound();
-      
+      if (isCredit) {
+        toast.success(`Venta a crédito ${finalOrder.orderNumber || ''} registrada en Cuentas por Cobrar.`);
+        // sin ventana de cobro: el comprobante se imprime al registrar la venta
+        handleDocumentPrint(finalOrder, 'invoice', selectedCustomer).catch(err => toast.error('No se pudo imprimir: ' + err.message));
+      } else {
+        setPaymentForOrder(finalOrder);
+      }
       handleNew();
     } catch (err) {
-      showToast("Error al procesar: " + err.message, "warn");
+      toast.error('No se pudo guardar la venta: ' + err.message);
       playErrorSound();
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // los atajos globales (F10, Esc) llaman siempre a la versión actual de estas funciones
+  actionsRef.current = { submit: handleProcessOrder, cancel: handleCancel };
 
   const handleDocumentPrint = async (orderData, type, customerDetails) => {
       const printMode = companyProfile?.cash?.printing?.mode;
@@ -764,132 +769,90 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       }
   };
 
-  const handleQuoteAction = () => {
-      const customerDetails = customersList.find(c => c.id === createdOrder.customerId);
-      handleDocumentPrint(createdOrder, 'quote', customerDetails);
-      setCreatedOrder(null);
-  };
-
-  const handleBillAction = (andPay = false) => {
-      setIsBillAndPayFlow(andPay);
-      setBillingOrder(createdOrder);
-      setCreatedOrder(null);
-  };
-
-  const handleFacturar = async (billingType, rnc) => {
-      if (!billingOrder) return;
-      
-      try {
-          await api.invoices.bill(billingOrder.id, billingType, rnc);
-          playSuccessSound();
-          toast.success('¡Pedido facturado!');
-
-          if (isBillAndPayFlow) {
-              const updatedInvoice = await api.invoices.get(billingOrder.id);
-              setPaymentForOrder(updatedInvoice);
-          } else {
-              const customerDetails = customersList.find(c => c.id === billingOrder.customerId);
-              handleDocumentPrint(billingOrder, 'invoice', customerDetails);
-          }
-      } catch (error) {
-          console.error('Error al facturar:', error);
-          playErrorSound();
-          toast.error(error.message || 'No se pudo facturar.');
-      }
-
-      setBillingOrder(null);
-      setIsBillAndPayFlow(false);
-  };
-
-  const handlePaymentSuccess = () => {
+  // al cobrar, imprime el comprobante según la configuración de Caja (térmica o PDF)
+  const handlePaymentSuccess = (paidInvoice) => {
+      const invoice = paidInvoice || paymentForOrder;
       setPaymentForOrder(null);
       setIsBillAndPayFlow(false);
+      if (invoice) {
+          const customer = customersList.find(c => c.id === invoice.customerId);
+          handleDocumentPrint(invoice, 'invoice', customer).catch(err => toast.error('No se pudo imprimir: ' + err.message));
+      }
   };
 
   return (
     <div className="pb-4 h-full">
 
-      {/* Toast */}
-      {toastNotif && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg border transition-all ${
-          toastNotif.type === "warn" 
-            ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400" 
-            : "bg-green-50 text-green-800 border-green-200 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400"
-        }`}>
-          {toastNotif.msg}
-        </div>
-      )}
-
       {/* Shell — Desktop: 2-panel grid | Mobile: single scroll */}
       {/* Desktop Layout */}
-      <div className="hidden lg:grid grid-rows-[auto_1fr_auto] h-[calc(100vh-6rem)] border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm text-gray-800 dark:text-gray-200 font-sans">
-        <TopBar invoiceNum={invoiceNum}>
+      <div className="hidden lg:grid grid-rows-[auto_1fr_auto] h-[calc(100vh-8.5rem)] card overflow-hidden text-ink">
+        <TopBar badge={isDistributor ? 'Distribuidor' : null}>
             {isDistributor && (
                 <>
-                    {!openShift && (
-                        <button className="bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-brand-100 transition-colors" onClick={() => setAdminPinAction('openShift')}>Abrir Turno</button>
-                    )}
-                    {!!openShift && (
-                      <button className="bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-brand-100 transition-colors" onClick={() => setAdminPinAction('closeTurno')}>Cerrar Turno</button>
-                    )}
-                    <button className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white px-2 py-1.5 text-sm font-medium underline underline-offset-2" onClick={() => setShowCierreReports(true)}>Ver Reportes</button>
+                    <span className={badgeClass(openShift ? 'success' : 'neutral', 'sm')}>{openShift ? 'Turno abierto' : 'Sin turno abierto'}</span>
+                    <Button size="sm" variant="secondary" onClick={() => setAdminPinAction(openShift ? 'closeTurno' : 'openShift')}>{openShift ? 'Cerrar turno' : 'Abrir turno'}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setShowCierreReports(true)}>Reportes de caja</Button>
                 </>
             )}
         </TopBar>
 
         <div className="grid grid-cols-[1fr_320px] overflow-hidden">
-          <div className="flex flex-col p-4 pb-0 bg-gray-50/50 dark:bg-gray-900/50 overflow-hidden">
-            <HeaderFields date={date} setDate={setDate} ncf={ncfType} setNcf={setNcfType} condicion={condicion} setCondicion={setCondicion} />
-            <SearchBar productRef={productSearchInputRef} onAdd={addProduct} catalog={catalog} barcodeScan={barcodeScan} setBarcodeScan={setBarcodeScan} handleBarcodeScan={handleBarcodeScan} isConnected={isConnected} linkedDeviceName={linkedDeviceName} disconnectDevice={disconnectDevice} initSession={initSession} setShowScannerModal={setShowScannerModal} />
-            <DataGrid rows={rows} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onAddEmpty={() => addProduct(null)} />
+          <div className="flex flex-col p-4 pb-0 bg-surface-muted overflow-hidden">
+            <HeaderFields idPrefix="pos-d" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} />
+            {comprobanteOptions.length === 1 && (
+              <p className="mt-2 text-xs text-ink-muted">
+                Solo puedes emitir ventas sin valor fiscal: no hay talonarios NCF ni secuencias e-CF activas.{' '}
+                <button type="button" className="font-medium text-brand-600 dark:text-brand-400 hover:underline" onClick={() => setView?.('settings')}>Configurar comprobantes</button>
+              </p>
+            )}
+            <SearchBar productRef={productRefDesktop} onAdd={addProduct} catalog={catalog} barcodeScan={barcodeScan} setBarcodeScan={setBarcodeScan} handleBarcodeScan={handleBarcodeScan} isConnected={isConnected} linkedDeviceName={linkedDeviceName} disconnectDevice={disconnectDevice} initSession={initSession} setShowScannerModal={setShowScannerModal} />
+            <DataGrid rows={rows} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} onAddEmpty={() => addProduct(null)} />
           </div>
-          <div className="flex flex-col gap-5 p-5 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col gap-5 p-5 bg-surface border-l border-line overflow-y-auto custom-scrollbar">
             {/* Cliente */}
             <div className="relative">
               <div className="flex justify-between items-center mb-2">
-                 <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.08em]">Cliente</div>
-                 <button onClick={() => setShowAddCustomerModal(true)} className="text-brand-600 hover:text-brand-700 dark:text-brand-400 active:scale-90 transition-transform"><UserPlus size={16}/></button>
+                 <label htmlFor="pos-d-cliente" className="text-xs font-medium text-ink-muted">Cliente <kbd className="ml-1 font-mono text-[11px] text-ink-muted">F3</kbd></label>
+                 <button onClick={() => setShowAddCustomerModal(true)} aria-label="Nuevo cliente" title="Nuevo cliente" className="modal-close w-7 h-7 text-brand-600 dark:text-brand-400"><UserPlus size={16}/></button>
               </div>
               <div className="relative">
-                 <input ref={customerSearchInputRef} type="text" value={customerSearchTerm} onChange={(e) => handleCustomerSearchChange(e.target.value)} onFocus={() => setIsCustomerDropdownOpen(true)} onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 150)} placeholder="[F3] Buscar cliente…" className="w-full text-sm p-3 pr-8 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                 {customerSearchTerm && (<button type="button" onClick={clearCustomerSelection} className="absolute inset-y-0 right-0 px-2 text-gray-400 hover:text-gray-600"><XCircle size={16} /></button>)}
+                 <input id="pos-d-cliente" ref={customerRefDesktop} type="text" value={customerSearchTerm} onChange={(e) => handleCustomerSearchChange(e.target.value)} onFocus={() => setIsCustomerDropdownOpen(true)} onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 150)} placeholder="Nombre, RNC o código" className="input-base pr-8" />
+                 {customerSearchTerm && (<button type="button" onClick={clearCustomerSelection} className="absolute inset-y-0 right-0 px-2 text-ink-muted hover:text-gray-600"><XCircle size={16} /></button>)}
                  {isCustomerDropdownOpen && customerOptions.length > 0 && (
-                     <ul className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg">
-                         <li key="unselected"><button type="button" onMouseDown={(e) => { e.preventDefault(); clearCustomerSelection(); setIsCustomerDropdownOpen(false); }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700/50"><span className="text-sm font-medium text-gray-700 dark:text-gray-300">Consumidor final</span></button></li>
-                         {customerOptions.map((customer) => (<li key={customer.id}><button type="button" onMouseDown={(e) => { e.preventDefault(); handleCustomerSelect(customer); }} className="w-full text-left px-3 py-2 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors"><p className="font-medium text-sm text-gray-900 dark:text-white">{customer.name || 'Sin nombre'}</p><p className="text-[11px] text-gray-500 font-mono mt-0.5">{[customer.customerCode ? `Cod: ${customer.customerCode}` : null, customer.rnc ? `RNC: ${customer.rnc}` : null].filter(Boolean).join(' · ')}</p></button></li>))}
+                     <ul className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-surface dark:bg-gray-800 border border-line dark:border-gray-700 rounded-xl shadow-lg">
+                         <li key="unselected"><button type="button" onMouseDown={(e) => { e.preventDefault(); clearCustomerSelection(); setIsCustomerDropdownOpen(false); }} className="w-full text-left px-3 py-2.5 hover:bg-surface-muted dark:hover:bg-gray-700 border-b border-line dark:border-gray-700/50"><span className="text-sm font-medium text-ink-soft dark:text-gray-300">Consumidor final</span></button></li>
+                         {customerOptions.map((customer) => (<li key={customer.id}><button type="button" onMouseDown={(e) => { e.preventDefault(); handleCustomerSelect(customer); }} className="w-full text-left px-3 py-2 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors"><p className="font-medium text-sm text-ink dark:text-white">{customer.name || 'Sin nombre'}</p><p className="text-xs text-ink-muted font-mono mt-0.5">{[customer.customerCode ? `Cod: ${customer.customerCode}` : null, customer.rnc ? `RNC: ${customer.rnc}` : null].filter(Boolean).join(' · ')}</p></button></li>))}
                      </ul>
                  )}
-                 {isCustomerDropdownOpen && customerOptions.length === 0 && (<div className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-md px-3 py-2 text-sm text-gray-500">No se encontraron clientes.</div>)}
+                 {isCustomerDropdownOpen && customerOptions.length === 0 && (<div className="absolute z-50 left-0 right-0 mt-1 bg-surface dark:bg-gray-800 border border-line dark:border-gray-700 rounded-xl shadow-md px-3 py-2 text-sm text-ink-muted">No se encontraron clientes.</div>)}
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.08em] mb-2">Forma de pago</div>
-              <PayMethods active={payMethod} setActive={setPayMethod} />
+              <div className="text-xs font-medium text-ink-muted mb-2">Forma de pago</div>
+              <PayMethods active={payMethod} setActive={setPayMethod} disabled={isCredit} />
+              {isCredit && <p className="mt-2 text-xs text-ink-muted">Venta a crédito: el cobro se registra luego en Cuentas por Cobrar.</p>}
             </div>
             <div>
-              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.08em] mb-2">Descuento general</div>
+              <label htmlFor="pos-d-desc" className="block text-xs font-medium text-ink-muted mb-2">Descuento general</label>
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <input className="w-20 text-sm pl-3 pr-6 py-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" type="number" min="0" max="100" value={globalDisc} onChange={e => setGlobalDisc(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))} />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 font-bold">%</span>
+                  <input id="pos-d-desc" className="input-base w-24 pr-7 text-right tabular-nums" type="number" min="0" max="100" value={globalDisc} onChange={e => setGlobalDisc(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))} />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-muted font-bold">%</span>
                 </div>
               </div>
             </div>
-            <Totals rows={rows} globalDisc={globalDisc} onSubmit={handleProcessOrder} isSubmitting={isSubmitting} />
+            <Totals rows={rows} globalDisc={globalDisc} onSubmit={handleProcessOrder} isSubmitting={isSubmitting} submitLabel={isCredit ? 'Registrar venta a crédito' : 'Cobrar y facturar'} />
           </div>
         </div>
-        <StatusBar rows={rows} payMethod={payMethod} condicion={condicion} />
+        <StatusBar rows={rows} payMethod={payMethod} condicion={condicion} comprobanteLabel={selectedComprobante.label} userLabel={[currentUserProfile?.name, currentUserProfile?.role].filter(Boolean).join(' · ')} />
       </div>
 
       {/* Mobile Layout — single scrollable column */}
-      <div className="lg:hidden flex flex-col h-full bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans -mx-4 -mt-4">
+      <div className="lg:hidden flex flex-col h-full bg-surface text-ink -mx-4 -mt-4">
         {/* Mobile TopBar */}
-        <TopBar invoiceNum={invoiceNum}>
+        <TopBar>
           {isDistributor && (
-            <>
-              {!openShift && <button className="bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-400 px-2 py-1 rounded-lg text-xs font-bold" onClick={() => setAdminPinAction('openShift')}>Turno</button>}
-              {!!openShift && <button className="bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-400 px-2 py-1 rounded-lg text-xs font-bold" onClick={() => setAdminPinAction('closeTurno')}>Cerrar</button>}
-            </>
+            <Button size="sm" variant="secondary" onClick={() => setAdminPinAction(openShift ? 'closeTurno' : 'openShift')}>{openShift ? 'Cerrar turno' : 'Abrir turno'}</Button>
           )}
         </TopBar>
 
@@ -897,12 +860,12 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         <div className="flex-1 overflow-y-auto custom-scrollbar pb-44">
           {/* Search */}
           <div className="p-3">
-            <SearchBar productRef={productSearchInputRef} onAdd={addProduct} catalog={catalog} barcodeScan={barcodeScan} setBarcodeScan={setBarcodeScan} handleBarcodeScan={handleBarcodeScan} isConnected={isConnected} linkedDeviceName={linkedDeviceName} disconnectDevice={disconnectDevice} initSession={initSession} setShowScannerModal={setShowScannerModal} />
+            <SearchBar productRef={productRefMobile} onAdd={addProduct} catalog={catalog} barcodeScan={barcodeScan} setBarcodeScan={setBarcodeScan} handleBarcodeScan={handleBarcodeScan} isConnected={isConnected} linkedDeviceName={linkedDeviceName} disconnectDevice={disconnectDevice} initSession={initSession} setShowScannerModal={setShowScannerModal} />
           </div>
 
           {/* Product cards */}
           <div className="px-3">
-            <DataGrid rows={rows} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onAddEmpty={() => addProduct(null)} />
+            <DataGrid rows={rows} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} onAddEmpty={() => addProduct(null)} />
           </div>
 
           {/* Compact options row */}
@@ -910,16 +873,16 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
             {/* Cliente inline */}
             <div className="relative">
               <div className="flex justify-between items-center mb-1.5">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.08em]">Cliente</div>
-                <button onClick={() => setShowAddCustomerModal(true)} className="text-brand-600 active:scale-90 transition-transform"><UserPlus size={14}/></button>
+                <label htmlFor="pos-m-cliente" className="text-xs font-medium text-ink-muted">Cliente</label>
+                <button onClick={() => setShowAddCustomerModal(true)} aria-label="Nuevo cliente" title="Nuevo cliente" className="modal-close w-8 h-8 text-brand-600 dark:text-brand-400"><UserPlus size={16}/></button>
               </div>
               <div className="relative">
-                <input ref={customerSearchInputRef} type="text" value={customerSearchTerm} onChange={(e) => handleCustomerSearchChange(e.target.value)} onFocus={() => setIsCustomerDropdownOpen(true)} onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 150)} placeholder="Buscar cliente…" className="w-full text-sm p-2.5 pr-8 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                {customerSearchTerm && (<button type="button" onClick={clearCustomerSelection} className="absolute inset-y-0 right-0 px-2 text-gray-400"><XCircle size={16} /></button>)}
+                <input id="pos-m-cliente" ref={customerRefMobile} type="text" value={customerSearchTerm} onChange={(e) => handleCustomerSearchChange(e.target.value)} onFocus={() => setIsCustomerDropdownOpen(true)} onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 150)} placeholder="Nombre, RNC o código" className="input-base pr-8" />
+                {customerSearchTerm && (<button type="button" onClick={clearCustomerSelection} className="absolute inset-y-0 right-0 px-2 text-ink-muted"><XCircle size={16} /></button>)}
                 {isCustomerDropdownOpen && customerOptions.length > 0 && (
-                    <ul className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg">
-                        <li key="unselected"><button type="button" onMouseDown={(e) => { e.preventDefault(); clearCustomerSelection(); setIsCustomerDropdownOpen(false); }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700/50"><span className="text-sm text-gray-700 dark:text-gray-300">Consumidor final</span></button></li>
-                        {customerOptions.map((customer) => (<li key={customer.id}><button type="button" onMouseDown={(e) => { e.preventDefault(); handleCustomerSelect(customer); }} className="w-full text-left px-3 py-2 hover:bg-brand-50 dark:hover:bg-brand-900/30"><p className="font-bold text-sm text-gray-900 dark:text-white">{customer.name}</p><p className="text-[11px] text-gray-400 font-mono">{customer.rnc ? `RNC: ${customer.rnc}` : ''}</p></button></li>))}
+                    <ul className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-surface dark:bg-gray-800 border border-line dark:border-gray-700 rounded-xl shadow-lg">
+                        <li key="unselected"><button type="button" onMouseDown={(e) => { e.preventDefault(); clearCustomerSelection(); setIsCustomerDropdownOpen(false); }} className="w-full text-left px-3 py-2.5 hover:bg-surface-muted dark:hover:bg-gray-700 border-b border-line dark:border-gray-700/50"><span className="text-sm text-ink-soft dark:text-gray-300">Consumidor final</span></button></li>
+                        {customerOptions.map((customer) => (<li key={customer.id}><button type="button" onMouseDown={(e) => { e.preventDefault(); handleCustomerSelect(customer); }} className="w-full text-left px-3 py-2 hover:bg-brand-50 dark:hover:bg-brand-900/30"><p className="font-bold text-sm text-ink dark:text-white">{customer.name}</p><p className="text-xs text-ink-muted font-mono">{customer.rnc ? `RNC: ${customer.rnc}` : ''}</p></button></li>))}
                     </ul>
                 )}
               </div>
@@ -928,52 +891,47 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
             {/* Pay method + discount inline */}
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.08em] mb-1.5">Pago</div>
-                <PayMethods active={payMethod} setActive={setPayMethod} />
+                <div className="text-xs font-medium text-ink-muted mb-1.5">Forma de pago</div>
+                <PayMethods active={payMethod} setActive={setPayMethod} disabled={isCredit} />
               </div>
               <div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.08em] mb-1.5">Desc.</div>
+                <label htmlFor="pos-m-desc" className="block text-xs font-medium text-ink-muted mb-1.5">Desc.</label>
                 <div className="relative">
-                  <input className="w-16 text-sm pl-2 pr-5 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-brand-500 text-center" type="number" min="0" max="100" value={globalDisc} onChange={e => setGlobalDisc(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))} />
-                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">%</span>
+                  <input id="pos-m-desc" className="input-base w-20 pr-6 text-right tabular-nums" type="number" min="0" max="100" value={globalDisc} onChange={e => setGlobalDisc(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))} />
+                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-ink-muted font-bold">%</span>
                 </div>
               </div>
             </div>
 
             {/* Header fields collapsed */}
             <details className="group">
-              <summary className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.08em] cursor-pointer select-none flex items-center gap-1">
+              <summary className="text-sm font-medium text-ink-soft cursor-pointer select-none flex items-center gap-1">
                 <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
-                Datos fiscales
+                Datos fiscales · {selectedComprobante.label}
               </summary>
               <div className="mt-2">
-                <HeaderFields date={date} setDate={setDate} ncf={ncfType} setNcf={setNcfType} condicion={condicion} setCondicion={setCondicion} />
+                <HeaderFields idPrefix="pos-m" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} />
               </div>
             </details>
           </div>
         </div>
 
         {/* Sticky bottom total bar */}
-        <div className="sticky bottom-0 left-0 right-0 glass border-t border-gray-200/50 dark:border-gray-800/50 p-3 pb-safe z-30">
+        <div className="sticky bottom-0 left-0 right-0 glass border-t border-line p-3 pb-safe z-30">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3 text-sm">
-              <span className="text-gray-400">{rows.length} items</span>
-              {(() => {
-                const rawTotal = rows.reduce((a, r) => a + r.price * r.qty * (1 - r.disc / 100), 0);
-                const finalTotal = rawTotal - rawTotal * (globalDisc / 100);
-                return <span className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">{fmt(finalTotal)}</span>;
-              })()}
+              <span className="text-ink-muted">{rows.length} artículo{rows.length !== 1 ? 's' : ''}</span>
+              <span className="text-xl font-semibold text-ink tabular-nums">{fmt(computeTotals(rows, globalDisc).total)}</span>
             </div>
           </div>
-          <button id="pos-pay-button" onClick={handleProcessOrder} disabled={rows.length === 0 || isSubmitting} className="w-full bg-green-600 text-white py-3.5 rounded-2xl font-bold active:scale-[0.97] disabled:bg-gray-400 transition-all shadow-lg shadow-green-600/20 text-base">
-            {isSubmitting ? 'Procesando...' : 'Procesar Pedido'}
-          </button>
+          <Button size="lg" className="w-full" onClick={handleProcessOrder} disabled={rows.length === 0 || isSubmitting}>
+            {isSubmitting ? 'Procesando…' : (isCredit ? 'Registrar venta a crédito' : 'Cobrar y facturar')}
+          </Button>
         </div>
       </div>
 
 
-      {/* Las opciones de PostOrderActionsModal y BillingTypeModal se omiten en este flujo */}
-      {paymentForOrder && (
+            {paymentForOrder && (
           <PaymentModal 
               invoice={paymentForOrder} 
               customers={customersList}
@@ -1062,29 +1020,15 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         />
       )}
 
-      {/* Keyboard Shortcuts Legend */}
+      {/* Leyenda de atajos (siempre oscura) */}
       {isDistributor && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-900/90 backdrop-blur-sm text-white py-1.5 px-4 hidden lg:flex justify-center items-center gap-6 text-[11px] font-medium z-[100] border-t border-gray-700">
-          <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
-            <kbd className="bg-gray-700 text-gray-100 px-1.5 py-0.5 rounded border border-gray-600 shadow-sm min-w-[24px] text-center font-mono">F2</kbd> 
-            <span>Buscar Artículo</span>
-          </div>
-          <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
-            <kbd className="bg-gray-700 text-gray-100 px-1.5 py-0.5 rounded border border-gray-600 shadow-sm min-w-[24px] text-center font-mono">F3</kbd> 
-            <span>Buscar Cliente</span>
-          </div>
-          <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
-            <kbd className="bg-gray-700 text-gray-100 px-1.5 py-0.5 rounded border border-gray-600 shadow-sm min-w-[24px] text-center font-mono">F9</kbd> 
-            <span>{condicion === 'Contado' ? 'Cambiar a Crédito' : 'Cambiar a Contado'}</span>
-          </div>
-          <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity text-green-400">
-            <kbd className="bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded border border-green-800/50 shadow-sm min-w-[24px] text-center font-mono">F10</kbd> 
-            <span className="font-bold">Facturar / Guardar</span>
-          </div>
-          <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity text-gray-400">
-            <kbd className="bg-gray-700 text-gray-200 px-1.5 py-0.5 rounded border border-gray-600 shadow-sm min-w-[24px] text-center font-mono">Esc</kbd> 
-            <span>Limpiar / Cerrar</span>
-          </div>
+        <div className="fixed bottom-0 left-0 right-0 bg-night-900/95 backdrop-blur-sm text-gray-300 py-1.5 px-4 hidden lg:flex justify-center items-center gap-6 text-xs z-[100] border-t border-gray-800">
+          {[['F2', 'Buscar artículo'], ['F3', 'Buscar cliente'], ['F9', isCredit ? 'Cambiar a contado' : 'Cambiar a crédito'], ['F10', isCredit ? 'Registrar a crédito' : 'Cobrar y facturar'], ['Esc', 'Limpiar venta']].map(([k, label]) => (
+            <div key={k} className={`flex items-center gap-1.5 ${k === 'F10' ? 'text-success-300 font-semibold' : ''}`}>
+              <kbd className="bg-gray-800 text-gray-100 px-1.5 py-0.5 rounded border border-gray-700 min-w-[24px] text-center font-mono">{k}</kbd>
+              <span>{label}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
