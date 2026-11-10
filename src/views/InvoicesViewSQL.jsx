@@ -6,7 +6,6 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, Archive, ChevronRight, Mail } from 'lucide-react';
 import Card, { CardBody } from '../components/ui/Card';
 import { badgeClass } from '../components/ui/Badge';
-import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import InvoiceDetailModal from '../components/modals/InvoiceDetailModal';
 import BillingTypeModal from '../components/modals/BillingTypeModal';
@@ -18,6 +17,7 @@ import { formatCurrency } from '../utils/formatCurrency';
 import api from '../api/client';
 import { useApiCrud, useApi } from '../hooks/useApi';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import FilterBar, { DateRangeField, FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 const InvoicesViewSQL = ({ companyProfile, isMasterUser, currentUserProfile }) => {
     const appId = 'zenda-erp';
@@ -354,10 +354,17 @@ const InvoicesViewSQL = ({ companyProfile, isMasterUser, currentUserProfile }) =
                 <h2 className="page-title">Seguimiento de Pedidos y Facturas</h2>
                 {/* Botones de control de caja movidos a POSBillingOrdersView */}
             </div>
-            <Card className="mb-4">
-                <CardBody className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <Input placeholder="Buscar #pedido o cliente" value={q} onChange={e => setQ(e.target.value)} />
-                    <select aria-label="Estado" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base">
+            <FilterBar
+                className="mb-4"
+                count={filteredInvoices.length}
+                total={safeInvoices.length}
+                noun="pedidos"
+                active={!!(q || statusFilter || fromDate || toDate) || Object.values(columnFilters).some(v => (Array.isArray(v) ? v.length : v))}
+                onClear={() => { setQ(''); setStatusFilter(''); setFromDate(''); setToDate(''); setColumnFilters(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, Array.isArray(v) ? [] : '']))); }}
+            >
+                <SearchField value={q} onChange={setQ} placeholder="Número de pedido o cliente" />
+                <FilterField label="Estado">
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base">
                         <option value="">Todos los estados</option>
                         <option>Pendiente</option>
                         <option>En Proceso</option>
@@ -366,10 +373,9 @@ const InvoicesViewSQL = ({ companyProfile, isMasterUser, currentUserProfile }) =
                         <option>Cancelado</option>
                         <option>Anulado</option>
                     </select>
-                    <input aria-label="Desde" type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-base" />
-                    <input aria-label="Hasta" type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-base" />
-                </CardBody>
-            </Card>
+                </FilterField>
+                <DateRangeField from={fromDate} to={toDate} onFromChange={setFromDate} onToChange={setToDate} />
+            </FilterBar>
             {!selectedInvoice ? (
             <Card>
                 <CardBody className="p-0 sm:p-6">

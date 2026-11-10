@@ -16,6 +16,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 // API PostgreSQL
 import { useApiCrud } from '../hooks/useApi.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import FilterBar, { SearchField } from '../components/ui/FilterBar.jsx';
 
 const SuppliersViewSQL = ({ companyProfile }) => {
     // Datos de la API
@@ -220,17 +221,9 @@ const SuppliersViewSQL = ({ companyProfile }) => {
                     hint={supplierAnalytics.topSupplier ? `${formatCurrency(supplierAnalytics.topSupplier.total, currency)}${supplierAnalytics.topSupplier.lastDate ? ` · Última compra: ${formatDate(supplierAnalytics.topSupplier.lastDate)}` : ''}` : undefined} />
             </div>
 
-            <Card>
-                <CardBody className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="md:col-span-2">
-                        <label className="block text-sm text-ink-soft mb-1">Buscar proveedor</label>
-                        <input aria-label="Buscar proveedor" className="input-base" placeholder="Nombre, teléfono o email" value={q} onChange={e => setQ(e.target.value)} />
-                    </div>
-                    <div className="flex items-end">
-                        <p className="text-sm text-ink-muted">Mostrando {filteredSuppliers.length} de {safeSuppliers.length}</p>
-                    </div>
-                </CardBody>
-            </Card>
+            <FilterBar count={filteredSuppliers.length} total={safeSuppliers.length} noun="proveedores" active={!!q} onClear={() => setQ('')}>
+                <SearchField value={q} onChange={setQ} placeholder="Nombre, teléfono o email" />
+            </FilterBar>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>

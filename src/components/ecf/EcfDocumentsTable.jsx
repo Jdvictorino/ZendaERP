@@ -6,6 +6,7 @@ import Button from '../ui/Button.jsx';
 import api from '../../api/client.js';
 import { ECF_STATUSES, ECF_TYPES, ECF_TYPE_MAP } from '../../utils/ecfConstants.js';
 import { badgeClass } from '../ui/Badge.jsx';
+import FilterBar, { DateRangeField, FilterField } from '../ui/FilterBar.jsx';
 
 const StatusBadge = ({ status }) => {
   const config = ECF_STATUSES[status] || ECF_STATUSES.pendiente;
@@ -26,6 +27,7 @@ const EcfDocumentsTable = () => {
   const [showDetail, setShowDetail] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const limit = 15;
+  const setFilter = (key, value) => { setFilters(f => ({ ...f, [key]: value })); setPage(1); };
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -79,38 +81,27 @@ const EcfDocumentsTable = () => {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardBody className="flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Estado</label>
-            <select value={filters.status} onChange={e => { setFilters(f => ({ ...f, status: e.target.value })); setPage(1); }}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-              <option value="">Todos</option>
-              {Object.entries(ECF_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Tipo</label>
-            <select value={filters.tipoEcf} onChange={e => { setFilters(f => ({ ...f, tipoEcf: e.target.value })); setPage(1); }}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-              <option value="">Todos</option>
-              {ECF_TYPES.map(t => <option key={t.code} value={t.code}>{t.code} — {t.shortName}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Desde</label>
-            <input type="date" value={filters.desde} onChange={e => { setFilters(f => ({ ...f, desde: e.target.value })); setPage(1); }}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Hasta</label>
-            <input type="date" value={filters.hasta} onChange={e => { setFilters(f => ({ ...f, hasta: e.target.value })); setPage(1); }}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" />
-          </div>
-          <Button variant="outline" size="sm" onClick={() => { setFilters({ status: '', tipoEcf: '', desde: '', hasta: '' }); setPage(1); }}>Limpiar</Button>
-          <Button variant="outline" size="sm" onClick={loadDocuments}><RefreshCw size={14} className="mr-1" />Actualizar</Button>
-        </CardBody>
-      </Card>
+      <FilterBar
+        count={total}
+        noun="documentos"
+        active={Object.values(filters).some(Boolean)}
+        onClear={() => { setFilters({ status: '', tipoEcf: '', desde: '', hasta: '' }); setPage(1); }}
+      >
+        <FilterField label="Estado">
+          <select value={filters.status} onChange={e => setFilter('status', e.target.value)} className="input-base">
+            <option value="">Todos los estados</option>
+            {Object.entries(ECF_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Tipo" className="w-full sm:w-56">
+          <select value={filters.tipoEcf} onChange={e => setFilter('tipoEcf', e.target.value)} className="input-base">
+            <option value="">Todos los tipos</option>
+            {ECF_TYPES.map(t => <option key={t.code} value={t.code}>{t.code} — {t.shortName}</option>)}
+          </select>
+        </FilterField>
+        <DateRangeField from={filters.desde} to={filters.hasta} onFromChange={v => setFilter('desde', v)} onToChange={v => setFilter('hasta', v)} />
+        <Button variant="secondary" onClick={loadDocuments}><RefreshCw size={14} className="mr-1.5" />Actualizar</Button>
+      </FilterBar>
 
       <Card>
         <div className="overflow-x-auto">

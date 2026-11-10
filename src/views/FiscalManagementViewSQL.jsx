@@ -10,13 +10,13 @@ import ReportDataTable from '../components/ReportDataTable.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import Button from '../components/ui/Button.jsx';
-import Input from '../components/ui/Input.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
 import EcfDashboard from '../components/ecf/EcfDashboard.jsx';
 import EcfDocumentsTable from '../components/ecf/EcfDocumentsTable.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
+import FilterBar, { DateRangeField, FilterField } from '../components/ui/FilterBar.jsx';
 
 const monthOptions = Array.from({ length: 12 }, (_, idx) => ({ value: idx, label: new Date(2000, idx, 1).toLocaleString('es-ES', { month: 'long' }) }));
 
@@ -204,37 +204,19 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
                         <KpiCard label="Notas de crédito" value={formatCurrency(overview.totalCreditNotes, currency)} icon={FileText} tone="neutral" />
                     </div>
 
-                    <Card>
-                        <CardBody className="grid gap-4 md:grid-cols-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Mes</label>
-                                <select aria-label="Mes" value={reportMonth} onChange={(e) => setReportMonth(Number(e.target.value))} className="input-base">
-                                    {monthOptions.map(option => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Año</label>
-                                <input aria-label="Año"
-                                    type="number"
-                                    value={reportYear}
-                                    onChange={(e) => setReportYear(Number(e.target.value))}
-                                    className="input-base"
-                                    min="2000"
-                                    max="2100"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Desde</label>
-                                <Input aria-label="Desde" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Hasta</label>
-                                <Input aria-label="Hasta" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-                            </div>
-                        </CardBody>
-                    </Card>
+                    <FilterBar>
+                        <FilterField label="Mes">
+                            <select value={reportMonth} onChange={(e) => setReportMonth(Number(e.target.value))} className="input-base">
+                                {monthOptions.map(option => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                            </select>
+                        </FilterField>
+                        <FilterField label="Año" className="w-full sm:w-28">
+                            <input type="number" value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))} className="input-base tabular-nums" min="2000" max="2100" />
+                        </FilterField>
+                        <DateRangeField from={fromDate} to={toDate} onFromChange={setFromDate} onToChange={setToDate} />
+                    </FilterBar>
 
                     <Card>
                         <CardBody className="flex flex-wrap items-center gap-2">

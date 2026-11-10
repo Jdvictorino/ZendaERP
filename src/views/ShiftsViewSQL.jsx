@@ -7,7 +7,6 @@ import toast from 'react-hot-toast';
 import { Trash2, Loader2, AlertTriangle, Clock } from 'lucide-react';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
-import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
@@ -16,6 +15,7 @@ import { useApiCrud } from '../hooks/useApi.js';
 import { confirmDialog } from '../utils/confirmDialog.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import FilterBar, { DateRangeField, FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
   const currency = companyProfile?.currency || 'USD';
@@ -138,22 +138,30 @@ export default function ShiftsViewSQL({ companyProfile, currentUserProfile }) {
           <Button variant="secondary" onClick={exportCSV}>Exportar CSV</Button>
         </div>
       </div>
-      <Card className="mb-4">
-        <CardBody className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <Input placeholder="Buscar por usuario" value={q} onChange={e => setQ(e.target.value)} />
-          <select aria-label="Estado del turno" className="input-base" value={status} onChange={e => setStatus(e.target.value)}>
+      <FilterBar
+        className="mb-4"
+        count={filtered.length}
+        total={(cashShifts || []).length}
+        noun="turnos"
+        active={!!(q || status || registerId || fromDate || toDate)}
+        onClear={() => { setQ(''); setStatus(''); setRegisterId(''); setFromDate(''); setToDate(''); }}
+      >
+        <SearchField value={q} onChange={setQ} placeholder="Nombre del usuario" />
+        <FilterField label="Estado" className="w-full sm:w-40">
+          <select className="input-base" value={status} onChange={e => setStatus(e.target.value)}>
             <option value="">Todos</option>
             <option value="open">Abiertos</option>
             <option value="closed">Cerrados</option>
           </select>
-          <select aria-label="Caja" className="input-base" value={registerId} onChange={e => setRegisterId(e.target.value)}>
+        </FilterField>
+        <FilterField label="Caja" className="w-full sm:w-44">
+          <select className="input-base" value={registerId} onChange={e => setRegisterId(e.target.value)}>
             <option value="">Todas las cajas</option>
             {registers.map(r => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
           </select>
-          <input aria-label="Desde" type="date" className="input-base" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-          <input aria-label="Hasta" type="date" className="input-base" value={toDate} onChange={e => setToDate(e.target.value)} />
-        </CardBody>
-      </Card>
+        </FilterField>
+        <DateRangeField from={fromDate} to={toDate} onFromChange={setFromDate} onToChange={setToDate} />
+      </FilterBar>
       <Card>
         <CardBody className="overflow-x-auto">
           <table className="w-full text-left min-w-[1000px]">

@@ -15,6 +15,7 @@ import { confirmDialog } from '../utils/confirmDialog.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
+import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserProfile, onProfileUpdate }) => {
   // Fetch data using API hooks
@@ -723,28 +724,25 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
         <KpiCard label="Total envíos" value={shipments.length} icon={Package} tone="brand" />
       </div>
 
-      <div className="card p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="md:col-span-2">
-            <label className="block text-sm text-ink-soft mb-1">Buscar envío</label>
-            <input aria-label="Buscar envío" placeholder="ID, nombre, orden..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-          </div>
-          <div>
-            <label className="block text-sm text-ink-soft mb-1">Estado</label>
-            <select aria-label="Estado" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:ring-brand-500 focus:outline-none">
-              <option value="all">Todos</option>
-              <option value="created">Creado</option>
-              <option value="in_transit">En tránsito</option>
-              <option value="out_for_delivery">En reparto</option>
-              <option value="delivered">Entregado</option>
-              <option value="cancelled">Cancelado</option>
-            </select>
-          </div>
-          <div className="md:col-span-3 flex justify-between text-sm text-ink-muted">
-            <span>Mostrando {filtered.length} de {shipments.length} envíos</span>
-          </div>
-        </div>
-      </div>
+      <FilterBar
+        count={filtered.length}
+        total={shipments.length}
+        noun="envíos"
+        active={!!searchTerm || statusFilter !== 'all'}
+        onClear={() => { setSearchTerm(''); setStatusFilter('all'); setPage(1); }}
+      >
+        <SearchField value={searchTerm} onChange={(v) => { setSearchTerm(v); setPage(1); }} placeholder="Código, destinatario u orden" />
+        <FilterField label="Estado">
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="input-base">
+            <option value="all">Todos los estados</option>
+            <option value="created">Creado</option>
+            <option value="in_transit">En tránsito</option>
+            <option value="out_for_delivery">En reparto</option>
+            <option value="delivered">Entregado</option>
+            <option value="cancelled">Cancelado</option>
+          </select>
+        </FilterField>
+      </FilterBar>
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">

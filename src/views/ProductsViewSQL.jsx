@@ -31,6 +31,7 @@ import { getInventoryAlerts, summarizeByLocation } from '../utils/inventory.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     // ============================================
@@ -55,6 +56,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     const [showInactive, setShowInactive] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [filterLowStock, setFilterLowStock] = useState(false);
+    const [q, setQ] = useState('');
     const [viewingHistory, setViewingHistory] = useState(null);
     const [showImportView, setShowImportView] = useState(false);
     const [editingVariants, setEditingVariants] = useState(null);
@@ -285,7 +287,9 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     const filteredProducts = (products || []).filter(p => {
         const statusMatch = showInactive ? p.status === 'inactive' : p.status !== 'inactive';
         const lowStockMatch = filterLowStock ? (p.stock <= (p.minStock || 0)) : true;
-        return statusMatch && lowStockMatch;
+        const term = q.trim().toLowerCase();
+        const textMatch = !term || [p.name, p.sku, p.barcode, p.code, p.category].some(v => v && String(v).toLowerCase().includes(term));
+        return statusMatch && lowStockMatch && textMatch;
     });
 
     // ============================================
@@ -298,12 +302,6 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                     Inventario de productos
                 </h2>
                 <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2 w-full md:w-auto">
-                    <Button variant={filterLowStock ? 'danger' : 'secondary'} size="md" className="w-full md:w-auto justify-center" onClick={() => setFilterLowStock(!filterLowStock)}>
-                        <AlertTriangle size={16} className="mr-2" /> {filterLowStock ? 'Bajo Stock' : 'Filtrar Stock'}
-                    </Button>
-                    <Button variant="secondary" size="md" className="w-full md:w-auto justify-center" onClick={() => setShowInactive(!showInactive)}>
-                        {showInactive ? 'Ver Activos' : 'Ver Inactivos'}
-                    </Button>
                     <Button variant="secondary" size="md" className="w-full md:w-auto justify-center" onClick={() => setShowImportView(true)}>
                         <Upload size={16} className="mr-2" /> Importar Excel
                     </Button>
@@ -312,6 +310,29 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                     </Button>
                 </div>
             </div>
+
+            <FilterBar
+                className="mb-4"
+                count={filteredProducts.length}
+                total={(products || []).filter(p => (showInactive ? p.status === 'inactive' : p.status !== 'inactive')).length}
+                noun="productos"
+                active={!!q || filterLowStock || showInactive}
+                onClear={() => { setQ(''); setFilterLowStock(false); setShowInactive(false); }}
+            >
+                <SearchField value={q} onChange={setQ} placeholder="Nombre, SKU, código de barras o categoría" />
+                <FilterField label="Estado" className="w-full sm:w-40">
+                    <select className="input-base" value={showInactive ? 'inactive' : 'active'} onChange={e => setShowInactive(e.target.value === 'inactive')}>
+                        <option value="active">Activos</option>
+                        <option value="inactive">Inactivos</option>
+                    </select>
+                </FilterField>
+                <FilterField label="Existencias" className="w-full sm:w-48">
+                    <select className="input-base" value={filterLowStock ? 'low' : 'all'} onChange={e => setFilterLowStock(e.target.value === 'low')}>
+                        <option value="all">Todas</option>
+                        <option value="low">En o bajo el mínimo</option>
+                    </select>
+                </FilterField>
+            </FilterBar>
 
             {/* Lista de productos */}
             <Card>

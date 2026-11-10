@@ -17,6 +17,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
+import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -301,30 +302,20 @@ const CustomersViewSQL = ({ companyProfile }) => {
             <div className="kpi-grid">
                 <KpiCard label="Clientes activos" value={`${customerAnalytics.activeCustomers} / ${customerAnalytics.totalCustomers}`} icon={Users} tone="brand" hint={`${customerAnalytics.inactiveCustomers} inactivos`} />
                 <KpiCard label="Clientes nuevos (30 días)" value={customerAnalytics.newCustomers30} icon={UserPlus} tone="success" hint="Incremento reciente de tu cartera" />
-                <KpiCard label="Facturación del mes" value={formatCurrency(customerAnalytics.monthRevenue, currency)} icon={TrendingUp} tone="info" hint="Basado en facturas del período" />
+                <KpiCard label="Facturación del mes" value={formatCurrency(customerAnalytics.monthRevenue, currency)} icon={TrendingUp} tone="info" hint={`Ticket promedio: ${formatCurrency(customerAnalytics.averageTicket, currency)}`} />
                 <KpiCard label="Cliente destacado" value={customerAnalytics.topCustomer?.name || 'Sin registros'} icon={Award} tone="warning"
                     hint={customerAnalytics.topCustomer ? `${formatCurrency(customerAnalytics.topCustomer.total, currency)}${customerAnalytics.topCustomer.lastDate ? ` · Última compra: ${formatDate(customerAnalytics.topCustomer.lastDate)}` : ''}` : undefined} />
             </div>
 
-            <Card>
-                <CardBody className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="md:col-span-2">
-                        <label className="block text-sm text-ink-soft mb-1">Buscar cliente</label>
-                        <input aria-label="Buscar cliente" className="input-base" placeholder="Nombre, código o teléfono" value={q} onChange={e => setQ(e.target.value)} />
-                    </div>
-                    <div>
-                        <label className="block text-sm text-ink-soft mb-1">Categoría</label>
-                        <select aria-label="Categoría" className="input-base" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-                            <option value="">Todas las categorías</option>
-                            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                    </div>
-                    <div className="md:col-span-3 flex justify-between text-sm text-ink-muted">
-                        <span>Mostrando {filteredCustomers.length} de {safeCustomers.length} clientes</span>
-                        <span>Ticket promedio: {formatCurrency(customerAnalytics.averageTicket, currency)}</span>
-                    </div>
-                </CardBody>
-            </Card>
+            <FilterBar count={filteredCustomers.length} total={safeCustomers.length} noun="clientes" active={!!(q || typeFilter)} onClear={() => { setQ(''); setTypeFilter(''); }}>
+                <SearchField value={q} onChange={setQ} placeholder="Nombre, código o teléfono" />
+                <FilterField label="Categoría">
+                    <select className="input-base" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+                        <option value="">Todas las categorías</option>
+                        {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                </FilterField>
+            </FilterBar>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>

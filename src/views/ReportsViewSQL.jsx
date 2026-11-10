@@ -19,6 +19,7 @@ import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
+import FilterBar, { DateRangeField, FilterField } from '../components/ui/FilterBar.jsx';
 
 const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     // Cargar datos desde la API
@@ -616,89 +617,65 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
 
     return (
         <div>
-            <h2 className="page-title mb-6">Reportes</h2>
-            <Card>
-                <CardBody>
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Button variant="secondary" onClick={() => handleExportFiltered('xlsx')}><Download size={16} className="mr-2"/> Exportar Filtrado</Button>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div>
-                                <label className="block text-sm text-ink-soft mb-1">Desde</label>
-                                <input aria-label="Desde" type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-base" />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-ink-soft mb-1">Hasta</label>
-                                <input aria-label="Hasta" type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-base" />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-ink-soft mb-1">Ámbito</label>
-                                <select aria-label="Ámbito" value={reportScope} onChange={e => setReportScope(e.target.value)} className="input-base">
-                                    <option value="sales">Ventas</option>
-                                    <option value="purchases">Compras</option>
-                                    <option value="both">Ambos</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div>
-                                <label className="block text-sm text-ink-soft mb-1">Cliente</label>
-                                <select aria-label="Cliente" value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)} className="input-base">
-                                    <option value="">-- Todos --</option>
-                                    {(customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm text-ink-soft mb-1">Categoría de Cliente</label>
-                                <select aria-label="Categoría de Cliente" value={filterCustomerCategory} onChange={e => setFilterCustomerCategory(e.target.value)} className="input-base">
-                                    <option value="">-- Todas --</option>
-                                    {customerCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm text-ink-soft mb-1">Producto</label>
-                                <select aria-label="Producto" value={filterProduct} onChange={e => setFilterProduct(e.target.value)} className="input-base">
-                                    <option value="">-- Todos --</option>
-                                    {(products || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div>
-                            <label className="block text-sm text-ink-soft mb-1">Estado</label>
-                            <select aria-label="Estado" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base">
-                                <option value="">-- Todos --</option>
-                                <option value="Pendiente">Pendiente</option>
-                                <option value="Pagado">Pagado</option>
-                                <option value="Cancelado">Cancelado</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm text-ink-soft mb-1">Precio Min</label>
-                            <input aria-label="Precio Min" type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} className="input-base" />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-ink-soft mb-1">Precio Max</label>
-                            <input aria-label="Precio Max" type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="input-base" />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-ink-soft mb-1">Mes/Año</label>
-                            <div className="flex gap-2">
-                                <select aria-label="Mes/Año" value={reportMonth} onChange={e => setReportMonth(parseInt(e.target.value))} className="input-base w-40">
-                                    {[...Array(12).keys()].map(i => <option key={i} value={i}>{new Date(0, i).toLocaleString('es-DO', { month: 'short' })}</option>)}
-                                </select>
-                                <input aria-label="Año" type="number" value={reportYear} onChange={e => setReportYear(parseInt(e.target.value))} className="input-base w-28" />
-                            </div>
-                        </div>
-                    </div>
-                </CardBody>
-            </Card>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <h2 className="page-title">Reportes</h2>
+                <Button variant="secondary" onClick={() => handleExportFiltered('xlsx')}><Download size={16} className="mr-2"/> Exportar filtrado</Button>
+            </div>
+            <FilterBar
+                active={!!(fromDate || toDate || filterCustomer || filterCustomerCategory || filterProduct || statusFilter || minPrice || maxPrice) || reportScope !== 'sales'}
+                onClear={() => { setFromDate(''); setToDate(''); setFilterCustomer(''); setFilterCustomerCategory(''); setFilterProduct(''); setStatusFilter(''); setMinPrice(''); setMaxPrice(''); setReportScope('sales'); }}
+            >
+                <FilterField label="Ámbito" className="w-full sm:w-36">
+                    <select value={reportScope} onChange={e => setReportScope(e.target.value)} className="input-base">
+                        <option value="sales">Ventas</option>
+                        <option value="purchases">Compras</option>
+                        <option value="both">Ambos</option>
+                    </select>
+                </FilterField>
+                {/* El mes se usa solo si no hay rango de fechas */}
+                <FilterField label="Mes" className="w-[calc(50%-0.375rem)] sm:w-32">
+                    <select value={reportMonth} onChange={e => setReportMonth(parseInt(e.target.value))} className="input-base" disabled={!!(fromDate || toDate)}>
+                        {[...Array(12).keys()].map(i => <option key={i} value={i}>{new Date(0, i).toLocaleString('es-DO', { month: 'long' })}</option>)}
+                    </select>
+                </FilterField>
+                <FilterField label="Año" className="w-[calc(50%-0.375rem)] sm:w-24">
+                    <input type="number" value={reportYear} onChange={e => setReportYear(parseInt(e.target.value))} className="input-base tabular-nums" disabled={!!(fromDate || toDate)} />
+                </FilterField>
+                <DateRangeField from={fromDate} to={toDate} onFromChange={setFromDate} onToChange={setToDate} />
+                <FilterField label="Cliente">
+                    <select value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)} className="input-base">
+                        <option value="">Todos los clientes</option>
+                        {(customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </FilterField>
+                <FilterField label="Categoría de cliente">
+                    <select value={filterCustomerCategory} onChange={e => setFilterCustomerCategory(e.target.value)} className="input-base">
+                        <option value="">Todas las categorías</option>
+                        {customerCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                </FilterField>
+                <FilterField label="Producto">
+                    <select value={filterProduct} onChange={e => setFilterProduct(e.target.value)} className="input-base">
+                        <option value="">Todos los productos</option>
+                        {(products || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </FilterField>
+                <FilterField label="Estado" className="w-full sm:w-44">
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base">
+                        <option value="">Todos los estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="En Proceso">En proceso</option>
+                        <option value="Completado">Completado</option>
+                        <option value="void">Anuladas</option>
+                    </select>
+                </FilterField>
+                <FilterField label="Monto mínimo" className="w-[calc(50%-0.375rem)] sm:w-32">
+                    <input type="number" min="0" value={minPrice} onChange={e => setMinPrice(e.target.value)} className="input-base tabular-nums" />
+                </FilterField>
+                <FilterField label="Monto máximo" className="w-[calc(50%-0.375rem)] sm:w-32">
+                    <input type="number" min="0" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="input-base tabular-nums" />
+                </FilterField>
+            </FilterBar>
 
             <section className="mt-8 space-y-8">
                 <div>

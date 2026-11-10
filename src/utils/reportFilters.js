@@ -1,3 +1,5 @@
+import { isVoidInvoice } from './invoiceStatus.js';
+
 // Utilidades de filtrado para reportes (ventas/compras)
 export function parseDateInput(value) {
   if (!value) return null;
@@ -31,7 +33,8 @@ export function filterInvoices(invoices = [], criteria = {}) {
   const { from, to, customerId, productId, minPrice, maxPrice, status } = criteria;
   if (from || to) result = filterByDateRange(result, 'date', from, to);
   if (customerId) result = result.filter(inv => inv.customerId === customerId);
-  if (status) result = result.filter(inv => inv.status === status);
+  // 'void' agrupa las anuladas ('Anulado' del backend y 'Cancelado' de datos antiguos)
+  if (status) result = result.filter(inv => (status === 'void' ? isVoidInvoice(inv) : inv.status === status));
   if (productId) result = result.filter(inv => (inv.items || []).some(i => i.productId === productId));
   if (minPrice != null) result = result.filter(inv => (inv.total || 0) >= minPrice);
   if (maxPrice != null) result = result.filter(inv => (inv.total || 0) <= maxPrice);
