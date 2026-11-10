@@ -189,6 +189,19 @@ h2 { font-size: clamp(1.875rem, 4.2vw, 3rem); font-weight: 800; letter-spacing: 
   repeating-linear-gradient(90deg, #f3f4f8 0 3px, transparent 3px 5px, #f3f4f8 5px 6px, transparent 6px 10px) center / 70% 34% no-repeat,
   #2a2f4a; }
 .ph-line { position: absolute; left: 12%; right: 12%; top: 50%; height: 2px; background: #f87171; }
+.shot video { display: block; width: 100%; height: auto; }
+
+/* El escáner lee y después confirma: la línea barre el código y aparece el resultado (una vez, al llegar a la sección) */
+.ph-result { transition: opacity .3s ease-out 1.3s, transform .4s cubic-bezier(.16, 1, .3, 1) 1.3s; }
+.js .phone-scan:not(.is-live) .ph-result { opacity: 0; transform: translateY(10px); }
+@media (prefers-reduced-motion: no-preference) {
+  .phone-scan.is-live .ph-line { animation: sweep .6s ease-in-out 2 alternate; }
+  @keyframes sweep { from { transform: translateY(-48px); } to { transform: translateY(48px); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .js .phone-scan:not(.is-live) .ph-result { transform: none; }
+  .ph-result { transition: opacity .3s ease-out .2s; }
+}
 .ph-result { border-radius: 12px; background: #047857; padding: .6rem .75rem; display: grid; }
 .ph-result strong { font: 700 .875rem var(--mono); }
 .ph-result span { font-size: .75rem; }
