@@ -9,11 +9,9 @@ const ScannerLinkModal = ({ onClose }) => {
 
     useEffect(() => {
         if (!scannerSessionId) return;
-        // Generar la URL completa hacia la vista del escáner
-        const protocol = window.location.protocol;
-        const host = window.location.hostname;
-        const port = window.location.port ? `:${window.location.port}` : '';
-        const url = `${protocol}//${host}${port}/mobile-scanner?sessionId=${scannerSessionId}`;
+        // La app de escritorio corre desde file://, que el celular no puede abrir: se usa el sitio web, que sirve la misma página
+        const base = window.location.protocol.startsWith('http') ? window.location.origin : (import.meta.env.VITE_WEB_URL || 'https://admin.zendaerp.online');
+        const url = `${base}/mobile-scanner?sessionId=${encodeURIComponent(scannerSessionId)}`;
         setScannerUrl(url);
     }, [scannerSessionId]);
 

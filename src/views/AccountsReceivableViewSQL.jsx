@@ -14,6 +14,7 @@ import { generatePDF, generateAccountStatementPDF } from '../utils/pdfGenerator.
 import SendEmailModal from '../components/modals/SendEmailModal.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import { isVoidInvoice } from '../utils/invoiceStatus.js';
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -277,7 +278,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                     customerName: inv.customerName || customer?.name || 'Cliente invitado',
                 };
             })
-            .filter(entry => entry.outstanding > 0.01 && entry.invoice.status !== 'Cancelado')
+            .filter(entry => entry.outstanding > 0.01 && !isVoidInvoice(entry.invoice))
             .sort((a, b) => {
                 if (a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
                 if (a.dueDate) return -1;
@@ -927,17 +928,17 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                                         </td>
                                         <td className="p-3 text-right sticky right-0 z-10 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] bg-surface" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex gap-2 justify-end">
-                                                <Button variant="secondary" size="sm" className="w-8 px-0"
+                                                <Button variant="secondary" size="sm" className="w-8 px-0 shrink-0"
                                                     onClick={() => handleQuickSendInvoice(entry)}
                                                     title="Enviar factura por correo" aria-label="Enviar factura por correo"
                                                 >
-                                                    <Mail size={14} />
+                                                    <Mail size={16} className="shrink-0" />
                                                 </Button>
-                                                <Button variant="secondary" size="sm" className="w-8 px-0"
+                                                <Button variant="secondary" size="sm" className="w-8 px-0 shrink-0"
                                                     onClick={() => handleQuickSendStatement(entry)}
                                                     title="Enviar estado de cuenta por correo" aria-label="Enviar estado de cuenta por correo"
                                                 >
-                                                    <FileText size={14} />
+                                                    <FileText size={16} className="shrink-0" />
                                                 </Button>
                                                 <Button size="sm" className="whitespace-nowrap" onClick={() => handleRegisterPayment(invoice)}>Registrar pago</Button>
                                             </div>

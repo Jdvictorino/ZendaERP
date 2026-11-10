@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { printHTML, printEscPosReceipt } from '../../utils/printer.js';
 import SupervisorAuthModal from './SupervisorAuthModal.jsx';
 import { logAction } from '../../utils/audit.js';
+import { isVoidInvoice } from '../../utils/invoiceStatus.js';
 
 const DEFAULT_DENOMS = [1000, 500, 200, 100, 50, 25, 10, 5, 1];
 
@@ -41,7 +42,7 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
     const rows = (invoices || []).filter(inv => {
       const isActuallyBilled = inv.isBilled || inv.status === 'Pagado' || inv.status === 'Facturado';
       const dateToUse = inv.billedDate || inv.createdAt || inv.date;
-      return isActuallyBilled && dateToUse && (getTimestamp(dateToUse)) >= start && (inv.status !== 'Cancelado');
+      return isActuallyBilled && dateToUse && (getTimestamp(dateToUse)) >= start && !isVoidInvoice(inv);
     });
     const sum = (arr, key) => arr.reduce((s, p) => s + (parseFloat(p?.[key]) || 0), 0);
     let efectivo = 0, tarjeta = 0, chequeTransferencia = 0, credito = 0;

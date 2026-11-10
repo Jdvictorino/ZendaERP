@@ -1,5 +1,5 @@
 // menu.js
-const { Menu, shell } = require('electron');
+const { app, Menu, shell } = require('electron');
 
 const createCustomMenu = () => {
   const isMac = process.platform === 'darwin';
@@ -43,10 +43,13 @@ const createCustomMenu = () => {
     {
       label: 'Ver',
       submenu: [
-        { role: 'reload', label: 'Recargar' },
-        { role: 'forceReload', label: 'Forzar Recarga' },
-        { role: 'toggleDevTools', label: 'Herramientas de Desarrollador' },
-        { type: 'separator' },
+        // Recargar y herramientas de desarrollador solo en desarrollo: en producción pueden perder una venta en curso
+        ...(app.isPackaged ? [] : [
+          { role: 'reload', label: 'Recargar' },
+          { role: 'forceReload', label: 'Forzar Recarga' },
+          { role: 'toggleDevTools', label: 'Herramientas de Desarrollador' },
+          { type: 'separator' },
+        ]),
         { role: 'resetZoom', label: 'Restablecer Zoom' },
         { role: 'zoomIn', label: 'Aumentar Zoom' },
         { role: 'zoomOut', label: 'Disminuir Zoom' },
@@ -75,9 +78,9 @@ const createCustomMenu = () => {
       label: 'Ayuda',
       submenu: [
         {
-          label: 'Aprender Más',
+          label: 'Sitio de Zenda ERP',
           click: async () => {
-            await shell.openExternal('https://electronjs.org');
+            await shell.openExternal('https://zendaerp.online');
           }
         }
       ]

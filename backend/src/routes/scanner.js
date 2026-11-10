@@ -18,6 +18,9 @@ router.get('/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    // nginx no debe acumular los eventos: cada lectura tiene que llegar a la caja al instante
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
 
     // Enviar un evento inicial para confirmar la conexión
     res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE Connection Established' })}\n\n`);
@@ -25,9 +28,13 @@ router.get('/events', (req, res) => {
     // Añadir este cliente al objeto de conexiones
     clients[sessionId] = res;
 
+    // Comentario SSE periódico: Cloudflare corta conexiones inactivas a los ~100 s
+    const heartbeat = setInterval(() => res.write(': ping\n\n'), 25000);
+
     // Manejar el cierre de la conexión por parte del cliente
     req.on('close', () => {
-        delete clients[sessionId];
+        clearInterval(heartbeat);
+        if (clients[sessionId] === res) delete clients[sessionId];
     });
 });
 

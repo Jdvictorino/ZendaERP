@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { isVoidInvoice } from './invoiceStatus.js';
 
 // Función para determinar el Tipo de ID según la longitud del RNC/Cédula
 const getTypeId = (rnc) => {
@@ -79,7 +80,7 @@ export const generate606Data = (expenses = [], suppliers = []) => {
  */
 export const generate607Data = (invoices = []) => {
     return invoices
-        .filter(inv => inv.status !== 'Cancelado')
+        .filter(inv => !isVoidInvoice(inv))
         .map(inv => {
             // Agregamos por formas de pago a partir del historial de pagos si existe
             const pagos = Array.isArray(inv.payments) ? inv.payments : [];
@@ -129,7 +130,7 @@ export const generate607Data = (invoices = []) => {
  */
 export const generate608Data = (invoices = []) => {
     return invoices
-        .filter(inv => inv.status === 'Cancelado')
+        .filter(isVoidInvoice)
         .map(inv => ({
             "RNC o Cédula": inv.ncf?.customerRnc || '',
             "Tipo Id": getTypeId(inv.ncf?.customerRnc),

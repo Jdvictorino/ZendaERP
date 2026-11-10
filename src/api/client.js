@@ -5,7 +5,7 @@
 
 // Al usar proxy en Vite (vite.config.js) o mismos dominios en prod, la ruta relativa es más segura contra CORS y Mixed Content.
 // Si fallback absoluto es de alguna manera necesitado en un entorno sin proxy, se define acá.
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+export const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function normalizeEmail(email) {
   return typeof email === 'string' ? email.trim().toLowerCase() : email;
