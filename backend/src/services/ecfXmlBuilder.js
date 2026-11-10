@@ -30,29 +30,32 @@ const PAYMENT_METHOD_MAP = {
   'Otra Forma de Venta': 8,
 };
 
-/**
- * Formatea una fecha al formato DD-MM-YYYY requerido por la DGII
- */
-function formatDateDGII(date) {
-  const d = new Date(date);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
+// El servidor corre en UTC: sin fijar la zona, una venta después de las 8:00 p. m. salía con la fecha del día siguiente
+const RD_TZ = 'America/Santo_Domingo';
+
+function dateParts(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(date));
+  return Object.fromEntries(parts.map((x) => [x.type, x.value]));
 }
 
 /**
- * Formatea fecha y hora al formato DD-MM-YYYY HH:mm:ss
+ * Formatea una fecha al formato DD-MM-YYYY requerido por la DGII, en hora de República Dominicana.
+ * Para fechas sin hora guardadas como medianoche UTC (p. ej. el vencimiento de una secuencia) usar timeZone 'UTC'.
+ */
+export function formatDateDGII(date, timeZone = RD_TZ) {
+  const p = dateParts(date, timeZone);
+  return `${p.day}-${p.month}-${p.year}`;
+}
+
+/**
+ * Formatea fecha y hora al formato DD-MM-YYYY HH:mm:ss, en hora de República Dominicana
  */
 function formatDateTimeDGII(date) {
-  const d = new Date(date);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+  const p = dateParts(date, RD_TZ);
+  return `${p.day}-${p.month}-${p.year} ${p.hour}:${p.minute}:${p.second}`;
 }
 
 /**
@@ -80,7 +83,7 @@ export function buildEcfFromInvoice(invoice, company, tipoEcf, eNcf, sequence) {
   const tipoCode = ECF_TYPE_CODES[tipoEcf];
   const fechaEmision = formatDateDGII(invoice.date || new Date());
   const fechaVencimiento = sequence?.fechaVencimiento 
-    ? formatDateDGII(sequence.fechaVencimiento) 
+    ? formatDateDGII(sequence.fechaVencimiento, 'UTC') 
     : '';
 
   // Calcular totales por tasa de ITBIS
