@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200, height=848" />
+    <title>Zenda ERP · clip de la landing</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: Inter; src: url("assets/inter-600.woff2") format("woff2"); font-weight: 600; }
+      body { margin: 0; background: #f6f7fb; font-family: Inter, sans-serif; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #f6f7fb; }
+      #cam { position: absolute; left: 0; top: 0; width: 1200px; height: 848px; }
+      #screen { display: block; width: 1200px; height: 848px; }
+      #ring { position: absolute; border-radius: 12px; border-style: solid; border-color: #4f46e5; opacity: 0; }
+      #note {
+        position: absolute; left: 44px; bottom: 44px;
+        display: flex; align-items: center; gap: 18px;
+        padding: 22px 30px; border-radius: 16px;
+        background: #151935; color: #ffffff;
+        font-size: 42px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15;
+        box-shadow: 0 20px 40px -20px rgba(21, 25, 53, 0.6);
+        opacity: 0;
+      }
+      #dot { display: block; width: 16px; height: 16px; border-radius: 50%; background: #34d399; flex: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1200" data-height="848" data-duration="6">
+      <div id="cam">
+        <img id="screen" src="assets/screen.png" alt="" />
+        <div id="ring"></div>
+      </div>
+      <div id="note"><span id="dot"></span><span id="note-text"></span></div>
+    </div>
+    <script>
+      // Lo único que cambia entre clips: la zona a enfocar (en px de la pantalla de 1200x848), el zoom y la nota
+      const CLIP = { focus: [140, 345, 900, 400], scale: 1.35, note: "Te avisa cuando algo se acaba" };
+
+      const W = 1200, H = 848;
+      const [x0, y0, x1, y1] = CLIP.focus;
+      const s = CLIP.scale;
+      // Centra la zona en el cuadro sin mostrar fuera de la pantalla
+      const tx = Math.min(0, Math.max(W - W * s, W / 2 - ((x0 + x1) / 2) * s));
+      const ty = Math.min(0, Math.max(H - H * s, H / 2 - ((y0 + y1) / 2) * s));
+
+      const ring = document.getElementById("ring");
+      const pad = 10;
+      Object.assign(ring.style, {
+        left: `${x0 - pad}px`, top: `${y0 - pad}px`,
+        width: `${x1 - x0 + pad * 2}px`, height: `${y1 - y0 + pad * 2}px`,
+        borderWidth: `${3 / s}px`,
+      });
+      document.getElementById("note-text").textContent = CLIP.note;
+
+      // El clip empieza y termina en la pantalla completa: el video se repite sin salto
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#cam", { x: 0, y: 0, scale: 1, transformOrigin: "0 0" }, { x: tx, y: ty, scale: s, duration: 1.5, ease: "power3.inOut" }, 0.5)
+        .fromTo("#ring", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 1.7)
+        .fromTo("#note", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.9)
+        .to("#note", { opacity: 0, y: 12, duration: 0.35, ease: "power2.in" }, 4.3)
+        .to("#ring", { opacity: 0, duration: 0.3 }, 4.4)
+        .to("#cam", { x: 0, y: 0, scale: 1, duration: 1.2, ease: "power3.inOut" }, 4.5);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
