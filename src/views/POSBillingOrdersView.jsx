@@ -443,10 +443,12 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
   const comprobanteOptions = useMemo(() => {
     const p = companyProfile || {};
+    // GET /settings entrega las secuencias como ncf.b02_prefix / ncf.b02_sequence_next
+    const ncf = p.ncf || {};
     const opts = [{ value: 'NoFiscal', label: 'Sin valor fiscal', requiresBuyer: false, preview: '' }];
     const traditional = [
-      { value: 'B02', label: 'Consumo (B02)', prefix: p.ncfB02Prefix, next: p.ncfB02SequenceNext, end: p.ncfB02SequenceEnd, requiresBuyer: false },
-      { value: 'B01', label: 'Crédito fiscal (B01)', prefix: p.ncfB01Prefix, next: p.ncfB01SequenceNext, end: p.ncfB01SequenceEnd, requiresBuyer: true },
+      { value: 'B02', label: 'Consumo (B02)', prefix: ncf.b02_prefix ?? p.ncfB02Prefix, next: ncf.b02_sequence_next ?? p.ncfB02SequenceNext, end: ncf.b02_sequence_end ?? p.ncfB02SequenceEnd, requiresBuyer: false },
+      { value: 'B01', label: 'Crédito fiscal (B01)', prefix: ncf.b01_prefix ?? p.ncfB01Prefix, next: ncf.b01_sequence_next ?? p.ncfB01SequenceNext, end: ncf.b01_sequence_end ?? p.ncfB01SequenceEnd, requiresBuyer: true },
     ];
     for (const t of traditional) {
       const next = ncfNextLocal[t.value] || t.next || 1;
