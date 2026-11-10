@@ -54,3 +54,10 @@ if ('IntersectionObserver' in window) {
 }
 // Sin IntersectionObserver no hay cuándo disparar la animación: se muestra el resultado directamente
 if (!('IntersectionObserver' in window)) document.querySelector('.phone-scan')?.classList.add('is-live');
+
+// El menú del celular se cierra al elegir una sección o al tocar fuera de él
+const menu = document.querySelector('.menu');
+if (menu) {
+  menu.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => { menu.open = false; }));
+  document.addEventListener('click', (e) => { if (menu.open && !menu.contains(e.target)) menu.open = false; });
+}
