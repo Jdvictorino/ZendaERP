@@ -6,7 +6,7 @@
 import ECF, { P12Reader, Signature, ENVIRONMENT } from 'dgii-ecf';
 import { getCodeSixDigitfromSignature, convertECF32ToRFCE, generateEcfQRCodeURL, generateFcQRCodeURL, isSummaryInvoice, TrackStatusEnum } from 'dgii-ecf';
 import prisma from '../db.js';
-import { buildEcfFromInvoice, buildEcfFromNote, ecfToXml } from './ecfXmlBuilder.js';
+import { buildEcfFromInvoice, buildEcfFromNote, ecfToXml, formatDateDGII } from './ecfXmlBuilder.js';
 
 // Mapeo de ambiente del sistema al enum ENVIRONMENT de dgii-ecf
 const ENV_MAP = {
@@ -298,8 +298,13 @@ export async function retryEcfSend(ecfDocumentId, companyId) {
 
   if (!ecfDoc) throw new Error('Documento e-CF no encontrado');
   if (ecfDoc.companyId !== companyId) throw new Error('Documento no pertenece a esta empresa');
-  if (!['error', 'pendiente', 'rechazado'].includes(ecfDoc.dgiiStatus)) {
-    throw new Error('Solo se pueden reintentar documentos con error, pendientes o rechazados');
+  // Un e-CF rechazado no se reenvía: el mismo XML volvería rechazado. La venta queda pendiente de facturar
+  // (syncInvoiceWithEcf) y al facturarla de nuevo se emite otro e-CF con un e-NCF nuevo.
+  if (ecfDoc.dgiiStatus === 'rechazado') {
+    throw new Error('Este e-CF fue rechazado por la DGII y no se puede reenviar. Corrige el motivo y vuelve a facturar la venta: se emitirá un e-CF nuevo.');
+  }
+  if (!['error', 'pendiente'].includes(ecfDoc.dgiiStatus)) {
+    throw new Error('Solo se pueden reintentar documentos con error o pendientes');
   }
   if (!ecfDoc.xmlSigned) throw new Error('No hay XML firmado disponible para reenviar');
 
@@ -312,7 +317,7 @@ export async function retryEcfSend(ecfDocumentId, companyId) {
   try {
     // Si la respuesta del envío anterior se perdió, la DGII pudo haberlo recibido igual, y reenviar un
     // e-NCF que ya tiene vuelve "Rechazado". Antes de reenviar se pregunta si ya lo tiene.
-    if (ecfDoc.dgiiStatus !== 'rechazado') {
+    {
       const known = await ecfClient.checkDocumentStatus({
         rncEmisor: ecfDoc.rncEmisor || company.rnc,
         encf: ecfDoc.eNcf,
@@ -396,26 +401,26 @@ export async function retryEcfSend(ecfDocumentId, companyId) {
 /**
  * Genera la URL del QR para un documento e-CF
  */
+// Valor de una etiqueta del XML firmado (la primera que aparece)
+const xmlTag = (xml, name) => xml?.match(new RegExp(`<${name}>([^<]*)</${name}>`))?.[1] || '';
+
 export function getQRCodeUrl(ecfDoc, company, environment) {
   const env = ENV_MAP[environment] || ENVIRONMENT.DEV;
+  // El QR debe llevar exactamente lo que recibió la DGII, así que fechas y monto salen del XML firmado
+  const montoTotal = xmlTag(ecfDoc.xmlSigned, 'MontoTotal') || String(ecfDoc.montoTotal);
 
-  if (ecfDoc.tipoEcf === 'E32') {
-    return generateFcQRCodeURL(
-      ecfDoc.rncEmisor,
-      ecfDoc.eNcf,
-      parseFloat(ecfDoc.montoTotal),
-      ecfDoc.securityCode || '',
-      env
-    );
+  // Solo la factura de consumo enviada como resumen (E32 < RD$250,000) usa la consulta de FC
+  if (isSummaryInvoice(ecfDoc.eNcf, montoTotal)) {
+    return generateFcQRCodeURL(ecfDoc.rncEmisor, ecfDoc.eNcf, parseFloat(montoTotal), ecfDoc.securityCode || '', env);
   }
 
   return generateEcfQRCodeURL(
     ecfDoc.rncEmisor,
     ecfDoc.rncComprador || '',
     ecfDoc.eNcf,
-    String(parseFloat(ecfDoc.montoTotal)),
-    ecfDoc.fechaEmision ? new Date(ecfDoc.fechaEmision).toLocaleDateString('es-DO') : '',
-    '', // fechaFirma — se obtendría del XML firmado
+    montoTotal,
+    xmlTag(ecfDoc.xmlSigned, 'FechaEmision') || (ecfDoc.fechaEmision ? formatDateDGII(ecfDoc.fechaEmision) : ''),
+    xmlTag(ecfDoc.xmlSigned, 'FechaHoraFirma'),
     ecfDoc.securityCode || '',
     env
   );

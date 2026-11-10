@@ -63,7 +63,7 @@ const EcfDocumentsTable = () => {
     setActionLoading(doc.id);
     try {
       const result = await api.ecf.retry(doc.id);
-      toast[result.success ? 'success' : 'error'](result.success ? 'Reenviado' : (result.error || 'Error'));
+      toast[result.success ? 'success' : 'error'](result.success ? `Estado en la DGII: ${result.document?.dgiiStatus || 'enviado'}` : (result.error || 'Error'));
       loadDocuments();
     } catch (err) { toast.error(err.message || 'Error'); }
     finally { setActionLoading(null); }
@@ -134,7 +134,7 @@ const EcfDocumentsTable = () => {
                           <RefreshCw size={16} className={actionLoading === doc.id ? 'animate-spin' : ''} />
                         </button>
                       )}
-                      {['error','pendiente','rechazado'].includes(doc.dgiiStatus) && (
+                      {['error','pendiente'].includes(doc.dgiiStatus) && (
                         <button onClick={() => handleRetry(doc)} disabled={actionLoading === doc.id} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-amber-500" title="Reintentar">
                           <RotateCcw size={16} className={actionLoading === doc.id ? 'animate-spin' : ''} />
                         </button>
