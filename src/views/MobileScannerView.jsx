@@ -1,254 +1,236 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
-import { Camera, CheckCircle2, RotateCcw, XCircle, LogOut } from 'lucide-react';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Camera, CheckCircle2, RotateCcw, XCircle, LogOut, Flashlight } from 'lucide-react';
+import { API_URL } from '../api/client.js';
+
+// Solo los formatos que usa un comercio: menos formatos = cada cuadro se decodifica más rápido
+const FORMATS = [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.QR_CODE,
+];
+const REPEAT_WINDOW_MS = 1500; // la misma etiqueta frente a la cámara no se envía dos veces seguidas
+
+const getDeviceName = () => {
+    const ua = navigator.userAgent;
+    if (/iPhone/i.test(ua)) return 'iPhone';
+    if (/iPad/i.test(ua)) return 'iPad';
+    if (/Android/i.test(ua)) {
+        const match = ua.match(/Android.*?; (.*?) Build/i);
+        return match ? match[1] : 'Android';
+    }
+    return 'Celular';
+};
+
+const postScanner = (path, body) => fetch(`${API_URL}/scanner/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+});
+
+const beep = () => {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+    } catch { /* sin audio: la confirmación visual basta */ }
+};
 
 const MobileScannerView = () => {
     const [sessionId, setSessionId] = useState('');
-    const [scanResult, setScanResult] = useState(null);
-    const [isScanning, setIsScanning] = useState(true);
-    const [scanError, setScanError] = useState(null);
+    const [link, setLink] = useState('connecting'); // connecting | linked | offline
+    const [camera, setCamera] = useState('starting'); // starting | running | error
+    const [cameraError, setCameraError] = useState('');
+    const [last, setLast] = useState(null); // { code, ok, message }
+    const [torch, setTorch] = useState({ supported: false, on: false });
+    const [missingSession, setMissingSession] = useState('');
     const scannerRef = useRef(null);
+    const lastSentRef = useRef({ code: '', at: 0 });
 
-    // Obtener sessionId de la URL o LocalStorage
+    // Obtener sessionId de la URL o de la última vinculación
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const sessionFromUrl = urlParams.get('sessionId');
-        
-        if (sessionFromUrl) {
-            setSessionId(sessionFromUrl);
-            localStorage.setItem('scanner_sessionId', sessionFromUrl);
-            // Limpiar la URL para que quede limpia
-            window.history.replaceState({}, document.title, "/mobile-scanner");
-        } else {
-            const savedSession = localStorage.getItem('scanner_sessionId');
-            if (savedSession) {
-                setSessionId(savedSession);
-            } else {
-                setScanError('Falta el ID de sesión. Por favor, escanea el código QR de la computadora.');
-            }
+        const fromUrl = new URLSearchParams(window.location.search).get('sessionId');
+        if (fromUrl) {
+            setSessionId(fromUrl);
+            localStorage.setItem('scanner_sessionId', fromUrl);
+            window.history.replaceState({}, document.title, '/mobile-scanner');
+            return;
         }
+        const saved = localStorage.getItem('scanner_sessionId');
+        if (saved) setSessionId(saved);
+        else setMissingSession('Escanea el código QR que aparece en la caja para vincular este celular.');
     }, []);
 
-    const handleDisconnect = () => {
-        localStorage.removeItem('scanner_sessionId');
-        setSessionId('');
-        if (scannerRef.current) {
-            scannerRef.current.clear().catch(e => console.error("Error clearing scanner on disconnect:", e));
-        }
-        setScanError('Dispositivo desvinculado. Escanea un nuevo QR para volver a conectar.');
-    };
-
-    // Inicializar el escáner
+    // Avisar a la caja que este celular está listo
     useEffect(() => {
         if (!sessionId) return;
+        setLink('connecting');
+        postScanner('connect', { sessionId, deviceName: getDeviceName() })
+            .then((r) => setLink(r.ok ? 'linked' : 'offline'))
+            .catch(() => setLink('offline'));
+    }, [sessionId]);
 
-        const getDeviceName = () => {
-            const ua = navigator.userAgent;
-            if (/iPhone/i.test(ua)) return "iPhone";
-            if (/iPad/i.test(ua)) return "iPad";
-            if (/Android/i.test(ua)) {
-                const match = ua.match(/Android.*?; (.*?) Build/i);
-                return match ? match[1] : "Android";
-            }
-            return "Celular";
-        };
-
-        // Notificar al backend que nos conectamos
-        fetch('/api/scanner/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId, deviceName: getDeviceName() })
-        }).catch(e => console.error("No se pudo notificar la conexión", e));
-
-        // Limpiar instancia previa si existe
-        if (scannerRef.current) {
-            scannerRef.current.clear().catch(e => console.error("Error clearing scanner:", e));
-        }
-
-        const scanner = new Html5QrcodeScanner(
-            "reader",
-            {
-                fps: 30,
-                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-                rememberLastUsedCamera: true,
-                showTorchButtonIfSupported: true,
-                videoConstraints: {
-                    facingMode: "environment"
-                }
-            },
-            false // verbose
-        );
-
-        scannerRef.current = scanner;
-
-        const onScanSuccess = async (decodedText) => {
-            // Pausar escaneo para evitar ráfagas
-            if (scannerRef.current && scannerRef.current.getState() === 2) { 
-                scannerRef.current.pause();
-            }
-            
-            setIsScanning(false);
-            setScanResult(decodedText);
-            
-            // Reproducir sonido de éxito (beep corto)
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // Tono de beep
-                
-                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.1);
-            } catch (e) {
-                console.warn('AudioContext no soportado para beep', e);
-            }
-
-            try {
-                const response = await fetch(`/api/scanner/scan`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId, barcode: decodedText })
-                });
-
-                if (!response.ok) {
-                    throw new Error('La computadora no está respondiendo o la sesión expiró.');
-                }
-
-                // Autoreactivar el escáner más rápido para mejorar velocidad (0.8 segundos)
-                setTimeout(() => {
-                    setScanResult(null);
-                    setScanError(null);
-                    setIsScanning(true);
-                    if (scannerRef.current && scannerRef.current.getState() !== 2) {
-                        scannerRef.current.resume();
-                    }
-                }, 800);
-
-            } catch (error) {
-                console.error('Error enviando escaneo:', error);
-                setScanError(error.message || 'Error al enviar código');
-                
-                // Vibrar si falla (si el dispositivo lo soporta)
-                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-            }
-        };
-
-        const onScanFailure = (error) => {
-            // Se ignora silenciosamente (son errores de "no hay código en la imagen" continuos)
-        };
-
-        scanner.render(onScanSuccess, onScanFailure);
-
+    // Mantener la pantalla encendida mientras se escanea
+    useEffect(() => {
+        if (!sessionId || !('wakeLock' in navigator)) return;
+        let lock;
+        const request = () => navigator.wakeLock.request('screen').then((l) => { lock = l; }).catch(() => {});
+        const onVisible = () => document.visibilityState === 'visible' && request();
+        request();
+        document.addEventListener('visibilitychange', onVisible);
         return () => {
-            if (scannerRef.current) {
-                scannerRef.current.clear().catch(e => console.error("Error clearing scanner unmount:", e));
-            }
+            document.removeEventListener('visibilitychange', onVisible);
+            lock?.release().catch(() => {});
         };
     }, [sessionId]);
 
-    const handleRetry = () => {
-        setScanResult(null);
-        setScanError(null);
-        setIsScanning(true);
-        if (scannerRef.current && scannerRef.current.getState() !== 2) {
-            scannerRef.current.resume();
-        }
+    // Cámara: arranca sola con la cámara trasera
+    useEffect(() => {
+        if (!sessionId) return;
+        const scanner = new Html5Qrcode('reader', {
+            formatsToSupport: FORMATS,
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+            verbose: false,
+        });
+        scannerRef.current = scanner;
+
+        const onScan = async (code) => {
+            const now = Date.now();
+            if (code === lastSentRef.current.code && now - lastSentRef.current.at < REPEAT_WINDOW_MS) return;
+            lastSentRef.current = { code, at: now };
+            beep();
+            try {
+                const response = await postScanner('scan', { sessionId, barcode: code });
+                if (!response.ok) throw new Error('La caja no está escuchando. Abre la pantalla de facturación en la computadora.');
+                setLink('linked');
+                setLast({ code, ok: true });
+            } catch (error) {
+                setLink('offline');
+                setLast({ code, ok: false, message: error.message === 'Failed to fetch' ? 'Sin conexión a internet.' : error.message });
+                navigator.vibrate?.([200, 100, 200]);
+            }
+        };
+
+        scanner.start(
+            { facingMode: 'environment' },
+            { fps: 15, qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(h * 0.5, w * 0.5)) }) },
+            onScan,
+            () => { /* cuadro sin código: normal mientras se apunta */ },
+        ).then(() => {
+            setCamera('running');
+            try {
+                setTorch({ supported: scanner.getRunningTrackCameraCapabilities().torchFeature().isSupported(), on: false });
+            } catch { /* linterna no disponible en este equipo */ }
+        }).catch((error) => {
+            setCamera('error');
+            setCameraError(/permission|NotAllowed/i.test(String(error))
+                ? 'Permite el acceso a la cámara en el navegador y vuelve a intentar.'
+                : 'No se pudo abrir la cámara. Cierra otras apps que la estén usando y vuelve a intentar.');
+        });
+
+        return () => {
+            if (scanner.isScanning) scanner.stop().catch(() => {});
+        };
+    }, [sessionId]);
+
+    const toggleTorch = async () => {
+        try {
+            const next = !torch.on;
+            await scannerRef.current.getRunningTrackCameraCapabilities().torchFeature().apply(next);
+            setTorch((t) => ({ ...t, on: next }));
+        } catch { setTorch({ supported: false, on: false }); }
+    };
+
+    const handleDisconnect = () => {
+        localStorage.removeItem('scanner_sessionId');
+        if (scannerRef.current?.isScanning) scannerRef.current.stop().catch(() => {});
+        setSessionId('');
+        setMissingSession('Celular desvinculado. Escanea un nuevo código QR en la caja para volver a conectar.');
     };
 
     if (!sessionId) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-surface-muted p-6 text-center">
-                <XCircle className="w-16 h-16 text-red-500 mb-4" />
-                <h1 className="text-2xl font-bold text-ink mb-2">Escáner Desconectado</h1>
-                <p className="text-ink-soft">{scanError || "Falta el ID de sesión. Asegúrate de escanear el código QR directamente de la pantalla de Facturación de tu computadora."}</p>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6 text-center">
+                <XCircle className="w-14 h-14 text-red-400 mb-4" />
+                <h1 className="text-xl font-semibold mb-2">Escáner sin vincular</h1>
+                <p className="text-gray-300 max-w-xs">{missingSession}</p>
             </div>
         );
     }
 
+    const linkLabel = { connecting: 'Conectando…', linked: 'Conectado a la caja', offline: 'Caja sin conexión' }[link];
+    const linkColor = { connecting: 'bg-amber-400', linked: 'bg-success-500', offline: 'bg-red-500' }[link];
+
     return (
         <div className="flex flex-col min-h-screen bg-gray-900 text-white font-sans">
-            {/* Cabecera */}
-            <div className="bg-gray-800 p-4 shadow-md flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Camera className="text-brand-400" />
-                    <h1 className="font-bold text-lg">Escáner Móvil</h1>
-                </div>
-                {/* Indicador de estado y botón de Desconectar */}
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
-                        </span>
-                        <span className="text-xs text-success-400 font-medium">Conectado</span>
+            <header className="bg-gray-800 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Camera className="text-brand-400 shrink-0" size={20} />
+                    <div className="min-w-0">
+                        <h1 className="font-semibold leading-tight">Escáner móvil</h1>
+                        <p className="flex items-center gap-1.5 text-xs text-gray-300" aria-live="polite">
+                            <span className={`h-2 w-2 rounded-full ${linkColor}`} aria-hidden="true" />
+                            {linkLabel}
+                        </p>
                     </div>
-                    
-                    <button 
-                        onClick={handleDisconnect}
-                        className="flex items-center gap-1 bg-gray-700 hover:bg-red-600/80 text-gray-300 hover:text-white px-2 py-1.5 rounded-md transition-colors text-xs border border-gray-600"
-                        title="Desvincular escáner"
-                    >
-                        <LogOut size={14} />
-                        <span>Desconectar</span>
-                    </button>
                 </div>
-            </div>
+                <button
+                    onClick={handleDisconnect}
+                    className="flex items-center gap-1.5 bg-gray-700 hover:bg-red-600 text-gray-200 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm"
+                >
+                    <LogOut size={16} /> Desvincular
+                </button>
+            </header>
 
-            {/* Contenedor del Lector QR/Barcode */}
-            <div className="flex-1 flex flex-col items-center justify-start p-4 mt-4">
-                <div 
-                    id="reader" 
-                    className="w-full max-w-sm bg-black rounded-lg overflow-hidden border-2 border-gray-700 shadow-2xl relative"
-                ></div>
-
-                {/* Overlays de Estado */}
-                {!isScanning && scanResult && !scanError && (
-                    <div className="mt-8 bg-success-600 text-white rounded-xl p-6 shadow-lg w-full max-w-sm flex flex-col items-center text-center animate-in slide-in-from-bottom-4 relative z-10 transition-all">
-                        <CheckCircle2 className="w-16 h-16 mb-2" />
-                        <h3 className="text-xl font-bold mb-1">Cargado con Éxito</h3>
-                        <p className="text-success-100 font-mono text-lg">{scanResult}</p>
-                        <p className="text-sm mt-4 text-success-200">Reactivando cámara en breve...</p>
-                    </div>
-                )}
-
-                {scanError && (
-                    <div className="mt-8 bg-red-600 text-white rounded-xl p-6 shadow-lg w-full max-w-sm flex flex-col items-center text-center animate-in slide-in-from-bottom-4">
-                        <XCircle className="w-12 h-12 mb-2" />
-                        <h3 className="font-bold mb-1">Hubo un problema</h3>
-                        <p className="text-red-100 text-sm mb-4">{scanError}</p>
-                        <button 
-                            onClick={handleRetry}
-                            className="bg-white text-red-600 font-bold py-2 px-6 rounded-full flex items-center gap-2 hover:bg-red-50"
+            <main className="flex-1 flex flex-col items-center p-4 gap-4">
+                <div className="relative w-full max-w-sm">
+                    <div id="reader" className="w-full aspect-[3/4] bg-black rounded-xl overflow-hidden" />
+                    {camera === 'starting' && (
+                        <p className="absolute inset-0 flex items-center justify-center text-gray-300 text-sm">Abriendo cámara…</p>
+                    )}
+                    {torch.supported && (
+                        <button
+                            onClick={toggleTorch}
+                            aria-pressed={torch.on}
+                            aria-label={torch.on ? 'Apagar linterna' : 'Encender linterna'}
+                            className={`absolute bottom-3 right-3 h-12 w-12 rounded-full flex items-center justify-center ${torch.on ? 'bg-amber-400 text-gray-900' : 'bg-black/60 text-white'}`}
                         >
-                            <RotateCcw size={18} /> Reintentar Escaneo
+                            <Flashlight size={22} />
+                        </button>
+                    )}
+                </div>
+
+                {camera === 'error' ? (
+                    <div className="w-full max-w-sm bg-red-600 rounded-xl p-5 text-center">
+                        <p className="font-semibold mb-1">Cámara no disponible</p>
+                        <p className="text-sm text-red-100 mb-4">{cameraError}</p>
+                        <button onClick={() => window.location.reload()} className="bg-white text-red-700 font-semibold py-2 px-5 rounded-full inline-flex items-center gap-2">
+                            <RotateCcw size={16} /> Reintentar
                         </button>
                     </div>
-                )}
-
-                {isScanning && !scanResult && !scanError && (
-                    <div className="mt-6 text-center text-gray-400 px-4">
-                        <p>Apunta el código de barras o QR frente a la cámara.</p>
-                        <p className="text-sm mt-2 opacity-60">El escáner es automático.</p>
+                ) : last ? (
+                    <div className={`w-full max-w-sm rounded-xl p-4 flex items-center gap-3 ${last.ok ? 'bg-success-600' : 'bg-red-600'}`} role="status">
+                        {last.ok ? <CheckCircle2 className="shrink-0" size={28} /> : <XCircle className="shrink-0" size={28} />}
+                        <div className="min-w-0">
+                            <p className="font-mono text-lg truncate">{last.code}</p>
+                            <p className="text-sm opacity-90">{last.ok ? 'Enviado a la caja' : last.message}</p>
+                        </div>
                     </div>
+                ) : (
+                    <p className="text-center text-gray-400 text-sm max-w-xs">Apunta al código de barras. Cada lectura se envía sola a la caja.</p>
                 )}
-            </div>
-            
-            {/* Estilos dinámicos para limpiar la UI por defecto de html5-qrcode */}
-            <style dangerouslySetInnerHTML={{__html: `
-                #reader__scan_region { background: #000; }
-                #reader__dashboard_section_csr span { color: #fff; font-size: 14px; }
-                #reader__dashboard_section_swaplink { color: #818cf8; text-decoration: none; padding: 8px 0; display: inline-block; font-weight: bold; }
-                #html5-qrcode-button-camera-permission { background-color: #4f46e5; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-family: inherit; margin-top: 10px; }
-                #html5-qrcode-button-camera-start, #html5-qrcode-button-camera-stop { background-color: #374151; color: white; border: 1px solid #4b5563; padding: 8px 16px; border-radius: 6px; margin: 4px; }
-            `}} />
+            </main>
         </div>
     );
 };

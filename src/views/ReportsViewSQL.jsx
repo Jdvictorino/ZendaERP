@@ -18,6 +18,7 @@ import PieChartShare from '../components/charts/PieChartShare.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import { isVoidInvoice } from '../utils/invoiceStatus.js';
 
 const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     // Cargar datos desde la API
@@ -128,7 +129,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
 
         const weeklyInvoices = (invoices || []).filter(inv => {
             const invDate = normalizeDate(inv.date);
-            return inv.status !== 'Cancelado' && invDate && invDate >= startOfWeek;
+            return !isVoidInvoice(inv) && invDate && invDate >= startOfWeek;
         });
         const productQuantities = {};
         weeklyInvoices.forEach(inv => {
@@ -141,7 +142,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     }, [invoices]);
 
     const analyticsSnapshot = useMemo(() => {
-        const validInvoices = (filteredData.filteredInvoices || []).filter(inv => inv && inv.status !== 'Cancelado');
+        const validInvoices = (filteredData.filteredInvoices || []).filter(inv => inv && !isVoidInvoice(inv));
         const paymentTotals = { efectivo: 0, tarjeta: 0, transferencia: 0, credito: 0 };
         const statusTotals = { pendiente: 0, completado: 0, cancelado: 0 };
         const productRevenueMap = new Map();
@@ -297,7 +298,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
         const summary = new Map();
         let totalSales = 0;
         (filteredData.filteredInvoices || []).forEach(inv => {
-            if (inv.status === 'Cancelado') return;
+            if (isVoidInvoice(inv)) return;
             const amount = inv.total || 0;
             const customer = customerIndex.get(inv.customerId);
             const category = (customer?.category && customer.category.trim()) ? customer.category : 'Sin categoría';
@@ -340,7 +341,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     }, [filteredData]);
 
     const salesKpis = useMemo(() => {
-        const valid = (filteredData.filteredInvoices || []).filter(inv => inv.status !== 'Cancelado');
+        const valid = (filteredData.filteredInvoices || []).filter(inv => !isVoidInvoice(inv));
         const tickets = valid.length;
         const total = valid.reduce((s, inv) => s + (inv.total || 0), 0);
         const avg = tickets > 0 ? total / tickets : 0;
@@ -433,7 +434,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     const topCustomersByCategory = useMemo(() => {
         const grouped = new Map();
         (filteredData.filteredInvoices || []).forEach(inv => {
-            if (inv.status === 'Cancelado') return;
+            if (isVoidInvoice(inv)) return;
             if (!inv.customerId || inv.customerId === 'guest') return;
             const customer = customerIndex.get(inv.customerId);
             const category = (customer?.category && customer.category.trim()) ? customer.category : 'Sin categoría';
@@ -498,7 +499,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             title = 'Reporte 607 - Ventas de Bienes y Servicios';
             headers = Object.keys(data[0] || {});
         } else if (type === '608') {
-            const invoicesCancelled = filteredData.filteredInvoices.filter(inv => inv.ncf && inv.ncf.type !== 'Sin Valor Fiscal' && inv.status === 'Cancelado');
+            const invoicesCancelled = filteredData.filteredInvoices.filter(inv => inv.ncf && inv.ncf.type !== 'Sin Valor Fiscal' && isVoidInvoice(inv));
             if (invoicesCancelled.length === 0) {
                 toast.error('No se encontraron comprobantes anulados (608) en este período.');
                 return;

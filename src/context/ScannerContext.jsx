@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { API_URL } from '../api/client.js';
 
 const ScannerContext = createContext();
 
@@ -53,7 +54,7 @@ export const ScannerProvider = ({ children }) => {
             connectingRef.current = true;
             
             try {
-                eventSource = new EventSource(`/api/scanner/events?sessionId=${sid}`);
+                eventSource = new EventSource(`${API_URL}/scanner/events?sessionId=${encodeURIComponent(sid)}`);
 
                 eventSource.onopen = () => {
                     console.log('Scanner SSE Conectado en puerto:', sid);
@@ -102,7 +103,8 @@ export const ScannerProvider = ({ children }) => {
             }
         };
 
-        if (sid && window.location.protocol.startsWith('http')) {
+        // La página del celular no escucha: solo envía lecturas a la caja
+        if (sid && window.location.pathname !== '/mobile-scanner') {
             connectSSE();
         }
 

@@ -16,6 +16,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 // API PostgreSQL
 import { useApiCrud } from '../hooks/useApi.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import { isVoidInvoice } from '../utils/invoiceStatus.js';
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -151,7 +152,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
 
         safeInvoices.forEach(inv => {
             if (!inv?.customerId || inv.customerId === 'guest') return;
-            if (inv.status === 'Cancelado') return;
+            if (isVoidInvoice(inv)) return;
             const amount = Number(inv.total ?? inv.paidAmount ?? 0) || 0;
             if (amount <= 0) return;
             const invDate = parseTimestamp(inv.date);
@@ -178,7 +179,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
         const averageTicket = invoiceCount ? totalRevenue / invoiceCount : 0;
 
         const recentInvoices = safeInvoices
-            .filter(inv => inv?.customerId && inv.customerId !== 'guest' && inv.status !== 'Cancelado')
+            .filter(inv => inv?.customerId && inv.customerId !== 'guest' && !isVoidInvoice(inv))
             .map(inv => {
                 const date = parseTimestamp(inv.date);
                 return {

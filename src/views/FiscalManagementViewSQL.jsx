@@ -16,6 +16,7 @@ import api from '../api/client.js';
 import EcfDashboard from '../components/ecf/EcfDashboard.jsx';
 import EcfDocumentsTable from '../components/ecf/EcfDocumentsTable.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import { isVoidInvoice } from '../utils/invoiceStatus.js';
 
 const monthOptions = Array.from({ length: 12 }, (_, idx) => ({ value: idx, label: new Date(2000, idx, 1).toLocaleString('es-ES', { month: 'long' }) }));
 
@@ -60,7 +61,7 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
 
     const fiscalInvoices = useMemo(() => filteredData.filteredInvoices.filter(inv => inv.ncf && inv.ncf.type && inv.ncf.type !== 'Sin Valor Fiscal'), [filteredData]);
     const fiscalExpenses = useMemo(() => filteredData.filteredExpenses.filter(exp => exp.ncf && exp.ncf.trim() !== ''), [filteredData]);
-    const cancelledInvoices = useMemo(() => fiscalInvoices.filter(inv => inv.status === 'Cancelado'), [fiscalInvoices]);
+    const cancelledInvoices = useMemo(() => fiscalInvoices.filter(inv => isVoidInvoice(inv)), [fiscalInvoices]);
     const fiscalCreditNotes = useMemo(() => (filteredData.filteredCreditNotes || []).filter(note => note.ncf && note.ncf.number), [filteredData]);
 
     const overview = useMemo(() => {

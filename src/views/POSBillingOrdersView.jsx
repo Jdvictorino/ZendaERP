@@ -68,10 +68,10 @@ function TopBar({ children, badge }) {
   );
 }
 
-function HeaderFields({ idPrefix, comprobante, setComprobante, options, ncfPreview, condicion, setCondicion }) {
+function HeaderFields({ idPrefix, comprobante, setComprobante, options, ncfPreview, condicion, setCondicion, deliveryType, setDeliveryType }) {
   const today = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
       {/* la fecha la asigna el servidor al guardar la venta; aquí solo se informa */}
       <Field label="Fecha">
         <div className="input-base flex items-center bg-surface-muted text-ink-soft tabular-nums">{today}</div>
@@ -79,6 +79,12 @@ function HeaderFields({ idPrefix, comprobante, setComprobante, options, ncfPrevi
       <Field label="Condición" htmlFor={`${idPrefix}-condicion`}>
         <select id={`${idPrefix}-condicion`} className="input-base" value={condicion} onChange={e => setCondicion(e.target.value)}>
           {CONDICIONES.map(c => <option key={c}>{c}</option>)}
+        </select>
+      </Field>
+      <Field label="Entrega" htmlFor={`${idPrefix}-entrega`}>
+        <select id={`${idPrefix}-entrega`} className="input-base" value={deliveryType} onChange={e => setDeliveryType(e.target.value)}>
+          <option value="pickup">En tienda</option>
+          <option value="shipping">Envío</option>
         </select>
       </Field>
       <Field label="Comprobante" htmlFor={`${idPrefix}-comprobante`}>
@@ -331,7 +337,7 @@ function PayMethods({ active, setActive, disabled }) {
   );
 }
 
-function Totals({ rows, globalDisc, onSubmit, isSubmitting, submitLabel }) {
+function Totals({ rows, globalDisc, onSubmit, isSubmitting, submitLabel, hasCustomer }) {
   const t = computeTotals(rows, globalDisc);
   return (
     <div className="mt-auto flex flex-col pt-4">
@@ -345,7 +351,9 @@ function Totals({ rows, globalDisc, onSubmit, isSubmitting, submitLabel }) {
       <Button size="lg" className="mt-3 w-full" onClick={onSubmit} disabled={rows.length === 0 || isSubmitting}>
         {isSubmitting ? 'Procesando…' : submitLabel}
       </Button>
-      {rows.length === 0 && <p className="mt-2 text-xs text-center text-ink-muted">Agrega al menos un artículo para continuar.</p>}
+      {rows.length === 0
+        ? <p className="mt-2 text-xs text-center text-ink-muted">Agrega al menos un artículo para continuar.</p>
+        : !hasCustomer && <p className="mt-2 text-xs text-center text-warning-700 dark:text-warning-400">Selecciona el cliente para continuar.</p>}
     </div>
   );
 }
@@ -394,6 +402,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
   const [rows, setRows] = useState([]);
   const [condicion, setCondicion] = useState("Contado");
+  const [deliveryType, setDeliveryType] = useState("pickup");
   const [payMethod, setPayMethod] = useState("Efectivo");
   const [globalDisc, setGlobalDisc] = useState(0);
   const actionsRef = useRef({ submit: () => {}, cancel: () => {} });
@@ -666,6 +675,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     setRows([]);
     setGlobalDisc(0);
     setSelectedCustomer(null);
+    setDeliveryType('pickup');
   };
 
   const handleCancel = async () => {
@@ -685,7 +695,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     const option = selectedComprobante;
     const buyerDoc = selectedCustomer?.rnc || selectedCustomer?.identificationNumber || '';
     if (option.requiresBuyer && !buyerDoc) { toast.error(`${option.label} requiere un cliente con RNC o cédula.`); focusCustomer(); return; }
-    if (isCredit && !selectedCustomer) { toast.error('Las ventas a crédito requieren un cliente registrado.'); focusCustomer(); return; }
+    if (!selectedCustomer) { toast.error('Selecciona el cliente de la venta.'); focusCustomer(); return; }
 
     setIsSubmitting(true);
     const itemsData = rows.map(r => ({
@@ -709,7 +719,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       items: itemsData,
       paymentMethod: isCredit ? 'Crédito' : payMethod,
       amountPaid: 0,
-      deliveryType: 'store',
+      deliveryType,
       // "Crédito 30d" → 30 días; el backend calcula el vencimiento y CxC lo usa para la antigüedad
       ...(isCredit ? { paymentTermDays: parseInt(condicion.replace(/\D/g, ''), 10) || 30 } : {}),
       notes: '',
@@ -798,7 +808,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
         <div className="grid grid-cols-[1fr_320px] overflow-hidden">
           <div className="flex flex-col p-4 pb-0 bg-surface-muted overflow-hidden">
-            <HeaderFields idPrefix="pos-d" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} />
+            <HeaderFields idPrefix="pos-d" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
             {comprobanteOptions.length === 1 && (
               <p className="mt-2 text-xs text-ink-muted">
                 Solo puedes emitir ventas sin valor fiscal: no hay talonarios NCF ni secuencias e-CF activas.{' '}
@@ -841,7 +851,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
                 </div>
               </div>
             </div>
-            <Totals rows={rows} globalDisc={globalDisc} onSubmit={handleProcessOrder} isSubmitting={isSubmitting} submitLabel={isCredit ? 'Registrar venta a crédito' : 'Cobrar y facturar'} />
+            <Totals rows={rows} globalDisc={globalDisc} onSubmit={handleProcessOrder} isSubmitting={isSubmitting} hasCustomer={!!selectedCustomer} submitLabel={isCredit ? 'Registrar venta a crédito' : 'Cobrar y facturar'} />
           </div>
         </div>
         <StatusBar rows={rows} payMethod={payMethod} condicion={condicion} comprobanteLabel={selectedComprobante.label} userLabel={[currentUserProfile?.name, currentUserProfile?.role].filter(Boolean).join(' · ')} />
@@ -910,7 +920,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
                 Datos fiscales · {selectedComprobante.label}
               </summary>
               <div className="mt-2">
-                <HeaderFields idPrefix="pos-m" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} />
+                <HeaderFields idPrefix="pos-m" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
               </div>
             </details>
           </div>

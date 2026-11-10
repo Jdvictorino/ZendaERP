@@ -11,7 +11,14 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
 
   const invoice = entry?.invoice || {};
   const customer = entry?.customer || {};
-  const items = Array.isArray(invoice.items) ? invoice.items : [];
+  // Las líneas del backend traen productName/unitPrice/subtotal; las locales antiguas, name/price
+  const items = (Array.isArray(invoice.items) ? invoice.items : []).map((item) => {
+    const quantity = Number(item.quantity) || 0;
+    const price = Number(item.unitPrice ?? item.price) || 0;
+    // unitPrice ya incluye ITBIS (item.subtotal es la base sin impuesto), así que el total de la línea sale del precio
+    const lineTotal = quantity * price * (1 - (Number(item.discountPercent) || 0) / 100);
+    return { ...item, quantity, price, lineTotal, name: item.productName || item.name };
+  });
 
   const totals = useMemo(() => ({
     total: entry?.total || 0,
@@ -20,7 +27,7 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
     discount: invoice?.discountAmount || invoice?.discount || 0,
     tax: invoice?.itbis || invoice?.tax || 0,
     shipping: invoice?.shippingCost || invoice?.shipping || 0,
-    subtotal: invoice?.subtotal || items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0),
+    subtotal: invoice?.subtotal || items.reduce((sum, item) => sum + item.lineTotal, 0),
   }), [entry, invoice, items]);
 
   const formatMoney = (value) => formatCurrency(Number(value) || 0, currency);
@@ -282,9 +289,7 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
                     </tr>
                   )}
                   {items.map((item) => {
-                    const quantity = Number(item.quantity) || 0;
-                    const price = Number(item.price) || 0;
-                    const lineTotal = quantity * price;
+                    const { quantity, price, lineTotal } = item;
                     return (
                       <tr key={`${item.cartId || item.id || item.name}`}
                         className="border-t border-line">

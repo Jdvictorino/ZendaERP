@@ -9,6 +9,7 @@ import { getInventoryAlerts } from '../utils/inventory.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import { isVoidInvoice } from '../utils/invoiceStatus.js';
 
 // Las tarjetas de indicadores usan el componente único KpiCard
 const StatCard = ({ title, ...rest }) => <KpiCard label={title} {...rest} />;
@@ -75,14 +76,14 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
     const totalExpenses = useMemo(() => safeExpenses.reduce((sum, exp) => sum + normalizeAmount(exp.totalMontoFacturado ?? exp.total ?? exp.amount), 0), [safeExpenses]);
     const totalRefunds = useMemo(() => safeCreditNotes.reduce((sum, cn) => sum + normalizeAmount(cn.amount ?? cn.total ?? cn.value), 0), [safeCreditNotes]);
     const netProfit = useMemo(() => totalRevenue - totalExpenses - totalRefunds, [totalRevenue, totalExpenses, totalRefunds]);
-    const pendingOrders = useMemo(() => safeInvoices.filter(inv => inv.status !== 'Completado' && inv.status !== 'Cancelado').length, [safeInvoices]);
+    const pendingOrders = useMemo(() => safeInvoices.filter(inv => inv.status !== 'Completado' && !isVoidInvoice(inv)).length, [safeInvoices]);
     const lowStockCount = inventoryAlerts?.lowStock?.length || 0;
     
     const todayRevenue = useMemo(() => {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
         return safeInvoices.reduce((sum, inv) => {
-            if (inv.status === 'Cancelado') return sum;
+            if (isVoidInvoice(inv)) return sum;
             const invDate = parseTimestamp(inv.date);
             if (invDate && invDate >= todayStart) {
                 return sum + normalizeAmount(inv.total ?? inv.paidAmount ?? inv.amount);
@@ -96,7 +97,7 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
         start.setDate(start.getDate() - 6);
         start.setHours(0, 0, 0, 0);
         return safeInvoices.reduce((sum, inv) => {
-            if (inv.status === 'Cancelado') return sum;
+            if (isVoidInvoice(inv)) return sum;
             const invDate = parseTimestamp(inv.date);
             if (invDate && invDate >= start) {
                 return sum + normalizeAmount(inv.total ?? inv.paidAmount ?? inv.amount);
@@ -106,7 +107,7 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
     }, [safeInvoices]);
 
     const averageTicket = useMemo(() => {
-        const validInvoices = safeInvoices.filter(inv => inv.status !== 'Cancelado');
+        const validInvoices = safeInvoices.filter(inv => !isVoidInvoice(inv));
         const total = validInvoices.reduce((sum, inv) => sum + normalizeAmount(inv.total ?? inv.paidAmount ?? inv.amount), 0);
         return validInvoices.length ? total / validInvoices.length : 0;
     }, [safeInvoices]);
@@ -127,7 +128,7 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
         threshold.setHours(0, 0, 0, 0);
         const map = new Map();
         safeInvoices.forEach(inv => {
-            if (inv.status === 'Cancelado') return;
+            if (isVoidInvoice(inv)) return;
             const invDate = parseTimestamp(inv.date);
             if (!invDate || invDate < threshold) return;
             (inv.items || []).forEach(item => {
