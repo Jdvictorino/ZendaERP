@@ -21,6 +21,9 @@ import PageSkeleton from '../components/ui/Skeleton.jsx';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
 import FilterBar, { DateRangeField, FilterField } from '../components/ui/FilterBar.jsx';
 
+// La API entrega los montos Decimal como texto ("2360.00"): sumarlos sin convertir los concatena
+const num = (value) => Number(value) || 0;
+
 const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     // Cargar datos desde la API
     const { data: invoicesRaw, loading: loadingInvoices } = useApiCrud('/invoices');
@@ -160,7 +163,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
         };
 
         validInvoices.forEach(inv => {
-            const invoiceTotal = inv.total || 0;
+            const invoiceTotal = num(inv.total);
             revenue += invoiceTotal;
             totalItems += (inv.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
 
@@ -171,11 +174,11 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
 
             (inv.items || []).forEach(item => {
                 const qty = item.quantity || 0;
-                const price = item.price || 0;
+                const price = num(item.unitPrice ?? item.price);
                 const product = productsMap.get(item.productId);
-                const itemCost = (product?.purchasePrice || 0) * qty;
+                const itemCost = num(product?.costPrice ?? product?.purchasePrice) * qty;
                 totalCost += itemCost;
-                const key = item.name || product?.name || 'Producto';
+                const key = item.productName || item.name || product?.name || 'Producto';
                 productRevenueMap.set(key, (productRevenueMap.get(key) || 0) + price * qty);
             });
 
@@ -300,7 +303,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
         let totalSales = 0;
         (filteredData.filteredInvoices || []).forEach(inv => {
             if (isVoidInvoice(inv)) return;
-            const amount = inv.total || 0;
+            const amount = num(inv.total);
             const customer = customerIndex.get(inv.customerId);
             const category = (customer?.category && customer.category.trim()) ? customer.category : 'Sin categoría';
             const current = summary.get(category) || { category, orders: 0, total: 0 };
@@ -335,8 +338,8 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     const categoryMax = topCategoryShare.reduce((max, entry) => Math.max(max, entry.total), 0) || 0;
 
     const it1Summary = useMemo(() => {
-        const itbisVentas = filteredData.filteredInvoices.reduce((sum, inv) => sum + (inv.itbis || 0), 0);
-        const itbisCompras = filteredData.filteredExpenses.reduce((sum, exp) => sum + (exp.itbisFacturado || 0), 0);
+        const itbisVentas = filteredData.filteredInvoices.reduce((sum, inv) => sum + num(inv.taxAmount ?? inv.itbis), 0);
+        const itbisCompras = filteredData.filteredExpenses.reduce((sum, exp) => sum + num(exp.itbisFacturado), 0);
         const itbisAPagar = itbisVentas - itbisCompras;
         return { itbisVentas, itbisCompras, itbisAPagar };
     }, [filteredData]);
@@ -344,7 +347,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
     const salesKpis = useMemo(() => {
         const valid = (filteredData.filteredInvoices || []).filter(inv => !isVoidInvoice(inv));
         const tickets = valid.length;
-        const total = valid.reduce((s, inv) => s + (inv.total || 0), 0);
+        const total = valid.reduce((s, inv) => s + num(inv.total), 0);
         const avg = tickets > 0 ? total / tickets : 0;
         return { tickets, total, avg };
     }, [filteredData]);
@@ -356,7 +359,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             const customerName = inv.customerName || 'Cliente no encontrado';
             customerData[inv.customerId] = customerData[inv.customerId] || { name: customerName, orders: 0, total: 0 };
             customerData[inv.customerId].orders += 1;
-            customerData[inv.customerId].total += inv.total || 0;
+            customerData[inv.customerId].total += num(inv.total);
         });
         return Object.values(customerData)
             .sort((a, b) => b.total - a.total)
@@ -373,7 +376,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             const employeeName = inv.emitterInfo?.fullName || 'No Asignado';
             employeeData[employeeName] = employeeData[employeeName] || { orders: 0, total: 0 };
             employeeData[employeeName].orders += 1;
-            employeeData[employeeName].total += inv.total || 0;
+            employeeData[employeeName].total += num(inv.total);
         });
         return Object.entries(employeeData)
             .map(([name, data]) => ({ name, ...data }))
@@ -390,11 +393,12 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
         (filteredData.filteredInvoices || []).forEach(inv => {
             (inv.items || []).forEach(item => {
                 const productDetails = (products || []).find(p => p.id === item.productId);
-                const cost = productDetails?.purchasePrice || 0;
-                profitabilityData[item.name] = profitabilityData[item.name] || { name: item.name, units: 0, revenue: 0, totalCost: 0, netProfit: 0 };
-                const pData = profitabilityData[item.name];
+                const cost = num(productDetails?.costPrice ?? productDetails?.purchasePrice);
+                const itemName = item.productName || item.name || 'Producto';
+                profitabilityData[itemName] = profitabilityData[itemName] || { name: itemName, units: 0, revenue: 0, totalCost: 0, netProfit: 0 };
+                const pData = profitabilityData[itemName];
                 pData.units += item.quantity;
-                const itemRevenue = (item.price * item.quantity);
+                const itemRevenue = num(item.unitPrice ?? item.price) * (item.quantity || 0);
                 const itemCost = cost * item.quantity;
                 pData.revenue += itemRevenue;
                 pData.totalCost += itemCost;
@@ -417,8 +421,8 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             .map(p => ({
                 'Nombre del Producto': p.name,
                 'Stock Actual': p.stock,
-                'Costo Unitario': formatCurrency(p.purchasePrice, currency),
-                'Valor Total del Inventario': formatCurrency((p.stock || 0) * (p.purchasePrice || 0), currency),
+                'Costo Unitario': formatCurrency(num(p.costPrice ?? p.purchasePrice), currency),
+                'Valor Total del Inventario': formatCurrency((p.stock || 0) * num(p.costPrice ?? p.purchasePrice), currency),
             }));
     }, [products, currency]);
 
@@ -440,7 +444,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
             const customer = customerIndex.get(inv.customerId);
             const category = (customer?.category && customer.category.trim()) ? customer.category : 'Sin categoría';
             const customerName = inv.customerName || customer?.name || 'Cliente sin nombre';
-            const amount = inv.total || 0;
+            const amount = num(inv.total);
             if (!grouped.has(category)) grouped.set(category, new Map());
             const categoryMap = grouped.get(category);
             const existing = categoryMap.get(inv.customerId) || { customerName, orders: 0, total: 0 };
@@ -567,7 +571,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                         Cliente: inv.customerName || inv.customerId || 'Invitado',
                         Categoria: c?.category || '',
                         Estado: inv.status || '',
-                        Total: inv.total || 0,
+                        Total: num(inv.total),
                         Items: JSON.stringify(inv.items || [])
                     });
                 });

@@ -73,7 +73,7 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
     const currency = companyProfile?.currency || 'USD';
 
     const totalRevenue = useMemo(() => safeInvoices.reduce((sum, inv) => sum + normalizeAmount(inv.total ?? inv.paidAmount ?? inv.amount), 0), [safeInvoices]);
-    const totalExpenses = useMemo(() => safeExpenses.reduce((sum, exp) => sum + normalizeAmount(exp.totalMontoFacturado ?? exp.total ?? exp.amount), 0), [safeExpenses]);
+    const totalExpenses = useMemo(() => safeExpenses.reduce((sum, exp) => sum + normalizeAmount(exp.totalMontoFacturado ?? exp.montoFacturado ?? exp.total ?? exp.amount), 0), [safeExpenses]);
     const totalRefunds = useMemo(() => safeCreditNotes.reduce((sum, cn) => sum + normalizeAmount(cn.amount ?? cn.total ?? cn.value), 0), [safeCreditNotes]);
     const netProfit = useMemo(() => totalRevenue - totalExpenses - totalRefunds, [totalRevenue, totalExpenses, totalRefunds]);
     const pendingOrders = useMemo(() => safeInvoices.filter(inv => inv.status !== 'Completado' && !isVoidInvoice(inv)).length, [safeInvoices]);
@@ -157,7 +157,7 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
                 id: exp.id,
                 type: 'expense',
                 label: exp.supplierName ? `Compra a ${exp.supplierName}` : 'Gasto registrado',
-                amount: normalizeAmount(exp.totalMontoFacturado ?? exp.total ?? exp.amount),
+                amount: normalizeAmount(exp.totalMontoFacturado ?? exp.montoFacturado ?? exp.total ?? exp.amount),
                 date: parseTimestamp(exp.invoiceDate || exp.date),
             })),
         ].filter(entry => entry.date);
