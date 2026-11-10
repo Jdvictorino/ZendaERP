@@ -32,6 +32,7 @@ import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
+import { printInSandbox } from '../utils/printer.js';
 
 const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     // ============================================
@@ -145,11 +146,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
             </body>
             </html>
         `;
-        const w = window.open('', '_blank', 'width=420,height=400');
-        if (!w) { toast.error('Permita popups para imprimir etiquetas.'); return; }
-        w.document.write(html);
-        w.document.close();
-        w.onload = () => { setTimeout(() => w.print(), 300); };
+        printInSandbox(html);
     };
 
     // ============================================

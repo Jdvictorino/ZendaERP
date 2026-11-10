@@ -99,9 +99,10 @@ ipcMain.handle('save-image-as', async (event, relativePath) => {
 // Impresión de HTML en Electron
 ipcMain.handle('print-html', async (event, { htmlContent, options }) => {
   try {
+    // Sin JavaScript: el HTML lleva datos que escriben los usuarios y solo debe imprimirse
     const printWin = new BrowserWindow({
       show: false,
-      webPreferences: { offscreen: true }
+      webPreferences: { offscreen: true, javascript: false }
     });
     await printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent));
     await new Promise(resolve => {

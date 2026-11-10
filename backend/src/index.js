@@ -35,6 +35,11 @@ import { runBillingEnforcement } from './services/billingEnforcementService.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// En producción no se arranca con la clave JWT de ejemplo: cualquiera podría firmar sesiones
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'default-secret-change-in-production')) {
+  throw new Error('JWT_SECRET no está configurado para producción');
+}
+
 // Middlewares de seguridad
 app.use(helmet({
   contentSecurityPolicy: false // Si usas CSP personalizado, configúralo aquí
@@ -78,21 +83,28 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiting - más permisivo para desarrollo
+// Detrás de Cloudflare → cloudflared → nginx (todos en loopback): sin esto todas las peticiones
+// parecen venir de 127.0.0.1 y los límites se comparten entre todos los clientes
+app.set('trust proxy', 'loopback');
+// Cloudflare entrega la IP real del visitante en CF-Connecting-IP
+const clientKey = (req) => req.headers['cf-connecting-ip'] || req.ip;
+
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minuto
-  max: 500, // máximo 500 requests por minuto por IP (desarrollo)
+  max: 500, // por IP
+  keyGenerator: clientKey,
   message: { error: 'Demasiadas solicitudes, intenta más tarde.' }
 });
 app.use('/api/', limiter);
 
-// Auth tiene su propio rate limit más estricto
+// Inicio de sesión, registro y recuperación de clave (usuarios y propietario) con límite estricto contra fuerza bruta y spam
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  keyGenerator: clientKey,
   message: { error: 'Demasiados intentos de login, intenta en 15 minutos.' }
 });
-app.use('/api/auth/login', authLimiter);
+app.use(['/api/auth/login', '/api/auth/forgot-password', '/api/auth/register', '/api/admin/billing/login'], authLimiter);
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));

@@ -45,6 +45,12 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
+  // Otros dominios (CDN, fuentes, API): directo a la red. Solo se cachea lo propio, y pasar estas
+  // peticiones por el worker las somete a su CSP (connect-src) y las bloquea
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   // API calls o dominios de API: siempre a la red directa
   if (url.pathname.startsWith('/api/') || url.hostname.startsWith('api.')) {
     return;
