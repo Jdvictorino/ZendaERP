@@ -3,7 +3,6 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
-import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ReceivableDetailModal from '../components/modals/ReceivableDetailModal.jsx';
@@ -15,6 +14,7 @@ import SendEmailModal from '../components/modals/SendEmailModal.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
+import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -584,23 +584,23 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                 <KpiCard label="En mora" value={summary.overdueCount} icon={AlertTriangle} tone="warning" />
             </div>
 
-            <Card>
-                <CardBody>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Input
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Buscar por cliente o # de factura"
-                        />
-                        <select aria-label="Estado" className="input-base" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                            <option value="todos">Todos los estados</option>
-                            <option value="pendiente">Pendiente</option>
-                            <option value="parcial">Pago Parcial</option>
-                            <option value="vencido">Vencidos</option>
-                        </select>
-                    </div>
-                </CardBody>
-            </Card>
+            <FilterBar
+                count={filteredEntries.length}
+                total={receivableEntries.length}
+                noun="facturas"
+                active={!!searchTerm || statusFilter !== 'todos' || Object.values(columnFilters).some(v => (Array.isArray(v) ? v.length : v))}
+                onClear={() => { setSearchTerm(''); setStatusFilter('todos'); setColumnFilters(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, Array.isArray(v) ? [] : '']))); }}
+            >
+                <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Cliente o número de factura" />
+                <FilterField label="Estado">
+                    <select className="input-base" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <option value="todos">Todos los estados</option>
+                        <option value="pendiente">Pendiente</option>
+                        <option value="parcial">Pago parcial</option>
+                        <option value="vencido">Vencidas</option>
+                    </select>
+                </FilterField>
+            </FilterBar>
 
             <Card>
                 <CardBody className="overflow-x-auto">

@@ -5,7 +5,6 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
-import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import { CalendarDays, AlertTriangle, Building2, Clock, ChevronDown, Wallet, FileText, X } from 'lucide-react';
 import KpiCard from '../components/ui/KpiCard.jsx';
@@ -13,6 +12,7 @@ import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 const parseTimestamp = (value) => {
     if (!value) return null;
@@ -486,21 +486,23 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
                 <KpiCard label="Vencidas" value={summary.overdue} icon={AlertTriangle} tone="danger" />
             </div>
 
-            <Card>
-                <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <Input
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Buscar por proveedor o NCF"
-                    />
-                    <select aria-label="Estado" className="input-base" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <FilterBar
+                count={filteredEntries.length}
+                total={payableEntries.length}
+                noun="facturas"
+                active={!!searchTerm || statusFilter !== 'pendiente' || Object.values(columnFilters).some(v => (Array.isArray(v) ? v.length : v))}
+                onClear={() => { setSearchTerm(''); setStatusFilter('pendiente'); setColumnFilters(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, Array.isArray(v) ? [] : '']))); }}
+            >
+                <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Proveedor o NCF" />
+                <FilterField label="Estado">
+                    <select className="input-base" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                         <option value="pendiente">Pendiente</option>
-                        <option value="parcial">Pago Parcial</option>
+                        <option value="parcial">Pago parcial</option>
                         <option value="vencido">Vencidas</option>
-                        <option value="todos">Todos</option>
+                        <option value="todos">Todos los estados</option>
                     </select>
-                </CardBody>
-            </Card>
+                </FilterField>
+            </FilterBar>
 
             <Card>
                 <CardBody className="overflow-x-auto">
