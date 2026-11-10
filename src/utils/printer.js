@@ -8,17 +8,27 @@ export const printHTML = async (htmlContent, options = {}) => {
   } catch (e) {
     console.warn('IPC printHTML falló, usando fallback', e);
   }
-  // Fallback en navegador: abrir nueva ventana y llamar a print
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return false;
-  printWindow.document.open();
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  setTimeout(() => printWindow.close(), 500);
-  return true;
+  return printInSandbox(htmlContent);
 };
+
+/**
+ * Imprime HTML en un iframe aislado (sandbox sin allow-scripts): las plantillas llevan datos que escriben
+ * los usuarios (nombres, direcciones, notas) y así ningún HTML incrustado puede ejecutar código en la app.
+ */
+export const printInSandbox = (htmlContent) => new Promise((resolve) => {
+  const frame = document.createElement('iframe');
+  frame.setAttribute('sandbox', 'allow-same-origin allow-modals');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0';
+  frame.onload = () => setTimeout(() => {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    setTimeout(() => frame.remove(), 1000);
+    resolve(true);
+  }, 250);
+  frame.srcdoc = htmlContent;
+  document.body.appendChild(frame);
+});
 
 export const openCashDrawer = async () => {
   try {

@@ -3,6 +3,7 @@ import { shifts } from '../../api/client.js';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import toast from 'react-hot-toast';
+import { printInSandbox } from '../../utils/printer.js';
 
 const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) => {
     const [closings, setClosings] = useState([]);
@@ -139,9 +140,7 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
             </body>
             </html>
         `;
-        const w = window.open('', '_blank', 'width=800,height=600');
-        if (!w) { toast.error('Permita popups para imprimir.'); return; }
-        w.document.write(html); w.document.close(); w.onload = () => setTimeout(() => w.print(), 300);
+        printInSandbox(html);
     };
 
     return (

@@ -16,6 +16,7 @@ import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
 import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
+import { printInSandbox } from '../utils/printer.js';
 
 const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserProfile, onProfileUpdate }) => {
   // Fetch data using API hooks
@@ -574,12 +575,7 @@ const ShipmentsViewSQL = ({ companyProfile, setView, isMasterUser, currentUserPr
 </body>
 </html>`;
 
-      const w = window.open('', '_blank', 'width=900,height=800');
-      if (!w) return toast.error('Permitir ventanas emergentes para imprimir.');
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-      setTimeout(() => { w.print(); }, 300);
+      printInSandbox(html);
     } catch (err) {
       console.error('Error al abrir ventana de impresión', err);
       toast.error('No se pudo abrir la ventana de impresión.');
