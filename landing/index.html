@@ -2,14 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Zenda ERP · Facturación y control para tu negocio en RD</title>
-  <meta name="description" content="Vende, factura con NCF y e-CF, controla tu inventario, cobra a crédito y entrega tus 606, 607 y 608 desde un solo sistema. Hecho para negocios de República Dominicana.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Zenda ERP · Factura electrónica, punto de venta e inventario para tu negocio</title>
+  <meta name="description" content="Vende, emite tus comprobantes fiscales y e-CF, controla el inventario, cobra a crédito y saca tus 606, 607 y 608. El sistema hecho para emprendedores y comercios de República Dominicana.">
   <!-- Correo que recibe las solicitudes de demo (mailto) -->
   <meta name="zenda-demo-email" content="Bateycreativo@hotmail.com">
-  <meta name="theme-color" content="#0a0f1e">
+  <meta name="theme-color" content="#F6F7FB">
   <meta property="og:title" content="Zenda ERP">
-  <meta property="og:description" content="Facturación con NCF y e-CF, inventario, caja, cobros y reportes DGII en un solo sistema.">
+  <meta property="og:description" content="Factura electrónica (e-CF), punto de venta, inventario, cobros y reportes DGII en un solo sistema.">
   <meta property="og:image" content="/assets/screens/pos.webp">
   <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,173 +19,196 @@
   <script type="module" src="/main.js"></script>
 </head>
 <body>
-  <a class="skip" href="#recorrido">Saltar al recorrido</a>
-  <canvas id="scene" aria-hidden="true"></canvas>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <p class="deadline" role="note">
+    Desde el <strong>15 de noviembre de 2026</strong> la factura electrónica (e-CF) es obligatoria para micro y pequeñas empresas.
+    <a href="#dgii">Mira cómo la emite Zenda</a>
+  </p>
 
   <header class="nav">
     <a class="brand" href="#inicio" aria-label="Zenda ERP, inicio">
-      <img src="/assets/icon.svg" alt="" width="32" height="32">
-      <span>Zenda ERP</span>
+      <img src="/assets/icon.svg" alt="" width="34" height="34">
+      <span translate="no">Zenda ERP</span>
     </a>
     <nav aria-label="Secciones">
-      <a href="#recorrido">Recorrido</a>
-      <a href="#para-quien">Para quién</a>
+      <a href="#dia">Cómo funciona</a>
+      <a href="#dgii">DGII</a>
       <a href="#precio">Precio</a>
     </nav>
-    <a class="btn btn-sm" data-demo href="#demo">Solicitar demo</a>
+    <a class="btn btn-sm" data-demo href="#demo">Pedir una demo</a>
   </header>
 
-  <main>
+  <main id="contenido">
     <section class="hero" id="inicio">
-      <h1>Vende, factura con NCF y cuadra tu caja. <span>Todo en un solo lugar.</span></h1>
-      <p class="hero-lead">Zenda ERP es el sistema para emprendedores y comercios que necesitan cumplir con la DGII sin complicarse: punto de venta, comprobantes fiscales, inventario, cobros y contabilidad conectados.</p>
-      <div class="hero-actions">
-        <a class="btn" data-demo href="#demo">Solicitar una demo</a>
-        <a class="btn btn-ghost" href="#recorrido">Recorrer la app <span aria-hidden="true">↓</span></a>
+      <div class="hero-copy">
+        <h1>Vende, factura y cumple con la DGII sin hojas de cálculo.</h1>
+        <p class="lead">Zenda ERP junta el punto de venta, los comprobantes fiscales, el inventario, los cobros y la contabilidad de tu negocio. Hecho para emprendedores y comercios de República Dominicana.</p>
+        <div class="actions">
+          <a class="btn btn-lg" data-demo href="#demo">Pedir una demo</a>
+          <a class="link" href="#dia">Ver cómo funciona</a>
+        </div>
+        <p class="price-hint"><strong>RD$1,250</strong> al mes, todos los módulos incluidos.</p>
       </div>
-      <p class="hero-price"><strong>RD$1,250</strong> al mes · hecho para República Dominicana</p>
-      <p class="hero-note">Pantallas reales de Zenda ERP con datos de demostración.</p>
+
+      <figure class="hero-stage" aria-label="Punto de venta de Zenda ERP y el comprobante que emite">
+        <div class="laptop">
+          <div class="laptop-screen"><img src="/assets/screens/pos.webp" alt="Punto de venta de Zenda ERP con tres productos y el total con ITBIS" width="1600" height="1130" fetchpriority="high"></div>
+          <div class="laptop-base" aria-hidden="true"></div>
+        </div>
+        <div class="receipt" aria-label="Comprobante de ejemplo">
+          <div class="receipt-paper" translate="no">
+            <p class="r-center r-strong">DISTRIBUIDORA CIBAO</p>
+            <p class="r-center">RNC 101-00000-0, Santiago</p>
+            <p class="r-center r-type">Factura de Consumo</p>
+            <dl class="r-meta">
+              <div><dt>NCF</dt><dd>B0200000124</dd></div>
+              <div><dt>Fecha</dt><dd>09-11-2026</dd></div>
+              <div><dt>Cliente</dt><dd>Colmado Doña Fefa</dd></div>
+            </dl>
+            <ul class="r-items">
+              <li><span>Arroz Selecto 10 lb</span><span>485.00</span></li>
+              <li><span>Aceite de soya 1 gal</span><span>640.00</span></li>
+              <li><span>Salami súper esp. 1 lb</span><span>265.00</span></li>
+            </ul>
+            <dl class="r-totals">
+              <div><dt>Subtotal</dt><dd>1,177.97</dd></div>
+              <div><dt>ITBIS 18%</dt><dd>212.03</dd></div>
+              <div class="r-total"><dt>TOTAL RD$</dt><dd>1,390.00</dd></div>
+            </dl>
+            <div class="r-foot">
+              <span class="r-qr" aria-hidden="true"></span>
+              <p>Código de seguridad<br><span>Datos de demostración</span></p>
+            </div>
+          </div>
+        </div>
+      </figure>
     </section>
 
-    <section class="tour" id="recorrido" aria-label="Recorrido por la app">
-      <article class="station" data-station="0">
-        <div class="station-text">
-          <h2><span class="step" aria-hidden="true">01</span> Punto de venta</h2>
-          <p class="station-lead">Una venta en segundos, con el comprobante que corresponde.</p>
-          <p>Busca o escanea el producto, elige el cliente y cobra en efectivo, tarjeta, transferencia o a crédito. El sistema calcula el ITBIS y asigna el NCF.</p>
-          <ul>
-            <li>Lector de código de barras, o tu celular como escáner</li>
-            <li>Atajos de teclado para el cajero</li>
-            <li>Recibo en impresora térmica</li>
-          </ul>
-        </div>
-        <figure class="fallback"><img src="/assets/screens/pos.webp" alt="Punto de venta de Zenda ERP con tres productos y el total con ITBIS" loading="lazy" width="1600" height="1130"></figure>
-      </article>
-
-      <article class="station" data-station="1">
-        <div class="station-text">
-          <h2><span class="step" aria-hidden="true">02</span> Pedidos y facturas</h2>
-          <p class="station-lead">Cada pedido sigue su camino hasta la factura.</p>
-          <p>Del pedido al cobro y a la factura con NCF o e-CF, con anulaciones y notas de crédito cuando hacen falta. Envía la factura en PDF por correo.</p>
-          <ul>
-            <li>NCF B01, B02, B03 y B04</li>
-            <li>Comprobantes electrónicos e-CF (E31 a E47)</li>
-            <li>Entrega en tienda o envío a domicilio</li>
-          </ul>
-        </div>
-        <figure class="fallback"><img src="/assets/screens/pedidos.webp" alt="Listado de pedidos y facturas con su estado" loading="lazy" width="1600" height="1130"></figure>
-      </article>
-
-      <article class="station" data-station="2">
-        <div class="station-text">
-          <h2><span class="step" aria-hidden="true">03</span> Inventario</h2>
-          <p class="station-lead">Sabes qué tienes, qué se vende y qué se acaba.</p>
-          <p>El stock baja con cada venta y sube con cada compra. Alertas de mínimo, variantes por talla o color, códigos de barras y carga masiva desde Excel.</p>
-          <ul>
-            <li>Historial de cada entrada y salida</li>
-            <li>Etiquetas con código de barras</li>
-            <li>Búsqueda por nombre, SKU o código</li>
-          </ul>
-        </div>
-        <figure class="fallback"><img src="/assets/screens/inventario.webp" alt="Inventario de productos con precios y existencias" loading="lazy" width="1600" height="1130"></figure>
-      </article>
-
-      <article class="station" data-station="3">
-        <div class="station-text">
-          <h2><span class="step" aria-hidden="true">04</span> Cuentas por cobrar</h2>
-          <p class="station-lead">Vende a crédito sin perder la pista.</p>
-          <p>Plazos de 15, 30 o 60 días, abonos parciales y la antigüedad de cada saldo. Envía el estado de cuenta al cliente con un clic.</p>
-          <ul>
-            <li>Facturas vencidas resaltadas</li>
-            <li>Registro de pagos y recibos</li>
-            <li>Cuentas por pagar a proveedores</li>
-          </ul>
-        </div>
-        <figure class="fallback"><img src="/assets/screens/cxc.webp" alt="Gestión de cobros con saldos por cliente y días de atraso" loading="lazy" width="1600" height="1130"></figure>
-      </article>
-
-      <article class="station" data-station="4">
-        <div class="station-text">
-          <h2><span class="step" aria-hidden="true">05</span> Tus números</h2>
-          <p class="station-lead">Ventas, margen y caja, sin armar una hoja de cálculo.</p>
-          <p>Reportes por período, cliente o producto, apertura y cierre de caja con su cuadre, y contabilidad de doble entrada que se llena sola.</p>
-          <ul>
-            <li>Diario, mayor y balanza de comprobación</li>
-            <li>Cierre de turno con diferencias</li>
-            <li>Exportación a Excel</li>
-          </ul>
-        </div>
-        <figure class="fallback"><img src="/assets/screens/reportes.webp" alt="Reportes de ventas con filtros por período" loading="lazy" width="1600" height="1130"></figure>
-      </article>
-
-      <article class="station" data-station="5">
-        <div class="station-text">
-          <h2><span class="step" aria-hidden="true">06</span> DGII</h2>
-          <p class="station-lead">Tus 606, 607 y 608 salen de lo que ya registraste.</p>
-          <p>Las ventas y compras del mes generan los formatos en TXT y Excel, listos para la Oficina Virtual. El ITBIS a pagar se ve antes de declarar.</p>
-          <ul>
-            <li>606 de compras y gastos</li>
-            <li>607 de ventas y 608 de anulados</li>
-            <li>ITBIS calculado sobre precios con impuesto incluido</li>
-          </ul>
-        </div>
-        <figure class="fallback"><img src="/assets/screens/fiscal.webp" alt="Gestión fiscal con los formatos 606, 607 y 608" loading="lazy" width="1600" height="1130"></figure>
-      </article>
+    <section class="facts" aria-label="Lo que cubre Zenda ERP">
+      <ul>
+        <li><strong>NCF</strong> B01, B02, B03 y B04</li>
+        <li><strong>e-CF</strong> E31 a E47</li>
+        <li><strong>606, 607 y 608</strong> en TXT y Excel</li>
+        <li><strong>ITBIS</strong> calculado en cada venta</li>
+        <li><strong>Windows y web</strong>, se actualiza solo</li>
+      </ul>
     </section>
 
-    <section class="audience" id="para-quien">
-      <h2>Para el negocio que ya tienes, no para uno imaginario.</h2>
+    <section class="day" id="dia" aria-labelledby="dia-title">
+      <div class="section-head">
+        <h2 id="dia-title">Un día en tu negocio, de la apertura al cierre.</h2>
+        <p>Lo que haces cada día deja todo listo para fin de mes.</p>
+      </div>
+
+      <ol class="steps">
+        <li class="step">
+          <div class="step-copy">
+            <p class="step-time">8:00 a. m.</p>
+            <h3>Abres la caja y vendes</h3>
+            <p>Busca o escanea el producto, elige el cliente y cobra en efectivo, tarjeta, transferencia o a crédito. El sistema calcula el ITBIS y asigna el comprobante que corresponde.</p>
+          </div>
+          <figure class="shot"><img src="/assets/screens/pos.webp" alt="Pantalla de punto de venta" width="1600" height="1130" loading="lazy"></figure>
+        </li>
+        <li class="step">
+          <div class="step-copy">
+            <p class="step-time">11:30 a. m.</p>
+            <h3>Despachas pedidos al por mayor</h3>
+            <p>Del pedido a la factura con NCF o e-CF, con entrega en tienda o envío. Si te equivocas, anulas o haces una nota de crédito sin perder el rastro.</p>
+          </div>
+          <figure class="shot"><img src="/assets/screens/pedidos.webp" alt="Listado de pedidos y facturas" width="1600" height="1130" loading="lazy"></figure>
+        </li>
+        <li class="step">
+          <div class="step-copy">
+            <p class="step-time">3:00 p. m.</p>
+            <h3>Cobras lo que vendiste a crédito</h3>
+            <p>Ves quién te debe, cuánto y desde cuándo. Registras abonos y envías el estado de cuenta por correo con un clic.</p>
+          </div>
+          <figure class="shot"><img src="/assets/screens/cxc.webp" alt="Cuentas por cobrar con saldos y días de atraso" width="1600" height="1130" loading="lazy"></figure>
+        </li>
+        <li class="step">
+          <div class="step-copy">
+            <p class="step-time">7:00 p. m.</p>
+            <h3>Cierras y revisas el inventario</h3>
+            <p>El stock bajó solo con cada venta. Ves lo que se está acabando, cuadras la caja del turno y sabes cuánto vendiste hoy.</p>
+          </div>
+          <figure class="shot"><img src="/assets/screens/inventario.webp" alt="Inventario con existencias y alertas" width="1600" height="1130" loading="lazy"></figure>
+        </li>
+      </ol>
+    </section>
+
+    <section class="dgii" id="dgii" aria-labelledby="dgii-title">
+      <div class="dgii-copy">
+        <h2 id="dgii-title">A fin de mes, la DGII ya está resuelta.</h2>
+        <p>Tus ventas y compras del mes generan el 606, el 607 y el 608 listos para la Oficina Virtual. Ves el ITBIS a pagar antes de declarar.</p>
+        <ul class="checks">
+          <li>Comprobantes electrónicos e-CF firmados y enviados a la DGII</li>
+          <li>Comprobantes tradicionales B01, B02, B03 y B04 con su secuencia</li>
+          <li>Anuladas y notas de crédito separadas en el 608</li>
+        </ul>
+      </div>
+      <figure class="shot shot-wide"><img src="/assets/screens/fiscal.webp" alt="Gestión fiscal con los formatos 606, 607 y 608" width="1600" height="1130" loading="lazy"></figure>
+    </section>
+
+    <section class="phone-scan" aria-labelledby="scan-title">
+      <div class="phone" aria-hidden="true">
+        <div class="phone-screen">
+          <p class="ph-status"><span></span>Conectado a la caja</p>
+          <div class="ph-view"><span class="ph-line"></span></div>
+          <div class="ph-result"><strong>7460123400011</strong><span>Enviado a la caja</span></div>
+        </div>
+      </div>
+      <div class="scan-copy">
+        <h2 id="scan-title">Tu celular también es el escáner.</h2>
+        <p>Escanea el código QR de la caja y apunta la cámara a los productos. Cada lectura llega al punto de venta al instante, sin comprar un lector aparte.</p>
+      </div>
+    </section>
+
+    <section class="audience" id="para-quien" aria-labelledby="aud-title">
+      <h2 id="aud-title">Para el negocio que ya tienes.</h2>
       <dl>
-        <div>
-          <dt>Emprendedores y comercios pequeños</dt>
-          <dd>Empieza a facturar con NCF el primer día. Un cajero, una caja y el sistema hace el resto.</dd>
-        </div>
-        <div>
-          <dt>Tiendas y colmados</dt>
-          <dd>Punto de venta con escáner, varias formas de pago, cierre de caja y control de existencias.</dd>
-        </div>
-        <div>
-          <dt>Distribuidoras</dt>
-          <dd>Pedidos al por mayor, venta a crédito con plazo, cobros, rutas de entrega y confirmación desde el celular del repartidor.</dd>
-        </div>
-        <div>
-          <dt>Contadores</dt>
-          <dd>Reportes DGII y contabilidad de doble entrada generados desde la operación de cada cliente.</dd>
-        </div>
+        <div><dt>Emprendedores</dt><dd>Empieza a facturar con comprobante fiscal el primer día. Una caja, un cajero y el sistema hace el resto.</dd></div>
+        <div><dt>Tiendas y colmados</dt><dd>Punto de venta con escáner, varias formas de pago, cierre de caja y control de existencias.</dd></div>
+        <div><dt>Distribuidoras</dt><dd>Pedidos al por mayor, crédito con plazo, cobros y entregas confirmadas desde el celular del repartidor.</dd></div>
+        <div><dt>Contadores</dt><dd>606, 607, 608 y contabilidad de doble entrada salen de la operación de cada cliente.</dd></div>
       </dl>
     </section>
 
-    <section class="pricing" id="precio">
-      <h2>Un precio claro.</h2>
+    <section class="pricing" id="precio" aria-labelledby="price-title">
+      <h2 id="price-title">Un precio, todo incluido.</h2>
       <div class="plans">
         <div class="plan">
-          <p class="plan-name">Zenda ERP en la nube</p>
-          <p class="plan-price"><strong>RD$1,250</strong><span>/mes</span></p>
-          <ul>
-            <li>Todos los módulos: venta, facturación, inventario, caja, cobros, contabilidad y DGII</li>
-            <li>App de escritorio para Windows que se actualiza sola, y versión web</li>
-            <li>Usuarios con roles: cajero, gerente, contador y más</li>
+          <p class="plan-name">Zenda ERP</p>
+          <p class="plan-price"><strong>RD$1,250</strong> al mes</p>
+          <ul class="checks">
+            <li>Venta, facturación, inventario, caja, cobros, contabilidad y reportes DGII</li>
+            <li>App para Windows que se actualiza sola, y acceso desde el navegador</li>
+            <li>Usuarios con su rol: cajero, gerente, contador y más</li>
           </ul>
-          <a class="btn" data-demo href="#demo">Solicitar una demo</a>
+          <a class="btn btn-lg btn-light" data-demo href="#demo">Pedir una demo</a>
         </div>
         <div class="plan plan-soon">
-          <p class="plan-name">Versión de escritorio independiente</p>
+          <p class="plan-name">Versión de escritorio de pago único</p>
           <p class="plan-price"><strong>Próximamente</strong></p>
           <p>Un solo pago, sin mensualidad, instalada en tu computadora.</p>
         </div>
       </div>
     </section>
 
-    <section class="closing" id="demo">
-      <h2>Te lo mostramos con tu propio negocio.</h2>
-      <p>Escríbenos y agendamos una demostración: vemos tus productos, tus comprobantes y cómo vendes hoy.</p>
-      <a class="btn btn-lg" data-demo href="#demo">Solicitar una demo</a>
+    <section class="closing" id="demo" aria-labelledby="demo-title">
+      <h2 id="demo-title">Te lo mostramos con tus propios productos.</h2>
+      <p>Escríbenos y agendamos una demostración: vemos cómo vendes hoy, tus comprobantes y lo que necesitas para la factura electrónica.</p>
+      <a class="btn btn-lg" data-demo href="#demo">Pedir una demo</a>
     </section>
   </main>
 
   <footer class="footer">
-    <p>© <span data-year>2026</span> Zenda ERP · Batey Creativo Studio</p>
-    <p>Las pantallas muestran datos de demostración.</p>
+    <p>© <span data-year>2026</span> Zenda ERP, Batey Creativo Studio</p>
+    <p>Las pantallas y el comprobante muestran datos de demostración.</p>
   </footer>
+
+  <div class="sticky-cta">
+    <a class="btn btn-lg" data-demo href="#demo">Pedir una demo</a>
+  </div>
 </body>
 </html>
