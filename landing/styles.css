@@ -59,11 +59,11 @@ ul, ol { padding: 0; list-style: none; }
   background: rgb(246 247 251 / 0.94);
   border-bottom: 1px solid var(--line);
 }
-.brand { display: inline-flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.0625rem; text-decoration: none; letter-spacing: -0.01em; }
+.brand { white-space: nowrap; display: inline-flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.0625rem; text-decoration: none; letter-spacing: -0.01em; }
 .brand img { border-radius: 9px; }
-.nav nav { display: flex; gap: 1.75rem; margin-left: auto; }
-.nav nav a { color: var(--ink-soft); text-decoration: none; font-size: .9375rem; font-weight: 500; }
-.nav nav a:hover { color: var(--brand); }
+.nav > nav { display: flex; gap: 1.75rem; margin-left: auto; }
+.nav > nav a { color: var(--ink-soft); text-decoration: none; font-size: .9375rem; font-weight: 500; }
+.nav > nav a:hover { color: var(--brand); }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -232,14 +232,56 @@ h2 { font-size: clamp(1.875rem, 4.2vw, 3rem); font-weight: 800; letter-spacing: 
 .closing p { margin-left: auto; margin-right: auto; }
 .closing .btn { margin-top: 2rem; }
 
-.footer { border-top: 1px solid var(--line); padding: 2rem var(--gutter) 2.5rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; color: var(--ink-muted); font-size: .875rem; }
+/* Preguntas frecuentes: <details> nativo, funciona con teclado y sin JavaScript */
+.faq > * { max-width: 52rem; }
+.faq-list { margin-top: 2rem; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  padding: 1.15rem 0; cursor: pointer; list-style: none;
+  font-weight: 600; font-size: 1.0625rem;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; flex: none; font-size: 1.5rem; font-weight: 400; line-height: 1; color: var(--brand); }
+.faq details[open] summary::after { content: "−"; }
+.faq summary:hover { color: var(--brand); }
+.faq details p { padding: 0 0 1.25rem; color: var(--ink-soft); max-width: 62ch; }
+
+.footer { border-top: 1px solid var(--line); padding: 2rem var(--gutter) 2.5rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 1.5rem; color: var(--ink-muted); font-size: .875rem; }
+.footer nav { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .25rem 1.5rem; margin-bottom: .75rem; }
+.footer nav a { color: var(--ink-soft); font-weight: 500; text-decoration: none; padding: .35rem 0; }
+.footer nav a:hover { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Menú del celular: solo aparece cuando la barra no tiene espacio para los enlaces */
+.menu { display: none; position: relative; }
+.menu summary {
+  display: inline-flex; align-items: center; gap: .5rem; min-height: 2.5rem; padding: 0 .75rem;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  font-weight: 600; font-size: .9375rem; cursor: pointer; list-style: none;
+}
+.menu summary::-webkit-details-marker { display: none; }
+.menu summary span, .menu summary span::before, .menu summary span::after { display: block; width: 14px; height: 2px; background: currentColor; border-radius: 1px; }
+.menu summary span { position: relative; }
+.menu summary span::before, .menu summary span::after { content: ""; position: absolute; left: 0; }
+.menu summary span::before { top: -5px; }
+.menu summary span::after { top: 5px; }
+.menu nav {
+  position: absolute; right: 0; top: calc(100% + .5rem); min-width: 13rem;
+  display: flex; flex-direction: column; padding: .4rem;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 16px 32px -16px rgb(21 25 53 / 0.35);
+}
+.menu nav a { padding: .75rem .85rem; border-radius: 8px; color: var(--ink); text-decoration: none; font-weight: 500; }
+.menu nav a:hover { background: var(--brand-tint); color: var(--brand); }
 
 /* Botón fijo solo en el celular, cuando los de la página no se ven */
 .sticky-cta { display: none; }
 
 @media (max-width: 900px) {
-  .nav nav { display: none; }
+  .nav > nav { display: none; }
+  .nav { gap: .75rem; }
   .nav .btn-sm { margin-left: auto; }
+  .menu { display: block; }
   .hero, .step, .dgii, .phone-scan { grid-template-columns: 1fr; }
   .step:nth-child(even) { grid-template-columns: 1fr; }
   .step:nth-child(even) .step-copy { order: 0; }
@@ -262,6 +304,9 @@ h2 { font-size: clamp(1.875rem, 4.2vw, 3rem); font-weight: 800; letter-spacing: 
 }
 
 @media (max-width: 480px) {
+  /* la portada y el botón fijo ya llevan a la demo; la barra queda para la marca y el menú */
+  .nav .btn-sm { display: none; }
+  .menu { margin-left: auto; }
   .deadline { text-align: left; font-size: .875rem; }
   .actions .btn { width: 100%; }
   .receipt { width: 66%; }
