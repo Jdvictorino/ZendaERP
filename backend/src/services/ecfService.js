@@ -4,7 +4,7 @@
  * Maneja: autenticación, firma, envío, consulta de estado, generación de e-NCF.
  */
 import ECF, { P12Reader, Signature, ENVIRONMENT } from 'dgii-ecf';
-import { getCodeSixDigitfromSignature, convertECF32ToRFCE, generateEcfQRCodeURL, generateFcQRCodeURL } from 'dgii-ecf';
+import { getCodeSixDigitfromSignature, convertECF32ToRFCE, generateEcfQRCodeURL, generateFcQRCodeURL, isSummaryInvoice, TrackStatusEnum } from 'dgii-ecf';
 import prisma from '../db.js';
 import { buildEcfFromInvoice, buildEcfFromNote, ecfToXml } from './ecfXmlBuilder.js';
 
@@ -75,8 +75,15 @@ async function generateENCF(companyId, tipoEcf) {
     throw new Error(`La secuencia de ${tipoEcf} ha vencido. Renueve la autorización con la DGII.`);
   }
 
-  // Verificar rango
-  if (sequence.rangoHasta > 0 && sequence.secuencial > sequence.rangoHasta) {
+  // Se reserva el número con un incremento atómico: dos ventas a la vez nunca reciben el mismo e-NCF
+  const { secuencial: next } = await prisma.ecfSequence.update({
+    where: { id: sequence.id },
+    data: { secuencial: { increment: 1 } },
+    select: { secuencial: true },
+  });
+  const secuencial = next - 1;
+
+  if (sequence.rangoHasta > 0 && secuencial > sequence.rangoHasta) {
     await prisma.ecfSequence.update({
       where: { id: sequence.id },
       data: { estado: 'agotada' },
@@ -84,14 +91,7 @@ async function generateENCF(companyId, tipoEcf) {
     throw new Error(`La secuencia de ${tipoEcf} se ha agotado. Solicite un nuevo rango a la DGII.`);
   }
 
-  const secuencialStr = String(sequence.secuencial).padStart(10, '0');
-  const eNcf = `E${typeCode}${secuencialStr}`;
-
-  // Incrementar secuencial
-  await prisma.ecfSequence.update({
-    where: { id: sequence.id },
-    data: { secuencial: sequence.secuencial + 1 },
-  });
+  const eNcf = `E${typeCode}${String(secuencial).padStart(10, '0')}`;
 
   return { eNcf, sequence };
 }
@@ -155,9 +155,8 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
     
     let response;
     
-    // Para E32 (Factura de Consumo) < 250K DOP, enviar como resumen (RFCE)
-    const montoTotal = parseFloat(invoice.total);
-    if (tipoEcf === 'E32' && montoTotal < 250000) {
+    // E32 (Factura de Consumo) menor de RD$250,000 se envía como resumen (RFCE); la regla es la del paquete
+    if (isSummaryInvoice(eNcf, String(invoice.total))) {
       const rfceData = convertECF32ToRFCE(xmlSigned);
       const rfceSigned = signature.signXml(rfceData.xml, 'RFCE');
       response = await ecfClient.sendSummary(rfceSigned, fileName);
@@ -226,6 +225,15 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
   }
 }
 
+// Estados de la DGII → estados de EcfDocument
+const DGII_STATUS = {
+  [TrackStatusEnum.ACCEPTED]: 'aceptado',
+  [TrackStatusEnum.REJECTED]: 'rechazado',
+  [TrackStatusEnum.IN_PROCESS]: 'en_proceso',
+  [TrackStatusEnum.CONDITIONAL_ACCEPTED]: 'aceptado_condicional',
+  [TrackStatusEnum.NOT_FOUND]: 'enviado',
+};
+
 /**
  * Consulta el estado de un documento por TrackId
  */
@@ -242,16 +250,7 @@ export async function checkTrackIdStatus(ecfDocumentId, companyId) {
   const { ecf: ecfClient } = await getAuthenticatedEcf(ecfDoc.company);
   const response = await ecfClient.statusTrackId(ecfDoc.trackId);
 
-  // Mapear estado de la DGII
-  const statusMap = {
-    'Aceptado': 'aceptado',
-    'Rechazado': 'rechazado',
-    'En Proceso': 'en_proceso',
-    'Aceptado Condicional': 'aceptado_condicional',
-    'No encontrado': 'enviado',
-  };
-
-  const newStatus = statusMap[response?.estado] || ecfDoc.dgiiStatus;
+  const newStatus = DGII_STATUS[response?.estado] || ecfDoc.dgiiStatus;
 
   await prisma.ecfDocument.update({
     where: { id: ecfDoc.id },
@@ -311,10 +310,41 @@ export async function retryEcfSend(ecfDocumentId, companyId) {
   const fileName = `${company.rnc}${ecfDoc.eNcf}.xml`;
 
   try {
-    let response;
-    const montoTotal = parseFloat(ecfDoc.montoTotal);
+    // Si la respuesta del envío anterior se perdió, la DGII pudo haberlo recibido igual, y reenviar un
+    // e-NCF que ya tiene vuelve "Rechazado". Antes de reenviar se pregunta si ya lo tiene.
+    if (ecfDoc.dgiiStatus !== 'rechazado') {
+      const known = await ecfClient.checkDocumentStatus({
+        rncEmisor: ecfDoc.rncEmisor || company.rnc,
+        encf: ecfDoc.eNcf,
+        rncComprador: ecfDoc.rncComprador || undefined,
+        codigoSeguridad: ecfDoc.securityCode || undefined,
+        montoTotal: String(ecfDoc.montoTotal),
+      });
+      const status = DGII_STATUS[known.status];
+      if (status && status !== 'enviado') {
+        await prisma.ecfDocument.update({
+          where: { id: ecfDoc.id },
+          data: {
+            dgiiStatus: status,
+            trackId: known.trackId || ecfDoc.trackId,
+            dgiiMessage: `La DGII ya tenía este e-CF: ${known.status}`,
+            enviadoAt: ecfDoc.enviadoAt || new Date(),
+            ...(status === 'aceptado' ? { aceptadoAt: new Date() } : {}),
+            ...(status === 'rechazado' ? { rechazadoAt: new Date() } : {}),
+          },
+        });
+        return {
+          success: status !== 'rechazado',
+          document: await prisma.ecfDocument.findUnique({ where: { id: ecfDoc.id } }),
+          response: known,
+          ...(status === 'rechazado' ? { error: 'La DGII rechazó este e-CF; consulta su estado para ver el motivo' } : {}),
+        };
+      }
+    }
 
-    if (ecfDoc.tipoEcf === 'E32' && montoTotal < 250000) {
+    let response;
+
+    if (isSummaryInvoice(ecfDoc.eNcf, String(ecfDoc.montoTotal))) {
       const rfceData = convertECF32ToRFCE(ecfDoc.xmlSigned);
       const rfceSigned = signature.signXml(rfceData.xml, 'RFCE');
       response = await ecfClient.sendSummary(rfceSigned, fileName);
