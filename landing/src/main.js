@@ -9,8 +9,9 @@ gsap.registerPlugin(ScrollTrigger)
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
 
+let lenis = null
 if (!reducedMotion) {
-  const lenis = new Lenis({ anchors: true })
+  lenis = new Lenis({ anchors: true, lerp: 0.085 })
   lenis.on('scroll', ScrollTrigger.update)
   gsap.ticker.add((time) => lenis.raf(time * 1000))
   gsap.ticker.lagSmoothing(0)
@@ -30,5 +31,5 @@ const menu = document.querySelector('.menu')
 menu.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => { menu.open = false }))
 document.addEventListener('click', (e) => { if (menu.open && !menu.contains(e.target)) menu.open = false })
 
-initHero()
+initHero(lenis)
 initSections({ reducedMotion })
