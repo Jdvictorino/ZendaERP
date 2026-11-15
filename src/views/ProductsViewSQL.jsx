@@ -103,16 +103,15 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     const ensureEANAndSKU = useCallback((p) => {
         const existingBarcodes = new Set((products || []).map(x => (x.barcode || x.code || '').toString()));
         const existingSkus = new Set((products || []).map(x => (x.sku || '').toString()));
-        // El código de barras debe ser EAN-13; si falta se genera. El "Código" (p. ej. el del proveedor) se conserva.
-        let ean = [p.barcode, p.code].map(v => (v || '').toString()).find(isValidEAN13);
-        if (!ean) {
+        let ean = (p.barcode || p.code || '').toString();
+        if (!isValidEAN13(ean)) {
             ean = generateUniqueEAN13(existingBarcodes);
         }
         let sku = p.sku;
         if (!sku || !sku.trim()) {
             sku = generateUniqueSKU(p.name || 'PRD', existingSkus);
         }
-        return { ...p, code: (p.code || '').toString().trim() || ean, barcode: ean, sku };
+        return { ...p, code: ean, barcode: ean, sku };
     }, [products]);
 
     const generateBarcodeDataUrl = async (code) => {
