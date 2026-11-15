@@ -18,21 +18,10 @@ const DebitNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customers
             return;
         }
 
-        // Generar NCF si es factura fiscal
-        let ncfNumber = 'N/A';
-        if (invoice.ncf && invoice.ncfType !== 'NoFiscal') {
-            const ncfConfig = companyProfile?.ncf || {};
-            const ncfSequence = ncfConfig?.b03_sequence_next;
-            const ncfPrefix = ncfConfig?.b03_prefix;
-            if (ncfSequence && ncfPrefix) {
-                ncfNumber = `${ncfPrefix}${String(ncfSequence).padStart(8, '0')}`;
-            }
-        }
-
+        // El servidor asigna el NCF B03 de la secuencia autorizada cuando la factura es fiscal
         const promise = api.invoices.createDebitNote(invoice.id, {
             amount: debitAmount,
-            reason,
-            ncfNumber
+            reason
         }).then((debitNote) => {
             const customerDetails = (customers || []).find(c => c.id === invoice.customerId);
             const debitNoteData = {
@@ -45,13 +34,16 @@ const DebitNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customers
             generatePDF(debitNoteData, 'debit-note', companyProfile, customerDetails, invoice.emitterInfo, 'view');
         });
 
-        await toast.promise(promise, {
-            loading: 'Emitiendo nota de débito...',
-            success: () => { playSuccessSound(); return '¡Nota de débito emitida!'; },
-            error: () => { playErrorSound(); return 'No se pudo emitir la nota de débito.'; }
-        });
-
-        onSuccess();
+        try {
+            await toast.promise(promise, {
+                loading: 'Emitiendo nota de débito...',
+                success: () => { playSuccessSound(); return '¡Nota de débito emitida!'; },
+                error: (err) => { playErrorSound(); return err?.message || 'No se pudo emitir la nota de débito.'; }
+            });
+            onSuccess();
+        } catch {
+            // el aviso ya muestra el motivo (p. ej. secuencia B03 agotada); la ventana queda abierta
+        }
     };
 
     return (

@@ -28,6 +28,26 @@ export async function takeStock(tx, companyId, { productId, variantId, quantity 
   throw httpError(409, `Stock insuficiente para "${name}". Disponible: ${found.stock}, pedido: ${quantity}.`);
 }
 
+// Siguiente NCF del tipo `code` (B01, B02, B03, B04) dentro del rango de Configuración > Secuencias NCF.
+// B01/B02 cuentan en sus columnas; los demás en settings.ncfSequences. El bloqueo por empresa evita números repetidos.
+export async function takeNcf(tx, companyId, code) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`ncf:${companyId}`}))::text`;
+  const company = await tx.company.findUnique({ where: { id: companyId } });
+  const sequences = Array.isArray(company.settings?.ncfSequences) ? company.settings.ncfSequences : [];
+  const index = sequences.findIndex((s) => s.code === code);
+  const seq = sequences[index];
+  const column = ['B01', 'B02'].includes(code) ? `ncf${code}SequenceNext` : null;
+  const next = Number(column ? company[column] : seq?.next) || 1;
+  const prefix = (column && company[`ncf${code}Prefix`]) || seq?.prefix;
+  if (!prefix) throw httpError(400, `Falta configurar la secuencia de NCF ${code} en Configuración > Secuencias NCF.`);
+  if (seq && !seq.active) throw httpError(400, `La secuencia de NCF ${code} está inactiva. Actívala en Configuración > Secuencias NCF.`);
+  if (seq && next > Number(seq.end)) throw httpError(409, `Se agotó la secuencia autorizada de NCF ${code} (hasta ${seq.end}). Registra la nueva en Configuración > Secuencias NCF.`);
+  if (column) await tx.company.update({ where: { id: companyId }, data: { [column]: next + 1 } });
+  // shortcut: B03/B04 viven en settings JSON; un guardado de Configuración en el mismo instante podría pisar el contador. Pasarlos a columnas si llega a ocurrir.
+  else await tx.$executeRaw`UPDATE companies SET settings = jsonb_set(settings, ${['ncfSequences', String(index), 'next']}::text[], to_jsonb(${next + 1}::int)) WHERE id = ${companyId}`;
+  return `${prefix}${String(next).padStart(8, '0')}`;
+}
+
 // Devuelve a inventario las líneas de una factura (anulación, nota de crédito total, pedido eliminado)
 export async function restoreStock(tx, invoice, userId, reason, referenceType, referenceId = invoice.id) {
   for (const item of invoice.items) {
@@ -461,18 +481,6 @@ router.post('/:id/bill', authorize('admin', 'manager', 'supervisor', 'cashier'),
     if (ncfType && !['B01', 'B02', 'NoFiscal'].includes(ncfType)) {
       return res.status(400).json({ error: 'Tipo de comprobante no válido.' });
     }
-    const company = await prisma.company.findUnique({
-      where: { id: req.companyId }
-    });
-
-    if (ncfType === 'B01' && !company.ncfB01Prefix) {
-      return res.status(400).json({ error: 'Configuración incompleta: Falta el prefijo NCF para Crédito Fiscal (B01).' });
-    }
-    if (ncfType === 'B02' && !company.ncfB02Prefix) {
-      return res.status(400).json({ error: 'Configuración incompleta: Falta el prefijo NCF para Consumo (B02).' });
-    }
-
-    const field = ncfType === 'B01' ? 'ncfB01SequenceNext' : ncfType === 'B02' ? 'ncfB02SequenceNext' : null;
     const updatedInvoice = await prisma.$transaction(async (tx) => {
       // Se reserva la factura primero: dos clics o dos cajas a la vez no la facturan (ni gastan NCF) dos veces
       const claimed = await tx.invoice.updateMany({
@@ -481,12 +489,7 @@ router.post('/:id/bill', authorize('admin', 'manager', 'supervisor', 'cashier'),
       });
       if (claimed.count === 0) throw httpError(400, 'La factura ya está facturada');
 
-      let ncfNumber = 'NoFiscal';
-      if (field) {
-        // Incremento atómico de la secuencia: cada factura recibe un NCF distinto
-        const next = await tx.company.update({ where: { id: req.companyId }, data: { [field]: { increment: 1 } }, select: { [field]: true } });
-        ncfNumber = `${company[`ncf${ncfType}Prefix`]}${String(next[field] - 1).padStart(8, '0')}`;
-      }
+      const ncfNumber = ncfType === 'B01' || ncfType === 'B02' ? await takeNcf(tx, req.companyId, ncfType) : 'NoFiscal';
       return tx.invoice.update({
         where: { id: invoice.id },
         data: { invoiceNumber: invoice.orderNumber, ncfNumber, ncfType: ncfType || 'NoFiscal', customerRnc }
@@ -533,11 +536,12 @@ router.post('/:id/cancel', authorize('admin', 'manager'), async (req, res, next)
 
 /**
  * POST /api/invoices/:id/credit-note
- * Nota de crédito. Solo la que completa el total anula la factura y devuelve el inventario.
+ * Nota de crédito. Devuelve a inventario los artículos indicados (items: [{ itemId, quantity }]);
+ * la que completa el total anula la factura y devuelve todo lo que quedaba.
  */
 router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, next) => {
   try {
-    const { amount, reason, ncfNumber } = req.body;
+    const { amount, reason, items: returnItems } = req.body;
     const value = parseFloat(amount);
     if (!(value > 0)) {
       return res.status(400).json({ error: 'El monto de la nota de crédito debe ser mayor que 0.' });
@@ -545,7 +549,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true, creditNotes: { select: { amount: true } } }
+      include: { items: true, creditNotes: { select: { amount: true, items: true } } }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
@@ -560,15 +564,34 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
       return res.status(400).json({ error: `La nota excede lo que queda por acreditar (RD$${(total - credited + value).toFixed(2)}).` });
     }
 
+    // Cuánto de cada línea devolvieron ya las notas anteriores; no se devuelve más de lo vendido
+    const before = {};
+    invoice.creditNotes.forEach((n) => (Array.isArray(n.items) ? n.items : []).forEach((r) => { before[r.itemId] = (before[r.itemId] || 0) + r.quantity; }));
+    const returned = { ...before };
+    let lines = [];
+    for (const r of Array.isArray(returnItems) ? returnItems : []) {
+      const item = invoice.items.find((i) => i.id === r.itemId);
+      const quantity = parseInt(r.quantity, 10);
+      if (!item || !(quantity > 0)) return res.status(400).json({ error: 'Uno de los artículos a devolver no es de esta factura.' });
+      const left = item.quantity - (returned[item.id] || 0);
+      if (quantity > left) return res.status(400).json({ error: `De "${item.productName}" solo quedan ${left} por devolver.` });
+      returned[item.id] = (returned[item.id] || 0) + quantity;
+      lines.push({ ...item, quantity });
+    }
+    const full = credited >= total - 0.01;
+    if (full) {
+      // La nota que completa el total devuelve todo lo que no se había devuelto
+      lines = invoice.items.map((i) => ({ ...i, quantity: i.quantity - (before[i.id] || 0) })).filter((i) => i.quantity > 0);
+    }
+
     const creditNote = await prisma.$transaction(async (tx) => {
+      // Una factura con comprobante fiscal se acredita con un NCF B04 de la secuencia autorizada
+      const ncfNumber = ['B01', 'B02'].includes(invoice.ncfType) ? await takeNcf(tx, req.companyId, 'B04') : null;
       const note = await tx.creditNote.create({
-        data: { companyId: req.companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber }
+        data: { companyId: req.companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber, items: lines.map((l) => ({ itemId: l.id, quantity: l.quantity })) }
       });
-      // shortcut: una nota parcial no devuelve artículos al inventario; si hace falta, se ajusta el stock a mano
-      if (credited >= total - 0.01) {
-        await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'Anulado' } });
-        await restoreStock(tx, invoice, req.user.id, `Nota de Crédito - ${note.id}`, 'credit_note', note.id);
-      }
+      if (full) await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'Anulado' } });
+      if (lines.length) await restoreStock(tx, { ...invoice, items: lines }, req.user.id, `Nota de Crédito - ${note.ncfNumber || note.id}`, 'credit_note', note.id);
       return note;
     });
 
@@ -584,7 +607,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
  */
 router.post('/:id/debit-note', authorize('admin', 'manager'), async (req, res, next) => {
   try {
-    const { amount, reason, ncfNumber } = req.body;
+    const { amount, reason } = req.body;
     const value = parseFloat(amount);
     if (!(value > 0)) {
       return res.status(400).json({ error: 'El monto de la nota de débito debe ser mayor que 0.' });
@@ -599,15 +622,18 @@ router.post('/:id/debit-note', authorize('admin', 'manager'), async (req, res, n
 
     const taxShare = Number(invoice.total) > 0 ? Number(invoice.taxAmount) / Number(invoice.total) : 0;
     const tax = value * taxShare;
-    const [debitNote] = await prisma.$transaction([
-      prisma.debitNote.create({
+    const debitNote = await prisma.$transaction(async (tx) => {
+      // Una factura con comprobante fiscal se modifica con un NCF B03 de la secuencia autorizada
+      const ncfNumber = ['B01', 'B02'].includes(invoice.ncfType) ? await takeNcf(tx, req.companyId, 'B03') : null;
+      const note = await tx.debitNote.create({
         data: { companyId: req.companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber }
-      }),
-      prisma.invoice.update({
+      });
+      await tx.invoice.update({
         where: { id: invoice.id },
         data: { total: { increment: value }, taxAmount: { increment: tax }, subtotal: { increment: value - tax } }
-      })
-    ]);
+      });
+      return note;
+    });
 
     res.status(201).json(debitNote);
   } catch (error) {

@@ -401,6 +401,7 @@ model CreditNote {
   ncfNumber String?
   reason    String?
   amount    Decimal  @db.Decimal(12, 2)
+  items     Json     @default("[]") // artículos devueltos a inventario: [{ itemId, quantity }]
   status    String   @default("active")
   
   createdAt DateTime @default(now())
