@@ -1,261 +1,361 @@
 <!doctype html>
-<html lang="es">
+<html lang="es-DO">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Zenda ERP · Factura electrónica, punto de venta e inventario para tu negocio</title>
-  <meta name="description" content="Vende, emite tus comprobantes fiscales y e-CF, controla el inventario, cobra a crédito y saca tus 606, 607 y 608. El sistema hecho para emprendedores y comercios de República Dominicana.">
+  <meta name="description" content="Vende, emite tus comprobantes NCF y e-CF, controla el inventario, cobra a crédito y saca tus 606, 607, 608 y 609. El sistema hecho para emprendedores y comercios de República Dominicana.">
   <!-- Correo que recibe las solicitudes de demo (mailto) -->
   <meta name="zenda-demo-email" content="Bateycreativo@hotmail.com">
-  <meta name="theme-color" content="#F6F7FB">
+  <meta name="theme-color" content="#1e1b4b">
+  <link rel="canonical" href="https://www.zendaerp.online/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_DO">
   <meta property="og:title" content="Zenda ERP">
   <meta property="og:description" content="Factura electrónica (e-CF), punto de venta, inventario, cobros y reportes DGII en un solo sistema.">
-  <meta property="og:image" content="/assets/screens/pos.webp?v=96d7cd06">
-  <link rel="icon" href="/assets/icon.svg?v=8523dc89" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=8b5a69e4">
-  <script type="module" src="/main.js?v=1f704432"></script>
+  <meta property="og:url" content="https://www.zendaerp.online/">
+  <meta property="og:image" content="https://www.zendaerp.online/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="preload" as="image" href="/frames/v1/h/f_000.webp" media="(min-aspect-ratio: 4/5)">
+  <link rel="preload" as="image" href="/frames/v1/v/f_000.webp" media="(max-aspect-ratio: 4/5)">
+  <script type="module" src="/src/main.js"></script>
 </head>
 <body>
-  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <a class="skip" href="#modulos">Saltar al contenido</a>
 
-  <p class="deadline" role="note">
-    Desde el <strong>15 de noviembre de 2026</strong> la factura electrónica (e-CF) es obligatoria para micro y pequeñas empresas.
-    <a href="#dgii">Mira cómo la emite Zenda</a>
-  </p>
-
-  <header class="nav">
-    <a class="brand" href="#inicio" aria-label="Zenda ERP, inicio">
-      <img src="/assets/icon.svg?v=8523dc89" alt="" width="34" height="34">
-      <span translate="no">Zenda ERP</span>
-    </a>
-    <nav aria-label="Secciones">
-      <a href="#dia">Cómo funciona</a>
-      <a href="#dgii">DGII</a>
-      <a href="#precio">Precio</a>
-      <a href="#preguntas">Preguntas</a>
-    </nav>
-    <a class="btn btn-sm" data-demo href="#demo">Pedir una demo</a>
-    <details class="menu">
-      <summary aria-label="Menú de secciones"><span aria-hidden="true"></span>Menú</summary>
-      <nav aria-label="Secciones">
-        <a href="#dia">Cómo funciona</a>
+  <header class="nav fixed inset-x-0 top-0 z-50">
+    <div class="container-x flex h-16 items-center justify-between gap-4">
+      <a href="#inicio" class="flex items-center gap-2.5 font-bold" aria-label="Zenda ERP, inicio">
+        <img src="/assets/icon.svg" alt="" width="32" height="32" class="h-8 w-8">
+        <span translate="no" class="text-lg tracking-tight">Zenda ERP</span>
+      </a>
+      <nav class="nav-links hidden items-center gap-7 text-sm font-medium md:flex" aria-label="Secciones">
+        <a href="#modulos">Qué incluye</a>
+        <a href="#dia">Un día</a>
         <a href="#dgii">DGII</a>
         <a href="#precio">Precio</a>
         <a href="#preguntas">Preguntas</a>
       </nav>
-    </details>
+      <div class="flex items-center gap-2">
+        <a class="btn btn-primary !min-h-0 !px-4 !py-2 text-sm" data-demo href="#demo">Pedir una demo</a>
+        <details class="menu relative md:hidden">
+          <summary class="flex h-10 w-10 items-center justify-center rounded-full border border-current/30" aria-label="Abrir el menú">
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 9h14M2 13h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </summary>
+          <nav class="menu-panel absolute right-0 top-12 hidden w-56 flex-col rounded-2xl border border-line bg-white p-2 text-ink shadow-xl" aria-label="Secciones">
+            <a class="rounded-xl px-4 py-3 hover:bg-paper" href="#modulos">Qué incluye</a>
+            <a class="rounded-xl px-4 py-3 hover:bg-paper" href="#dia">Un día</a>
+            <a class="rounded-xl px-4 py-3 hover:bg-paper" href="#dgii">DGII</a>
+            <a class="rounded-xl px-4 py-3 hover:bg-paper" href="#precio">Precio</a>
+            <a class="rounded-xl px-4 py-3 hover:bg-paper" href="#preguntas">Preguntas</a>
+          </nav>
+        </details>
+      </div>
+    </div>
   </header>
 
-  <main id="contenido">
-    <section class="hero" id="inicio">
-      <div class="hero-copy">
-        <h1>Vende, factura y cumple con la DGII sin hojas de cálculo.</h1>
-        <p class="lead">Zenda ERP junta el punto de venta, los comprobantes fiscales, el inventario, los cobros y la contabilidad de tu negocio. Hecho para emprendedores y comercios de República Dominicana.</p>
-        <div class="actions">
-          <a class="btn btn-lg" data-demo href="#demo">Pedir una demo</a>
-          <a class="link" href="#dia">Ver cómo funciona</a>
-        </div>
-        <p class="price-hint"><strong>RD$1,250</strong> al mes, todos los módulos incluidos.</p>
-      </div>
+  <main>
+    <!-- HERO: una venta completa que avanza con el scroll, y al final el comprobante en 3D -->
+    <section id="inicio" class="hero" aria-label="Presentación">
+      <div class="hero-sticky">
+        <picture>
+          <source media="(max-aspect-ratio: 4/5)" srcset="/frames/v1/v/f_000.webp">
+          <img class="hero-poster" src="/frames/v1/h/f_000.webp" alt="" width="1280" height="720" fetchpriority="high">
+        </picture>
+        <canvas id="seq" role="img" aria-label="Un colmado por la mañana: la cámara entra en la pantalla de Zenda, se cobra la venta y sale impreso el comprobante electrónico con su código QR"></canvas>
+        <div class="hero-scrim"></div>
+        <canvas id="receipt3d" aria-label="Comprobante electrónico en 3D. Arrástralo para girarlo."></canvas>
 
-      <figure class="hero-stage" aria-label="Punto de venta de Zenda ERP y el comprobante que emite">
-        <div class="laptop">
-          <div class="laptop-screen"><img src="/assets/screens/pos.webp?v=96d7cd06" alt="Punto de venta de Zenda ERP con tres productos y el total con ITBIS" width="1600" height="1130" fetchpriority="high"></div>
-          <div class="laptop-base" aria-hidden="true"></div>
+        <div class="hero-layer is-on inset-x-0 bottom-0 pb-16 md:pb-20" data-range="0,0.09" style="opacity:1">
+          <div class="container-x text-white text-shadow">
+            <p class="mb-5 inline-block rounded-full border border-white/25 bg-night/60 px-4 py-1.5 text-sm backdrop-blur">La factura electrónica (e-CF) ya es obligatoria para micro y pequeñas empresas.</p>
+            <h1 class="display max-w-4xl text-[clamp(2.6rem,7.5vw,6rem)]">Vende, factura y cumple con la DGII.</h1>
+            <p class="mt-5 max-w-xl text-base text-white/90 md:text-lg">Punto de venta, comprobantes fiscales, inventario, cobros y contabilidad en un solo sistema. Hecho para los negocios de República Dominicana.</p>
+            <div class="mt-7 flex flex-wrap items-center gap-3">
+              <a class="btn btn-primary" data-demo href="#demo">Pedir una demo</a>
+              <a class="btn btn-ghost" href="#precio">RD$1,250 al mes</a>
+            </div>
+            <p class="mt-8 flex items-center gap-3 text-sm text-white/80"><span class="inline-block h-8 w-[2px] animate-pulse bg-brand-soft"></span>Desliza y mira una venta de principio a fin</p>
+          </div>
         </div>
-        <div class="receipt" aria-label="Comprobante de ejemplo">
-          <div class="receipt-paper" translate="no">
-            <p class="r-center r-strong">DISTRIBUIDORA CIBAO</p>
-            <p class="r-center">RNC 101-00000-0, Santiago</p>
-            <p class="r-center r-type">Factura de Consumo</p>
-            <dl class="r-meta">
-              <div><dt>NCF</dt><dd>B0200000124</dd></div>
-              <div><dt>Fecha</dt><dd>09-11-2026</dd></div>
-              <div><dt>Cliente</dt><dd>Colmado Doña Fefa</dd></div>
-            </dl>
-            <ul class="r-items">
-              <li><span>Arroz Selecto 10 lb</span><span>485.00</span></li>
-              <li><span>Aceite de soya 1 gal</span><span>640.00</span></li>
-              <li><span>Salami súper esp. 1 lb</span><span>265.00</span></li>
-            </ul>
-            <dl class="r-totals">
-              <div><dt>Subtotal</dt><dd>1,177.97</dd></div>
-              <div><dt>ITBIS 18%</dt><dd>212.03</dd></div>
-              <div class="r-total"><dt>TOTAL RD$</dt><dd>1,390.00</dd></div>
-            </dl>
-            <div class="r-foot">
-              <span class="r-qr" aria-hidden="true"></span>
-              <p>Código de seguridad<br><span>Datos de demostración</span></p>
+
+        <div class="hero-layer left-4 right-4 top-20 sm:right-auto sm:max-w-sm md:left-[5vw] md:top-[20vh]" data-range="0.14,0.3">
+          <div class="glass p-6">
+            <p class="step-n text-sm">8:02 a. m.</p>
+            <h2 class="display mt-2 text-3xl md:text-4xl">Abres la caja y vendes</h2>
+            <p class="mt-3 text-white/85">Buscas o escaneas el producto con el celular. El ITBIS y el total se calculan solos.</p>
+          </div>
+        </div>
+
+        <div class="hero-layer left-4 right-4 top-20 sm:right-auto sm:max-w-sm md:left-[5vw] md:top-auto md:bottom-[12vh]" data-range="0.36,0.52">
+          <div class="glass p-6">
+            <p class="step-n text-sm">RD$1,390.00</p>
+            <h2 class="display mt-2 text-3xl md:text-4xl">Cobras como te paguen</h2>
+            <p class="mt-3 text-white/85">Efectivo, tarjeta, transferencia o a crédito. El comprobante que corresponde se asigna solo.</p>
+          </div>
+        </div>
+
+        <div class="hero-layer bottom-6 left-4 right-4 sm:right-auto sm:max-w-sm md:bottom-auto md:left-[5vw] md:top-[30vh]" data-range="0.58,0.76">
+          <div class="glass p-6">
+            <p class="step-n text-sm">E320000000124</p>
+            <h2 class="display mt-2 text-3xl md:text-4xl">Sale el comprobante</h2>
+            <p class="mt-3 text-white/85">Con su e-NCF, código de seguridad y QR, firmado y enviado a la DGII.</p>
+          </div>
+        </div>
+
+        <div class="hero-layer inset-x-0 bottom-8 md:inset-x-auto md:bottom-auto md:left-[5vw] md:top-1/2 md:max-w-md md:-translate-y-1/2" data-range="0.88,2" id="hero-cta">
+          <div class="container-x text-white md:w-auto">
+            <h2 class="display text-4xl md:text-6xl">Cada venta, con su comprobante.</h2>
+            <p class="mt-4 max-w-md text-white/85">Te lo mostramos con tus propios productos y revisamos lo que te falta para la factura electrónica.</p>
+            <p class="mt-2 hidden text-sm text-white/60 md:block">Arrastra el comprobante para girarlo.</p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <a class="btn btn-light" data-demo href="#demo">Pedir una demo</a>
+              <a class="btn btn-ghost" href="#modulos">Ver qué incluye</a>
             </div>
           </div>
         </div>
-      </figure>
-    </section>
 
-    <section class="facts" aria-label="Lo que cubre Zenda ERP">
-      <ul>
-        <li><strong>NCF</strong> B01, B02, B03 y B04</li>
-        <li><strong>e-CF</strong> E31 a E47</li>
-        <li><strong>606, 607 y 608</strong> en TXT y Excel</li>
-        <li><strong>ITBIS</strong> calculado en cada venta</li>
-        <li><strong>Windows y web</strong>, se actualiza solo</li>
-      </ul>
-    </section>
-
-    <section class="day" id="dia" aria-labelledby="dia-title">
-      <div class="section-head">
-        <h2 id="dia-title">Un día en tu negocio, de la apertura al cierre.</h2>
-        <p>Lo que haces cada día deja todo listo para fin de mes.</p>
+        <div class="hero-progress" id="hero-progress"></div>
       </div>
-
-      <ol class="steps">
-        <li class="step">
-          <div class="step-copy">
-            <p class="step-time">8:00 a. m.</p>
-            <h3>Abres la caja y vendes</h3>
-            <p>Busca o escanea el producto, elige el cliente y cobra en efectivo, tarjeta, transferencia o a crédito. El sistema calcula el ITBIS y asigna el comprobante que corresponde.</p>
-          </div>
-          <figure class="shot"><video class="clip-video" src="/assets/clips/vender.mp4?v=8791fc7a" poster="/assets/screens/pos.webp?v=96d7cd06" width="1200" height="848" muted playsinline preload="none" aria-label="Punto de venta: el ITBIS y el total se calculan al instante"></video></figure>
-        </li>
-        <li class="step">
-          <div class="step-copy">
-            <p class="step-time">11:30 a. m.</p>
-            <h3>Despachas pedidos al por mayor</h3>
-            <p>Del pedido a la factura con NCF o e-CF, con entrega en tienda o envío. Si te equivocas, anulas o haces una nota de crédito sin perder el rastro.</p>
-          </div>
-          <figure class="shot"><video class="clip-video" src="/assets/clips/pedidos.mp4?v=3a344e7d" poster="/assets/screens/pedidos.webp?v=4e4dabe3" width="1200" height="848" muted playsinline preload="none" aria-label="Pedidos: del pedido a la factura en un clic"></video></figure>
-        </li>
-        <li class="step">
-          <div class="step-copy">
-            <p class="step-time">3:00 p. m.</p>
-            <h3>Cobras lo que vendiste a crédito</h3>
-            <p>Ves quién te debe, cuánto y desde cuándo. Registras abonos y envías el estado de cuenta por correo con un clic.</p>
-          </div>
-          <figure class="shot"><video class="clip-video" src="/assets/clips/cobrar.mp4?v=abc7b7ba" poster="/assets/screens/cxc.webp?v=ba9f4567" width="1200" height="848" muted playsinline preload="none" aria-label="Cuentas por cobrar: las facturas vencidas a la vista"></video></figure>
-        </li>
-        <li class="step">
-          <div class="step-copy">
-            <p class="step-time">7:00 p. m.</p>
-            <h3>Cierras y revisas el inventario</h3>
-            <p>El stock bajó solo con cada venta. Ves lo que se está acabando, cuadras la caja del turno y sabes cuánto vendiste hoy.</p>
-          </div>
-          <figure class="shot"><video class="clip-video" src="/assets/clips/inventario.mp4?v=100b553b" poster="/assets/screens/inventario.webp?v=535518d5" width="1200" height="848" muted playsinline preload="none" aria-label="Inventario: aviso cuando un producto se acaba"></video></figure>
-        </li>
-      </ol>
     </section>
 
-    <section class="dgii" id="dgii" aria-labelledby="dgii-title">
-      <div class="dgii-copy">
-        <h2 id="dgii-title">A fin de mes, la DGII ya está resuelta.</h2>
-        <p>Tus ventas y compras del mes generan el 606, el 607 y el 608 listos para la Oficina Virtual. Ves el ITBIS a pagar antes de declarar.</p>
-        <ul class="checks">
-          <li>Comprobantes electrónicos e-CF firmados y enviados a la DGII</li>
-          <li>Comprobantes tradicionales B01, B02, B03 y B04 con su secuencia</li>
-          <li>Anuladas y notas de crédito separadas en el 608</li>
-        </ul>
+    <!-- Cinta de ticket -->
+    <div class="tape overflow-hidden py-3 text-sm md:text-base" aria-hidden="true">
+      <div class="marquee">
+        <span class="px-4">PUNTO DE VENTA ........ INCLUIDO ✦ NCF B01 A B17 ........ INCLUIDO ✦ e-CF E31 A E47 ........ INCLUIDO ✦ INVENTARIO ........ INCLUIDO ✦ CUENTAS POR COBRAR ........ INCLUIDO ✦ 606 607 608 609 ........ INCLUIDO ✦ CONTABILIDAD ........ INCLUIDO ✦</span>
+        <span class="px-4">PUNTO DE VENTA ........ INCLUIDO ✦ NCF B01 A B17 ........ INCLUIDO ✦ e-CF E31 A E47 ........ INCLUIDO ✦ INVENTARIO ........ INCLUIDO ✦ CUENTAS POR COBRAR ........ INCLUIDO ✦ 606 607 608 609 ........ INCLUIDO ✦ CONTABILIDAD ........ INCLUIDO ✦</span>
       </div>
-      <figure class="shot shot-wide"><img src="/assets/screens/fiscal.webp?v=e8feae00" alt="Gestión fiscal con los formatos 606, 607 y 608" width="1600" height="1130" loading="lazy"></figure>
-    </section>
+    </div>
 
-    <section class="phone-scan" aria-labelledby="scan-title">
-      <div class="phone" aria-hidden="true">
-        <div class="phone-screen">
-          <p class="ph-status"><span></span>Conectado a la caja</p>
-          <div class="ph-view"><span class="ph-line"></span></div>
-          <div class="ph-result"><strong>7460123400011</strong><span>Enviado a la caja</span></div>
+    <!-- Qué incluye -->
+    <section id="modulos" class="py-24 md:py-32" aria-labelledby="modulos-title">
+      <div class="container-x">
+        <h2 id="modulos-title" class="display max-w-3xl text-4xl md:text-6xl" data-reveal>Todo tu negocio en un solo sistema.</h2>
+        <p class="mt-5 max-w-xl text-lg text-soft" data-reveal>Lo que vendes por la mañana ya está en el inventario, en la caja y en el reporte de fin de mes.</p>
+        <div class="persp mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <article class="card p-7" data-flip>
+            <h3 class="text-xl font-bold">Punto de venta</h3>
+            <p class="mt-3 text-soft">Busca o escanea con el celular y cobra en efectivo, tarjeta, transferencia o a crédito. Cierre de caja por turno.</p>
+          </article>
+          <article class="card p-7" data-flip>
+            <h3 class="text-xl font-bold">Comprobantes fiscales</h3>
+            <p class="mt-3 text-soft">NCF B01 a B17 con su rango y vencimiento, y e-CF E31 a E47. Las notas de crédito y débito llevan su propio comprobante.</p>
+          </article>
+          <article class="card p-7" data-flip>
+            <h3 class="text-xl font-bold">Inventario</h3>
+            <p class="mt-3 text-soft">El stock baja con cada venta y te avisa cuando algo se está acabando. Subes tu catálogo desde Excel.</p>
+          </article>
+          <article class="card p-7" data-flip>
+            <h3 class="text-xl font-bold">Cobros y crédito</h3>
+            <p class="mt-3 text-soft">Plazo por cliente, abonos y estado de cuenta por correo con un clic. Ves quién te debe y desde cuándo.</p>
+          </article>
+          <article class="card p-7" data-flip>
+            <h3 class="text-xl font-bold">Compras y gastos</h3>
+            <p class="mt-3 text-soft">Registras cada gasto con su NCF y emites el comprobante de compra (B11, B13 o B17) cuando el proveedor no factura.</p>
+          </article>
+          <article class="card flex flex-col justify-between !border-brand !bg-brand p-7 text-white" data-flip>
+            <div>
+              <h3 class="text-xl font-bold">Reportes DGII y contabilidad</h3>
+              <p class="mt-3 text-white/85">606, 607, 608 y 609 en TXT y Excel, y contabilidad de doble entrada sin pasar nada a mano.</p>
+            </div>
+            <a href="#dgii" class="mt-6 font-semibold underline underline-offset-4">Cómo queda tu fin de mes</a>
+          </article>
         </div>
       </div>
-      <div class="scan-copy">
-        <h2 id="scan-title">Tu celular también es el escáner.</h2>
-        <p>Escanea el código QR de la caja y apunta la cámara a los productos. Cada lectura llega al punto de venta al instante, sin comprar un lector aparte.</p>
+    </section>
+
+    <!-- Un día en tu negocio -->
+    <section id="dia" class="overflow-hidden bg-white py-24 md:py-0" aria-labelledby="dia-title">
+      <div class="day-pin md:flex md:min-h-screen md:flex-col md:justify-center md:py-20">
+        <div class="container-x mb-10">
+          <h2 id="dia-title" class="display text-4xl md:text-6xl" data-reveal>Un día en tu negocio.</h2>
+          <p class="mt-4 max-w-xl text-lg text-soft" data-reveal>De la apertura al cierre, con datos de demostración.</p>
+        </div>
+        <div class="day-wrap persp">
+          <ol class="day-track" id="day-track">
+            <li class="day">
+              <video class="day-shot" src="/assets/clips/vender.mp4" poster="/assets/screens/pos.webp" width="1200" height="848" muted playsinline loop preload="none" data-autoplay aria-label="Punto de venta: el ITBIS y el total se calculan al instante"></video>
+              <p class="day-time mt-5">8:00 a. m.</p>
+              <h3 class="mt-1 text-xl font-bold">Abres la caja y vendes</h3>
+              <p class="mt-2 text-soft">El sistema calcula el ITBIS y asigna el comprobante que corresponde.</p>
+            </li>
+            <li class="day">
+              <video class="day-shot" src="/assets/clips/pedidos.mp4" poster="/assets/screens/pedidos.webp" width="1200" height="848" muted playsinline loop preload="none" data-autoplay aria-label="Pedidos: del pedido a la factura en un clic"></video>
+              <p class="day-time mt-5">11:30 a. m.</p>
+              <h3 class="mt-1 text-xl font-bold">Despachas pedidos al por mayor</h3>
+              <p class="mt-2 text-soft">Del pedido a la factura, con entrega en tienda o envío. Si te equivocas, anulas o haces una nota de crédito.</p>
+            </li>
+            <li class="day">
+              <video class="day-shot" src="/assets/clips/cobrar.mp4" poster="/assets/screens/cxc.webp" width="1200" height="848" muted playsinline loop preload="none" data-autoplay aria-label="Cuentas por cobrar: las facturas vencidas a la vista"></video>
+              <p class="day-time mt-5">3:00 p. m.</p>
+              <h3 class="mt-1 text-xl font-bold">Cobras lo que vendiste a crédito</h3>
+              <p class="mt-2 text-soft">Registras abonos y envías el estado de cuenta por correo.</p>
+            </li>
+            <li class="day">
+              <video class="day-shot" src="/assets/clips/inventario.mp4" poster="/assets/screens/inventario.webp" width="1200" height="848" muted playsinline loop preload="none" data-autoplay aria-label="Inventario: aviso cuando un producto se acaba"></video>
+              <p class="day-time mt-5">7:00 p. m.</p>
+              <h3 class="mt-1 text-xl font-bold">Cierras y revisas el inventario</h3>
+              <p class="mt-2 text-soft">Cuadras la caja del turno y ves lo que se está acabando.</p>
+            </li>
+            <li class="day">
+              <img class="day-shot" src="/assets/screens/fiscal.webp" alt="Gestión fiscal con los formatos 606, 607 y 608" width="1600" height="1130" loading="lazy">
+              <p class="day-time mt-5">Fin de mes</p>
+              <h3 class="mt-1 text-xl font-bold">Los formatos de la DGII, listos</h3>
+              <p class="mt-2 text-soft">Ventas, compras y anulados del mes, listos para la Oficina Virtual.</p>
+            </li>
+          </ol>
+        </div>
       </div>
     </section>
 
-    <section class="audience" id="para-quien" aria-labelledby="aud-title">
-      <h2 id="aud-title">Para el negocio que ya tienes.</h2>
-      <dl>
-        <div><dt>Emprendedores</dt><dd>Empieza a facturar con comprobante fiscal el primer día. Una caja, un cajero y el sistema hace el resto.</dd></div>
-        <div><dt>Tiendas y colmados</dt><dd>Punto de venta con escáner, varias formas de pago, cierre de caja y control de existencias.</dd></div>
-        <div><dt>Distribuidoras</dt><dd>Pedidos al por mayor, crédito con plazo, cobros y entregas confirmadas desde el celular del repartidor.</dd></div>
-        <div><dt>Contadores</dt><dd>606, 607, 608 y contabilidad de doble entrada salen de la operación de cada cliente.</dd></div>
-      </dl>
-    </section>
-
-    <section class="pricing" id="precio" aria-labelledby="price-title">
-      <h2 id="price-title">Un precio, todo incluido.</h2>
-      <div class="plans">
-        <div class="plan">
-          <p class="plan-name">Zenda ERP</p>
-          <p class="plan-price"><strong>RD$1,250</strong> al mes</p>
-          <ul class="checks">
-            <li>Venta, facturación, inventario, caja, cobros, contabilidad y reportes DGII</li>
-            <li>App para Windows que se actualiza sola, y acceso desde el navegador</li>
-            <li>Usuarios con su rol: cajero, gerente, contador y más</li>
+    <!-- DGII -->
+    <section id="dgii" class="relative overflow-hidden bg-deep py-24 text-white md:py-32" aria-labelledby="dgii-title">
+      <div class="container-x grid items-center gap-14 lg:grid-cols-[1fr_1.15fr]">
+        <div>
+          <h2 id="dgii-title" class="display text-4xl md:text-6xl" data-reveal>A fin de mes, la DGII ya está resuelta.</h2>
+          <p class="mt-6 max-w-md text-lg text-white/80" data-reveal>Tus ventas y compras del mes generan los formatos listos para la Oficina Virtual. Ves el ITBIS a pagar antes de declarar.</p>
+          <ul class="checks checks-light mt-8 space-y-4 text-white/90" data-reveal>
+            <li>Factura electrónica e-CF, de la E31 a la E47, firmada y enviada a la DGII</li>
+            <li>NCF tradicionales con su rango y su fecha de vencimiento</li>
+            <li>606, 607, 608 y 609 en TXT y Excel</li>
+            <li>Comprobantes de compra B11, B13 y B17 para tus gastos</li>
           </ul>
-          <a class="btn btn-lg btn-light" data-demo href="#demo">Pedir una demo</a>
         </div>
-        <div class="plan plan-soon">
-          <p class="plan-name">Versión de escritorio de pago único</p>
-          <p class="plan-price"><strong>Próximamente</strong></p>
-          <p>Un solo pago, sin mensualidad, instalada en tu computadora.</p>
+        <figure class="persp" data-reveal>
+          <img class="w-full rounded-2xl border border-white/10 shadow-2xl" src="/assets/screens/fiscal.webp" alt="Gestión fiscal de Zenda ERP con los formatos 606, 607 y 608" width="1600" height="1130" loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <!-- Para quién -->
+    <section id="para-quien" class="py-24 md:py-32" aria-labelledby="quien-title">
+      <div class="container-x">
+        <h2 id="quien-title" class="display max-w-3xl text-4xl md:text-6xl" data-reveal>Para el negocio que ya tienes.</h2>
+        <div class="who mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <figure data-reveal>
+            <img src="/img/colmado.webp" alt="Dueña de un colmado escaneando un producto con su celular" width="900" height="1200" loading="lazy">
+            <figcaption class="mt-5"><h3 class="text-lg font-bold">Colmados y tiendas</h3><p class="mt-1 text-soft">Punto de venta con escáner en el celular, cierre de caja y control de existencias.</p></figcaption>
+          </figure>
+          <figure data-reveal>
+            <img src="/img/distribuidor.webp" alt="Encargado de una distribuidora revisando un pedido en su celular" width="900" height="1200" loading="lazy">
+            <figcaption class="mt-5"><h3 class="text-lg font-bold">Distribuidoras</h3><p class="mt-1 text-soft">Pedidos al por mayor, crédito con plazo, cobros y entregas confirmadas desde el celular del repartidor.</p></figcaption>
+          </figure>
+          <figure data-reveal>
+            <img src="/img/tienda.webp" alt="Dueña de una tienda de regalos acomodando tazas personalizadas" width="900" height="1200" loading="lazy">
+            <figcaption class="mt-5"><h3 class="text-lg font-bold">Emprendedores</h3><p class="mt-1 text-soft">Factura con comprobante fiscal desde el primer día. Una caja, un cajero y el sistema hace el resto.</p></figcaption>
+          </figure>
+          <figure data-reveal>
+            <div class="tape flex aspect-[3/4] flex-col justify-center gap-3 rounded-2xl !border-2 px-6 text-sm" aria-hidden="true">
+              <p class="flex justify-between"><span>606</span><span>COMPRAS</span></p>
+              <p class="flex justify-between"><span>607</span><span>VENTAS</span></p>
+              <p class="flex justify-between"><span>608</span><span>ANULADOS</span></p>
+              <p class="flex justify-between"><span>609</span><span>EXTERIOR</span></p>
+              <p class="mt-2 border-t-2 border-dashed border-[#b8bccb] pt-4 font-bold flex justify-between"><span>ITBIS A PAGAR</span><span>LISTO</span></p>
+            </div>
+            <figcaption class="mt-5"><h3 class="text-lg font-bold">Contadores</h3><p class="mt-1 text-soft">606, 607, 608, 609 y contabilidad de doble entrada salen de la operación de cada cliente.</p></figcaption>
+          </figure>
         </div>
       </div>
     </section>
 
-    <section class="faq" id="preguntas" aria-labelledby="faq-title">
-      <h2 id="faq-title">Preguntas frecuentes</h2>
-      <div class="faq-list">
-        <details>
-          <summary>¿Qué incluye el plan de RD$1,250 al mes?</summary>
-          <p>Todos los módulos: punto de venta, facturación con NCF y e-CF, inventario, caja, cuentas por cobrar y por pagar, gastos, contabilidad y los formatos 606, 607 y 608. No hay módulos que se paguen aparte.</p>
-        </details>
-        <details>
-          <summary>¿Zenda emite la factura electrónica (e-CF)?</summary>
-          <p>Sí. Genera los comprobantes electrónicos E31 a E47, los firma y los envía a la DGII. Para emitirlos tu negocio necesita su certificado digital; en la demo revisamos lo que te falta.</p>
-        </details>
-        <details>
-          <summary>¿Funciona con los comprobantes tradicionales B01 y B02?</summary>
-          <p>Sí. Maneja los NCF B01, B02, B03 y B04 con su secuencia y los incluye en el 607 y el 608.</p>
-        </details>
-        <details>
-          <summary>¿Tengo que instalar algo?</summary>
-          <p>No es obligatorio. Puedes usarlo desde el navegador o con la app para Windows, que se actualiza sola.</p>
-        </details>
-        <details>
-          <summary>¿Puedo controlar lo que hace cada empleado?</summary>
-          <p>Sí. Cada usuario tiene su rol: administrador, gerente, supervisor, cajero, repartidor, contador o consulta. Por ejemplo, un cajero puede facturar, pero no anular facturas.</p>
-        </details>
-        <details>
-          <summary>¿Necesito comprar un lector de códigos de barras?</summary>
-          <p>No. Tu celular sirve de escáner: lo vinculas con el código QR de la caja. Si ya tienes un lector USB, también funciona.</p>
-        </details>
+    <!-- Precio -->
+    <section id="precio" class="bg-white py-24 md:py-32" aria-labelledby="precio-title">
+      <div class="container-x">
+        <h2 id="precio-title" class="display text-4xl md:text-6xl" data-reveal>Un precio, todo incluido.</h2>
+        <div class="mt-12 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <div class="rounded-3xl bg-deep p-8 text-white md:p-10" data-reveal>
+            <p class="font-semibold text-brand-soft">Zenda ERP</p>
+            <p class="mt-3"><strong class="display text-5xl md:text-6xl">RD$1,250</strong> <span class="text-white/80">al mes</span></p>
+            <ul class="checks checks-light mt-8 space-y-4 text-white/90">
+              <li>Venta, facturación, inventario, caja, cobros, gastos, contabilidad y reportes DGII</li>
+              <li>App para Windows que se actualiza sola, y acceso desde el navegador</li>
+              <li>Usuarios con su rol: cajero, gerente, contador y más</li>
+            </ul>
+            <a class="btn btn-light mt-8" data-demo href="#demo">Pedir una demo</a>
+          </div>
+          <div class="rounded-3xl border border-dashed border-line p-8 md:p-10" data-reveal>
+            <p class="font-semibold text-muted">Versión de escritorio de pago único</p>
+            <p class="mt-3 display text-4xl text-soft">Próximamente</p>
+            <p class="mt-4 text-soft">Un solo pago, sin mensualidad, instalada en tu computadora.</p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="closing" id="demo" aria-labelledby="demo-title">
-      <h2 id="demo-title">Te lo mostramos con tus propios productos.</h2>
-      <p>Escríbenos y agendamos una demostración: vemos cómo vendes hoy, tus comprobantes y lo que necesitas para la factura electrónica.</p>
-      <a class="btn btn-lg" data-demo href="#demo">Pedir una demo</a>
+    <!-- Preguntas -->
+    <section id="preguntas" class="py-24 md:py-32" aria-labelledby="faq-title">
+      <div class="container-x grid gap-10 lg:grid-cols-[1fr_1.6fr]">
+        <h2 id="faq-title" class="display text-4xl md:text-6xl" data-reveal>Preguntas frecuentes</h2>
+        <div class="faq">
+          <details>
+            <summary>¿Qué incluye el plan de RD$1,250 al mes?</summary>
+            <p>Todos los módulos: punto de venta, facturación con NCF y e-CF, inventario, caja, cuentas por cobrar y por pagar, gastos, contabilidad y los formatos 606, 607, 608 y 609. No hay módulos que se paguen aparte.</p>
+          </details>
+          <details>
+            <summary>¿Zenda emite la factura electrónica (e-CF)?</summary>
+            <p>Sí. Genera los comprobantes electrónicos E31 a E47, los firma y los envía a la DGII, y el ticket impreso lleva el código de seguridad y el QR. Para emitirlos tu negocio necesita su certificado digital; en la demo revisamos lo que te falta.</p>
+          </details>
+          <details>
+            <summary>¿Funciona con los comprobantes tradicionales B01 y B02?</summary>
+            <p>Sí. Maneja los NCF de la B01 a la B17 con el rango que te autorizó la DGII y los incluye en el 606, el 607 y el 608.</p>
+          </details>
+          <details>
+            <summary>¿Mis secuencias de NCF vencen?</summary>
+            <p>Sí: vencen el 31 de diciembre del año siguiente a su autorización, salvo las de consumo (B02) y las notas de crédito (B04). Registras la fecha en Zenda y el sistema no deja facturar con una secuencia vencida o agotada.</p>
+          </details>
+          <details>
+            <summary>¿Tengo que instalar algo?</summary>
+            <p>No es obligatorio. Puedes usarlo desde el navegador o con la app para Windows, que se actualiza sola.</p>
+          </details>
+          <details>
+            <summary>¿Puedo controlar lo que hace cada empleado?</summary>
+            <p>Sí. Cada usuario tiene su rol: administrador, gerente, supervisor, cajero, repartidor, contador o consulta. Por ejemplo, un cajero puede facturar, pero no anular facturas.</p>
+          </details>
+          <details>
+            <summary>¿Necesito comprar un lector de códigos de barras?</summary>
+            <p>No. Tu celular sirve de escáner: lo vinculas con el código QR de la caja. Si ya tienes un lector USB, también funciona.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cierre -->
+    <section id="demo" class="relative overflow-hidden bg-night py-28 text-white md:py-40" aria-labelledby="demo-title">
+      <video class="band-video opacity-40" src="/img/venta-loop.mp4" muted loop playsinline preload="none" data-autoplay aria-hidden="true" tabindex="-1"></video>
+      <div class="absolute inset-0 bg-gradient-to-r from-night via-night/90 to-night/60" aria-hidden="true"></div>
+      <div class="container-x relative">
+        <h2 id="demo-title" class="display max-w-3xl text-5xl md:text-7xl" data-reveal>Te lo mostramos con tus propios productos.</h2>
+        <p class="mt-6 max-w-lg text-lg text-white/85" data-reveal>Escríbenos y agendamos una demostración: vemos cómo vendes hoy, tus comprobantes y lo que necesitas para la factura electrónica.</p>
+        <div class="mt-9 flex flex-wrap gap-3" data-reveal>
+          <a class="btn btn-light" data-demo href="#demo">Pedir una demo</a>
+          <a class="btn btn-ghost" href="#precio">Ver el precio</a>
+        </div>
+      </div>
     </section>
   </main>
 
-  <footer class="footer">
-    <nav aria-label="Enlaces del pie">
-      <a href="#dia">Cómo funciona</a>
-      <a href="#dgii">DGII</a>
-      <a href="#precio">Precio</a>
-      <a href="#preguntas">Preguntas</a>
-      <a data-demo href="#demo">Pedir una demo</a>
-    </nav>
-    <p>© <span data-year>2026</span> Zenda ERP, Batey Creativo Studio</p>
-    <p>Las pantallas y el comprobante muestran datos de demostración.</p>
+  <footer class="border-t border-line py-10 text-sm text-muted">
+    <div class="container-x flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <nav class="flex flex-wrap gap-x-6 gap-y-2 font-medium text-ink" aria-label="Enlaces del pie">
+        <a href="#modulos">Qué incluye</a>
+        <a href="#dia">Un día</a>
+        <a href="#dgii">DGII</a>
+        <a href="#precio">Precio</a>
+        <a href="#preguntas">Preguntas</a>
+        <a data-demo href="#demo">Pedir una demo</a>
+      </nav>
+      <div class="md:text-right">
+        <p>© <span data-year>2026</span> Zenda ERP, Batey Creativo Studio</p>
+        <p class="mt-1">Las pantallas y el comprobante muestran datos de demostración. Las fotos de personas son ilustrativas.</p>
+      </div>
+    </div>
   </footer>
 
   <div class="sticky-cta">
-    <a class="btn btn-lg" data-demo href="#demo">Pedir una demo</a>
+    <a class="btn btn-primary w-full" data-demo href="#demo">Pedir una demo</a>
   </div>
 </body>
 </html>

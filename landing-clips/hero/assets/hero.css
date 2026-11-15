@@ -1,0 +1,26 @@
+/* Secuencia del hero de la landing: foto del colmado → pantalla real de Zenda → venta → ticket e-CF */
+:root { --deep: #1e1b4b; --brand: #4f46e5; --paper: #f6f7fb; }
+body { margin: 0; background: #000; }
+#root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--paper); }
+.clip { position: absolute; inset: 0; }
+
+/* Cámara: la foto a su tamaño original; GSAP la escala y la mueve */
+#cam { width: 2048px; height: 1152px; inset: auto; left: 0; top: 0; }
+#photo { position: absolute; left: 0; top: 0; width: 2048px; height: 1152px; }
+/* La pantalla de la laptop muestra el punto de venta real (la perspectiva la pone matrix3d desde hero.js) */
+.screen { position: absolute; left: 0; top: 0; width: 1580px; height: 1000px; overflow: hidden; background: #f9fafb; }
+.screen img { display: block; width: 1580px; }
+#scr { transform-origin: 0 0; }
+#scr::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(255,255,255,0.18), rgba(255,255,255,0) 40%, rgba(15,20,40,0.12)); }
+
+/* Pantalla plana a cuadro completo */
+#paper { background: var(--paper); opacity: 0; }
+#pan { transform-origin: 0 0; box-shadow: 0 40px 80px -40px rgba(21, 25, 53, 0.45); }
+#press { position: absolute; left: 1132px; top: 913px; width: 371px; height: 63px; border-radius: 10px; background: rgba(10, 8, 40, 0.28); opacity: 0; }
+#ring { position: absolute; left: 1317px; top: 944px; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; border: 6px solid #fff; box-shadow: 0 0 0 3px var(--brand); opacity: 0; }
+
+/* El ticket sale de la impresora */
+#shade { background: radial-gradient(ellipse at 50% 40%, #2e2a72 0%, var(--deep) 70%); opacity: 0; }
+#feed { overflow: hidden; }
+#ticket { position: absolute; left: 0; top: 0; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.55); }
+#slot { inset: auto; left: 0; top: 0; height: 16px; border-radius: 8px; background: #0b0a24; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.12), 0 10px 30px rgba(0, 0, 0, 0.4); opacity: 0; }

@@ -1,0 +1,115 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+@theme {
+  --color-brand: #4f46e5;
+  --color-brand-soft: #c7d2fe;
+  --color-deep: #1e1b4b;
+  --color-night: #13113a;
+  --color-paper: #f6f7fb;
+  --color-ink: #151935;
+  --color-soft: #3d4466;
+  --color-muted: #5d6485;
+  --color-line: #e2e5f0;
+  --color-valid: #047857;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-receipt: "Courier New", Courier, ui-monospace, monospace;
+}
+
+html { background: var(--color-paper); color: var(--color-ink); }
+body { font-family: var(--font-sans); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+::selection { background: var(--color-brand); color: #fff; }
+:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 3px; border-radius: 6px; }
+
+.display { font-weight: 800; letter-spacing: -0.045em; line-height: 0.98; text-wrap: balance; }
+.container-x { width: min(1200px, 100% - 2rem); margin-inline: auto; }
+.skip { position: absolute; left: 1rem; top: -4rem; z-index: 70; padding: 0.6rem 1rem; border-radius: 0.6rem; background: #fff; color: var(--color-ink); }
+.skip:focus { top: 1rem; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 2.9rem; padding: 0.8rem 1.4rem; border-radius: 999px; font-weight: 650; transition: transform 0.2s, background-color 0.2s, color 0.2s, border-color 0.2s; }
+.btn:hover { transform: translateY(-2px); }
+.btn-primary { background: var(--color-brand); color: #fff; }
+.btn-primary:hover { background: #4338ca; }
+.btn-light { background: #fff; color: var(--color-deep); }
+.btn-ghost { border: 1px solid rgb(255 255 255 / 0.4); color: #fff; }
+.btn-ghost:hover { background: #fff; color: var(--color-deep); }
+.btn-line { border: 1px solid var(--color-line); color: var(--color-ink); background: #fff; }
+
+/* Navegación: transparente sobre el hero, sólida después */
+.nav { transition: background-color 0.3s, border-color 0.3s, color 0.3s; border-bottom: 1px solid transparent; color: #fff; }
+/* Dentro del hero, cuando pasa por la pantalla blanca del punto de venta */
+.nav.is-glass { background: rgb(19 17 58 / 0.82); backdrop-filter: blur(14px); }
+.nav.is-solid { background: rgb(246 247 251 / 0.9); backdrop-filter: blur(14px); border-color: var(--color-line); color: var(--color-ink); }
+.nav-links a { opacity: 0.85; }
+.nav-links a:hover { opacity: 1; }
+.menu summary { list-style: none; cursor: pointer; }
+.menu summary::-webkit-details-marker { display: none; }
+.menu[open] .menu-panel { display: flex; }
+
+/* Hero: la venta avanza con el scroll */
+.hero { height: 520vh; position: relative; }
+.hero-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #2e2a72 0%, var(--color-deep) 70%); }
+.hero-poster, #seq, #receipt3d { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero-poster { object-fit: cover; }
+#seq { will-change: opacity, filter; }
+#receipt3d { opacity: 0; pointer-events: none; touch-action: pan-y; cursor: grab; }
+#receipt3d.is-live { pointer-events: auto; }
+#receipt3d:active { cursor: grabbing; }
+/* Oscurece la foto solo bajo el titular; hero.js la apaga al empezar el scroll */
+.hero-scrim { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgb(19 17 58 / 0.5) 0%, transparent 18%, rgb(19 17 58 / 0.86) 46%, rgb(19 17 58 / 0.96) 100%); }
+@media (min-width: 768px) {
+  .hero-scrim { background: linear-gradient(90deg, rgb(19 17 58 / 0.82) 0%, rgb(19 17 58 / 0.45) 48%, transparent 70%), linear-gradient(180deg, rgb(19 17 58 / 0.5) 0%, transparent 22%, transparent 55%, rgb(19 17 58 / 0.7) 100%); }
+}
+.hero-layer { position: absolute; opacity: 0; will-change: opacity, translate; pointer-events: none; }
+.hero-layer.is-on { pointer-events: auto; }
+.hero-progress { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--color-brand-soft); transform-origin: left; transform: scaleX(0); }
+.glass { background: rgb(19 17 58 / 0.92); backdrop-filter: blur(12px); border: 1px solid rgb(255 255 255 / 0.12); border-radius: 1.1rem; color: #fff; }
+.step-n { font-family: var(--font-receipt); font-weight: 700; color: var(--color-brand-soft); }
+.text-shadow { text-shadow: 0 2px 24px rgb(0 0 0 / 0.5); }
+
+/* Cinta de ticket con lo que incluye */
+.tape { background: #fffef9; color: #1b1d26; font-family: var(--font-receipt); border-block: 2px dashed #b8bccb; }
+.marquee { display: flex; width: max-content; animation: marquee 40s linear infinite; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* Tarjetas de módulos */
+.persp { perspective: 1200px; }
+.card { background: #fff; border: 1px solid var(--color-line); border-radius: 1.25rem; transform-style: preserve-3d; transition: border-color 0.3s, box-shadow 0.3s; }
+.card:hover { border-color: var(--color-brand); box-shadow: 0 24px 48px -32px rgb(30 27 75 / 0.45); }
+
+/* Un día en tu negocio: galería horizontal */
+.day-track { display: flex; gap: 1.5rem; padding-inline: max(1rem, calc((100vw - 1200px) / 2)); }
+.day { flex: none; width: min(84vw, 560px); transform-style: preserve-3d; }
+.day-shot { aspect-ratio: 1200 / 848; width: 100%; object-fit: cover; border-radius: 1rem; border: 1px solid var(--color-line); background: #fff; box-shadow: 0 30px 60px -34px rgb(21 25 53 / 0.5); }
+.day-time { font-family: var(--font-receipt); font-weight: 700; color: var(--color-brand); }
+@media (max-width: 899px) {
+  .day-wrap { overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .day-wrap::-webkit-scrollbar { display: none; }
+  .day { scroll-snap-align: center; }
+}
+
+.checks li { position: relative; padding-left: 1.9rem; }
+.checks li::before { content: ""; position: absolute; left: 0; top: 0.3rem; width: 1.15rem; height: 1.15rem; border-radius: 999px; background: var(--color-valid); }
+.checks li::after { content: ""; position: absolute; left: 0.4rem; top: 0.48rem; width: 0.35rem; height: 0.6rem; border-right: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(45deg); }
+.checks-light li::before { background: #34d399; }
+
+.who img { aspect-ratio: 3 / 4; width: 100%; object-fit: cover; border-radius: 1rem; }
+
+.faq details { border-bottom: 1px solid var(--color-line); }
+.faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 1rem; padding: 1.15rem 0; font-weight: 650; font-size: 1.05rem; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-weight: 400; font-size: 1.5rem; line-height: 1; color: var(--color-brand); transition: transform 0.2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding-bottom: 1.2rem; color: var(--color-soft); max-width: 65ch; }
+
+.band-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* Botón fijo en el celular */
+.sticky-cta { position: fixed; inset: auto 0 0; z-index: 40; padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); background: rgb(246 247 251 / 0.92); backdrop-filter: blur(10px); border-top: 1px solid var(--color-line); transform: translateY(110%); transition: transform 0.3s; }
+.sticky-cta.is-visible { transform: none; }
+@media (min-width: 768px) { .sticky-cta { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee { animation: none; }
+  .btn:hover { transform: none; }
+}
