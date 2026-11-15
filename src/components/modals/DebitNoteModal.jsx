@@ -23,6 +23,10 @@ const DebitNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customers
             amount: debitAmount,
             reason
         }).then((debitNote) => {
+            // Nota de una factura electrónica: su e-CF (E34/E33) puede quedar pendiente de llegar a la DGII
+            if (debitNote.ecfResult && !debitNote.ecfResult.success) {
+                toast.error(`La nota quedó registrada con ${debitNote.ncfNumber}, pero la DGII aún no recibió su e-CF: ${debitNote.ecfResult.error || debitNote.ecfResult.ecfDocument?.dgiiMessage || 'sin respuesta'}. Reinténtalo desde Facturación Electrónica.`, { duration: 10000 });
+            }
             const customerDetails = (customers || []).find(c => c.id === invoice.customerId);
             const debitNoteData = {
                 ...debitNote,
