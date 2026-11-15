@@ -7,7 +7,7 @@ vi.mock('../backend/src/middleware/auth.js', () => ({ authenticate: (q, s, n) =>
 vi.mock('../backend/src/routes/alerts.js', () => ({ createAlert: vi.fn() }));
 vi.mock('../backend/src/services/ecfService.js', () => ({}));
 
-const { takeStock, restoreStock } = await import('../backend/src/routes/invoices.js');
+const { takeStock, restoreStock, takeNcf } = await import('../backend/src/routes/invoices.js');
 
 // Base de datos en memoria con la misma condición que el UPDATE real: solo descuenta si stock >= cantidad
 function fakeTx() {
@@ -69,5 +69,42 @@ describe('restoreStock', () => {
     expect(tx.products.p1.stock).toBe(5);
     expect(tx.variants.v1.stock).toBe(3);
     expect(tx.logs).toHaveLength(2);
+  });
+});
+
+// Empresa en memoria: B01/B02 cuentan en columnas, B03/B04 en settings.ncfSequences
+function ncfTx(sequences, columns = {}) {
+  const state = { settings: { ncfSequences: sequences }, ncfB01Prefix: null, ncfB01SequenceNext: 1, ncfB02Prefix: null, ncfB02SequenceNext: 1, ...columns };
+  return {
+    state,
+    $queryRaw: async () => [],
+    $executeRaw: async (strings, path, value) => { state.settings.ncfSequences[Number(path[1])].next = value; },
+    company: { findUnique: async () => state, update: async ({ data }) => Object.assign(state, data) },
+  };
+}
+
+describe('takeNcf', () => {
+  it('B02 usa el contador de la empresa y se detiene al llegar al fin del rango', async () => {
+    const tx = ncfTx([{ code: 'B02', prefix: 'B02', start: 1, end: 2, next: 1, active: true }], { ncfB02Prefix: 'B02', ncfB02SequenceNext: 2 });
+    await expect(takeNcf(tx, 'c1', 'B02')).resolves.toBe('B0200000002');
+    expect(tx.state.ncfB02SequenceNext).toBe(3);
+    await expect(takeNcf(tx, 'c1', 'B02')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Se agotó') });
+  });
+
+  it('B04 cuenta en la configuración', async () => {
+    const tx = ncfTx([{ code: 'B04', prefix: 'B04', start: 1, end: 50, next: 7, active: true }]);
+    await expect(takeNcf(tx, 'c1', 'B04')).resolves.toBe('B0400000007');
+    expect(tx.state.settings.ncfSequences[0].next).toBe(8);
+  });
+
+  it('una secuencia inactiva o sin configurar no emite', async () => {
+    await expect(takeNcf(ncfTx([{ code: 'B01', prefix: 'B01', start: 1, end: 9, next: 1, active: false }], { ncfB01Prefix: 'B01' }), 'c1', 'B01'))
+      .rejects.toMatchObject({ status: 400, message: expect.stringContaining('inactiva') });
+    await expect(takeNcf(ncfTx([]), 'c1', 'B04')).rejects.toMatchObject({ status: 400, message: expect.stringContaining('Falta configurar') });
+  });
+
+  it('sin rango guardado, B01 sigue como antes (sin límite)', async () => {
+    const tx = ncfTx([], { ncfB01Prefix: 'B01', ncfB01SequenceNext: 500 });
+    await expect(takeNcf(tx, 'c1', 'B01')).resolves.toBe('B0100000500');
   });
 });

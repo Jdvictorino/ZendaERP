@@ -208,11 +208,13 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
     };
 
     // Save NCF manual booklets
-    const handleSaveNcf = async (newSequences) => {
+    const handleSaveNcf = async (sentSequences) => {
         try {
+            // El servidor devuelve las secuencias con el contador real (nunca retrocede uno ya usado)
+            const saved = await settingsApi.updateNcf(sentSequences);
+            const newSequences = saved?.ncfSequences || sentSequences;
             const summary = buildNcfSummary(newSequences);
-            await settingsApi.updateNcf(newSequences);
-            
+
             const updatedProfile = { 
                 ...formData,
                 ncfSequences: newSequences, 

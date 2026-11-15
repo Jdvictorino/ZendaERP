@@ -122,6 +122,8 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
     };
 
     const customerDetails = useMemo(() => (customers || []).find(c => c.id === invoice.customerId), [customers, invoice.customerId]);
+    // Anular y emitir notas es de gerencia (el servidor también lo exige); el cajero solo factura
+    const canManage = isMasterUser || ['admin', 'manager'].includes(currentUserProfile?.role);
     const associatedCreditNote = useMemo(() => (creditNotes || []).find(cn => cn.originalInvoiceId === invoice.id), [creditNotes, invoice.id]);
     const associatedDebitNote = useMemo(() => (debitNotes || []).find(dn => dn.originalInvoiceId === invoice.id), [debitNotes, invoice.id]);
 
@@ -483,12 +485,13 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                             {!invoice.isBilled ? (
                                 <>
                                     <Button onClick={() => setShowBillingModal(true)}><FileSignature size={18} className="mr-2"/> Facturar Pedido</Button>
-                                    <Button variant="secondary" onClick={() => setConfirmAction({ action: 'cancel', payload: invoice })}><XCircle size={18} className="mr-2"/> Cancelar Pedido</Button>
+                                    {canManage && <Button variant="secondary" onClick={() => setConfirmAction({ action: 'cancel', payload: invoice })}><XCircle size={18} className="mr-2"/> Cancelar Pedido</Button>}
                                 </>
-                            ) : (
+                            ) : canManage && !['Anulado', 'Cancelado'].includes(invoice.status) && (
                                 <>
-                                    <Button onClick={() => setShowCreditNoteModal(true)} disabled={!!associatedCreditNote}><FileSignature size={18} className="mr-2"/> Nota de Crédito</Button>
-                                    <Button onClick={() => setShowDebitNoteModal(true)} disabled={!!associatedDebitNote}><FileSignature size={18} className="mr-2"/> Nota de Débito</Button>
+                                    {/* Se pueden emitir varias notas de crédito (devoluciones parciales) hasta cubrir el total */}
+                                    <Button onClick={() => setShowCreditNoteModal(true)}><FileSignature size={18} className="mr-2"/> Nota de Crédito</Button>
+                                    <Button onClick={() => setShowDebitNoteModal(true)}><FileSignature size={18} className="mr-2"/> Nota de Débito</Button>
                                 </>
                             )}
                             {isMasterUser && (

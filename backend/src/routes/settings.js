@@ -82,6 +82,9 @@ router.get('/', async (req, res) => {
         b04_sequence_next: settings.ncf?.b04_sequence_next || 1,
       },
 
+      // Talonarios NCF (Configuración > Secuencias NCF)
+      ncfSequences: liveSequences(company),
+
       // Modo de pedidos
       orderMode: settings.orderMode || 'craft',
       availableOrderModes: settings.availableOrderModes || ['craft'],
@@ -244,42 +247,38 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
   }
 });
 
-// PUT /settings/ncf - Actualizar secuencias NCF
+// Secuencias NCF con el contador real: B01/B02 cuentan en sus columnas (las usa la facturación)
+const liveSequences = (company) => (Array.isArray(company.settings?.ncfSequences) ? company.settings.ncfSequences : [])
+  .map((s) => (['B01', 'B02'].includes(s.code) ? { ...s, next: company[`ncf${s.code}SequenceNext`] ?? s.next } : s));
+
+// PUT /settings/ncf - Guardar las secuencias de talonarios (inicio, fin, siguiente y si está activa)
 router.put('/ncf', authorize('admin', 'manager'), async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { B01, B02 } = req.body;
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { companyId: true }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Envía la lista de secuencias NCF.' });
     }
+    const company = await prisma.company.findUnique({ where: { id: req.companyId } });
+    const current = Object.fromEntries(liveSequences(company).map((s) => [s.code, Number(s.next) || 1]));
 
-    const updateData = {};
-    if (B01) {
-      if (B01.prefix !== undefined) updateData.ncfB01Prefix = B01.prefix;
-      if (B01.next !== undefined) updateData.ncfB01SequenceNext = B01.next;
-    }
-    if (B02) {
-      if (B02.prefix !== undefined) updateData.ncfB02Prefix = B02.prefix;
-      if (B02.next !== undefined) updateData.ncfB02SequenceNext = B02.next;
-    }
-
-    const updated = await prisma.company.update({
-      where: { id: user.companyId },
-      data: updateData
-    });
-
-    res.json({ 
-      ncfSequences: {
-        B01: { prefix: updated.ncfB01Prefix, next: updated.ncfB01SequenceNext },
-        B02: { prefix: updated.ncfB02Prefix, next: updated.ncfB02SequenceNext },
+    const sequences = [];
+    for (const s of req.body) {
+      const code = String(s.code || '').toUpperCase();
+      const [start, end, next] = [s.start, s.end, s.next].map((n) => parseInt(n, 10));
+      if (!/^B\d{2}$/.test(code)) return res.status(400).json({ error: `Tipo de NCF no válido: ${s.code}` });
+      if (!(start >= 1 && end >= start && next >= start)) {
+        return res.status(400).json({ error: `Revisa la secuencia ${code}: el inicio debe ser 1 o más, el fin no puede ser menor que el inicio y el siguiente no puede ser menor que el inicio.` });
       }
-    });
+      // Nunca se retrocede el contador: un número ya usado no se vuelve a emitir
+      sequences.push({ code, name: String(s.name || code), prefix: String(s.prefix || code).trim(), start, end, next: Math.max(next, current[code] || 0), active: !!s.active });
+    }
+
+    const data = { settings: { ...(company.settings || {}), ncfSequences: sequences } };
+    for (const s of sequences.filter((x) => ['B01', 'B02'].includes(x.code))) {
+      data[`ncf${s.code}Prefix`] = s.prefix;
+      data[`ncf${s.code}SequenceNext`] = s.next;
+    }
+    const updated = await prisma.company.update({ where: { id: req.companyId }, data });
+    res.json({ ncfSequences: liveSequences(updated) });
   } catch (error) {
     console.error('Error updating NCF sequences:', error);
     res.status(500).json({ error: 'Error al actualizar secuencias NCF' });
@@ -289,24 +288,8 @@ router.put('/ncf', authorize('admin', 'manager'), async (req, res) => {
 // GET /settings/ncf - Obtener secuencias NCF
 router.get('/ncf', async (req, res) => {
   try {
-    const userId = req.user.id;
-    
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { company: true }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    const company = user.company;
-    res.json({ 
-      ncfSequences: {
-        B01: { prefix: company.ncfB01Prefix, next: company.ncfB01SequenceNext },
-        B02: { prefix: company.ncfB02Prefix, next: company.ncfB02SequenceNext },
-      }
-    });
+    const company = await prisma.company.findUnique({ where: { id: req.companyId } });
+    res.json({ ncfSequences: liveSequences(company) });
   } catch (error) {
     console.error('Error fetching NCF sequences:', error);
     res.status(500).json({ error: 'Error al obtener secuencias NCF' });

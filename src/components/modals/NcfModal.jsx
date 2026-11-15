@@ -26,11 +26,15 @@ const NcfModal = ({ companyProfile, onClose, onSave, isMasterUser }) => {
     useEffect(() => {
         // Inicializa las secuencias, creando las que no existan
         const existingSequences = companyProfile?.ncfSequences || [];
+        const ncf = companyProfile?.ncf || {};
         const fullSequences = ncfTypes.map(type => {
             const existing = existingSequences.find(s => s.code === type.code);
+            // Sin secuencia guardada se parte del prefijo y el contador que ya usa la facturación
+            const key = type.code.toLowerCase();
+            const next = Number(ncf[`${key}_sequence_next`]) || 1;
             return existing || {
-                code: type.code, name: type.name, prefix: type.code,
-                start: 1, end: 100, next: 1, active: false
+                code: type.code, name: type.name, prefix: ncf[`${key}_prefix`] || type.code,
+                start: 1, end: Math.max(100, next), next, active: !!ncf[`${key}_prefix`]
             };
         });
         setSequences(fullSequences);
