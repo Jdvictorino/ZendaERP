@@ -42,33 +42,36 @@ const formatDateToDGII = (dateValue) => {
  * @returns {Array} - Datos formateados para el reporte.
  */
 export const generate606Data = (expenses = [], suppliers = []) => {
-    return expenses.map(exp => {
+    // Los pagos al exterior (B17/E47) van en el 609, no en el 606
+    return expenses.filter(exp => !['B17', 'E47'].includes(exp.issuedVoucher)).map(exp => {
         const supplier = suppliers.find(s => s.id === exp.supplierId) || {};
-        
+        // Nombres guardados en la base (expenseType, paymentType, ...); los otros son del formato anterior
+        const rnc = exp.rncCedula || supplier.identificationNumber || supplier.rnc || '';
+
         return {
-            "RNC o Cédula": supplier.rnc || '',
-            "Tipo Id": getTypeId(supplier.rnc),
-            "Tipo Bienes y Servicios Comprados": exp.tipoGasto ? exp.tipoGasto.split('-')[0] : '01',
+            "RNC o Cédula": rnc.replace(/-/g, ''),
+            "Tipo Id": getTypeId(rnc),
+            "Tipo Bienes y Servicios Comprados": String(exp.expenseType || exp.tipoGasto || '09').split('-')[0],
             "NCF": exp.ncf || '',
             "NCF ó Documento Modificado": exp.ncfModificado || '',
             "Fecha Comprobante": formatDateToDGII(exp.invoiceDate),
             "Fecha Pago": formatDateToDGII(exp.paymentDate),
-            "Monto Facturado en Servicios": exp.montoServicios || 0,
-            "Monto Facturado en Bienes": exp.montoBienes || 0,
-            "Total Monto Facturado": exp.totalMontoFacturado || 0,
-            "ITBIS Facturado": exp.itbisFacturado || 0,
-            "ITBIS Retenido": exp.itbisRetenido || 0,
+            "Monto Facturado en Servicios": Number(exp.montoServicios || 0),
+            "Monto Facturado en Bienes": Number(exp.montoBienes || 0),
+            "Total Monto Facturado": Number(exp.montoFacturado ?? exp.totalMontoFacturado ?? 0),
+            "ITBIS Facturado": Number(exp.itbisFacturado || 0),
+            "ITBIS Retenido": Number(exp.itbisRetenido || 0),
             "ITBIS sujeto a Proporcionalidad (Art. 349)": exp.itbisProporcional || 0,
             "ITBIS llevado al Costo": exp.itbisAlCosto || 0,
             "ITBIS por Adelantar": exp.itbisAdelantar || 0,
             "ITBIS percibido en compras": exp.itbisPercibido || 0,
-            "Tipo de Retención en ISR": exp.retencionISR || '',
-            "Monto Retención Renta": exp.montoRetencionISR || 0,
+            "Tipo de Retención en ISR": exp.retencionIsrTipo || exp.retencionISR || '',
+            "Monto Retención Renta": Number(exp.montoRetencionIsr ?? exp.montoRetencionISR ?? 0),
             "ISR Percibido en compras": exp.isrPercibido || 0,
             "Impuesto Selectivo al Consumo": exp.isc || 0,
             "Otros Impuesto/Tasas": exp.otrosImpuestos || 0,
-            "Monto Propina Legal": exp.propina || 0,
-            "Forma de Pago": exp.formaPago ? exp.formaPago.split(' ')[0] : '01',
+            "Monto Propina Legal": Number(exp.propina || 0),
+            "Forma de Pago": String(exp.paymentType || exp.formaPago || '01').split(' ')[0],
         };
     });
 };

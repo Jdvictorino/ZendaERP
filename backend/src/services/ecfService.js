@@ -6,7 +6,7 @@
 import ECF, { P12Reader, Signature, ENVIRONMENT } from 'dgii-ecf';
 import { getCodeSixDigitfromSignature, convertECF32ToRFCE, generateEcfQRCodeURL, generateFcQRCodeURL, isSummaryInvoice, TrackStatusEnum } from 'dgii-ecf';
 import prisma from '../db.js';
-import { buildEcfFromInvoice, buildEcfFromNote, ecfToXml, formatDateDGII } from './ecfXmlBuilder.js';
+import { buildEcfFromInvoice, buildEcfFromNote, buildEcfFromExpense, ecfToXml, formatDateDGII } from './ecfXmlBuilder.js';
 
 // Mapeo de ambiente del sistema al enum ENVIRONMENT de dgii-ecf
 const ENV_MAP = {
@@ -50,7 +50,7 @@ async function getAuthenticatedEcf(company) {
  * Genera un e-NCF de 13 posiciones: E + 2 dígitos tipo + 10 dígitos secuencial
  * Ejemplo: E310000000001
  */
-async function generateENCF(companyId, tipoEcf) {
+export async function generateENCF(companyId, tipoEcf) {
   const typeCode = tipoEcf.replace('E', ''); // "31", "32", etc.
 
   // Buscar secuencia activa
@@ -187,12 +187,13 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
       });
     }
 
-    // 8. Actualizar la factura con el e-NCF
+    // 8. Actualizar la factura con el e-NCF (y el vencimiento de su secuencia, que va en la representación impresa)
     await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         ncfNumber: eNcf,
         ncfType: tipoEcf,
+        ncfExpiresAt: tipoEcf === 'E32' ? null : sequence.fechaVencimiento || null,
       },
     });
 
@@ -223,6 +224,94 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
       error: error.message,
     };
   }
+}
+
+/**
+ * Firma, guarda y envía un e-CF que no factura una venta: notas (E33/E34) y comprobantes de compra (E41/E43/E47).
+ * El documento queda enlazado a su origen (link: { creditNoteId } | { debitNoteId } | { expenseId }).
+ * Si la DGII no lo recibe, queda guardado para reintentar desde Facturación Electrónica.
+ */
+async function emitLinkedEcf({ company, ecfObject, tipoEcf, eNcf, link, comprador, fechaEmision }) {
+  const xmlContent = ecfToXml(ecfObject);
+  const certs = getCertCredentials(company);
+  const xmlSigned = new Signature(certs.key, certs.cert).signXml(xmlContent, 'ECF');
+  const totales = ecfObject.ECF.Encabezado.Totales;
+
+  const ecfDoc = await prisma.ecfDocument.create({
+    data: {
+      companyId: company.id,
+      ...link,
+      tipoEcf,
+      eNcf,
+      xmlContent,
+      xmlSigned,
+      securityCode: getCodeSixDigitfromSignature(xmlSigned),
+      rncEmisor: company.rnc || '',
+      rncComprador: comprador?.rnc || null,
+      nombreComprador: comprador?.name || null,
+      montoTotal: totales.MontoTotal,
+      itbisTotal: totales.TotalITBIS || 0,
+      fechaEmision,
+      dgiiStatus: 'pendiente',
+    },
+  });
+
+  try {
+    // Estos documentos siempre van como e-CF completo (el resumen RFCE es solo para la factura de consumo)
+    const { ecf: ecfClient } = await getAuthenticatedEcf(company);
+    const response = await ecfClient.sendElectronicDocument(xmlSigned, `${company.rnc}${eNcf}.xml`);
+    await prisma.ecfDocument.update({
+      where: { id: ecfDoc.id },
+      data: {
+        trackId: response?.trackId || null,
+        dgiiStatus: response?.trackId ? 'enviado' : 'pendiente',
+        dgiiMessage: response?.mensajes?.[0]?.valor || response?.error || null,
+        enviadoAt: new Date(),
+      },
+    });
+    return { success: !!response?.trackId, ecfDocument: await prisma.ecfDocument.findUnique({ where: { id: ecfDoc.id } }), response };
+  } catch (error) {
+    const failed = await prisma.ecfDocument.update({
+      where: { id: ecfDoc.id },
+      data: { dgiiStatus: 'error', dgiiMessage: error.message || 'Error al enviar a la DGII' },
+    });
+    return { success: false, ecfDocument: failed, error: error.message };
+  }
+}
+
+/**
+ * Nota de Crédito (E34) o de Débito (E33) electrónica de una nota ya registrada.
+ * El e-NCF se reserva antes (generateENCF) para no crear la nota si no hay secuencia válida.
+ * @param {{ kind: 'credit'|'debit', note, invoice, eNcf, sequence, lines?, full? }} params
+ */
+export async function emitNoteEcf({ kind, note, invoice, eNcf, sequence, lines, full }) {
+  const tipoEcf = kind === 'credit' ? 'E34' : 'E33';
+  const company = await prisma.company.findUnique({ where: { id: invoice.companyId } });
+  return emitLinkedEcf({
+    company,
+    ecfObject: buildEcfFromNote(note, invoice, company, tipoEcf, eNcf, sequence, { lines, full }),
+    tipoEcf,
+    eNcf,
+    link: kind === 'credit' ? { creditNoteId: note.id } : { debitNoteId: note.id },
+    comprador: { rnc: invoice.customerRnc, name: invoice.customerName || invoice.customer?.name },
+    fechaEmision: new Date(note.createdAt || Date.now()),
+  });
+}
+
+/**
+ * Comprobante de Compras (E41), Gastos Menores (E43) o Pagos al Exterior (E47) de un gasto ya registrado.
+ */
+export async function emitExpenseEcf({ expense, tipoEcf, eNcf, sequence }) {
+  const company = await prisma.company.findUnique({ where: { id: expense.companyId } });
+  return emitLinkedEcf({
+    company,
+    ecfObject: buildEcfFromExpense(expense, company, tipoEcf, eNcf, sequence),
+    tipoEcf,
+    eNcf,
+    link: { expenseId: expense.id },
+    comprador: tipoEcf === 'E41' ? { rnc: expense.rncCedula, name: expense.supplierName } : null,
+    fechaEmision: new Date(expense.invoiceDate),
+  });
 }
 
 // Estados de la DGII → estados de EcfDocument
@@ -273,7 +362,7 @@ export async function checkTrackIdStatus(ecfDocumentId, companyId) {
  */
 // Una factura cuenta como facturada solo si la DGII recibió su e-CF. Si no llegó o fue rechazado,
 // vuelve a quedar pendiente de facturar (el documento queda guardado para reintentar o revisar).
-const ECF_RECEIVED = ['enviado', 'en_proceso', 'aceptado', 'aceptado_condicional'];
+export const ECF_RECEIVED = ['enviado', 'en_proceso', 'aceptado', 'aceptado_condicional'];
 
 export async function syncInvoiceWithEcf(ecfDocumentId) {
   const doc = await prisma.ecfDocument.findUnique({ where: { id: ecfDocumentId } });
@@ -285,7 +374,7 @@ export async function syncInvoiceWithEcf(ecfDocumentId) {
     where: { id: invoice.id },
     data: received
       ? { isBilled: true, billedDate: invoice.billedDate || new Date(), invoiceNumber: invoice.orderNumber, ncfNumber: doc.eNcf, ncfType: doc.tipoEcf }
-      : { isBilled: false, billedDate: null, ncfNumber: null, ncfType: null },
+      : { isBilled: false, billedDate: null, ncfNumber: null, ncfType: null, ncfExpiresAt: null },
     include: { items: true, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } },
   });
 }
@@ -402,7 +491,7 @@ export async function retryEcfSend(ecfDocumentId, companyId) {
  * Genera la URL del QR para un documento e-CF
  */
 // Valor de una etiqueta del XML firmado (la primera que aparece)
-const xmlTag = (xml, name) => xml?.match(new RegExp(`<${name}>([^<]*)</${name}>`))?.[1] || '';
+export const xmlTag = (xml, name) => xml?.match(new RegExp(`<${name}>([^<]*)</${name}>`))?.[1] || '';
 
 export function getQRCodeUrl(ecfDoc, company, environment) {
   const env = ENV_MAP[environment] || ENVIRONMENT.DEV;
@@ -479,6 +568,8 @@ export function getCertificateInfo(company) {
 }
 
 export default {
+  emitNoteEcf,
+  emitExpenseEcf,
   emitEcf,
   checkTrackIdStatus,
   syncInvoiceWithEcf,

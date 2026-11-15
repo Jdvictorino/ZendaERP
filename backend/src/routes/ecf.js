@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
 import prisma from '../db.js';
-import ecfService from '../services/ecfService.js';
+import ecfService, { xmlTag } from '../services/ecfService.js';
 
 const router = Router();
 
@@ -290,8 +290,11 @@ router.get('/documents/:id', async (req, res, next) => {
     // Generar URL del QR
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });
     const qrCodeUrl = ecfService.getQRCodeUrl(document, company, company.ecfEnvironment);
+    // Representación impresa: e-NCF, código de seguridad, fecha de firma, vencimiento de la secuencia y QR
+    const fechaHoraFirma = xmlTag(document.xmlSigned, 'FechaHoraFirma');
+    const fechaVencimientoSecuencia = xmlTag(document.xmlSigned, 'FechaVencimientoSecuencia');
 
-    res.json({ ...document, qrCodeUrl });
+    res.json({ ...document, qrCodeUrl, fechaHoraFirma, fechaVencimientoSecuencia });
   } catch (error) {
     next(error);
   }

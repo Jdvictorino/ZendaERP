@@ -1,6 +1,7 @@
 import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
+import { withEcfPrintData, qrModules } from './ecfPrint.js';
 
 let pdfLibrariesPromise = null;
 
@@ -91,7 +92,7 @@ const setBodyTextColor = (doc, theme) => {
     doc.setTextColor(...(theme.textPrimary || DEFAULT_THEME.textPrimary));
 };
 
-const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate }) => {
+const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate, validUntil }) => {
     const headerHeight = 48;
     doc.setFillColor(...(theme.primary || DEFAULT_THEME.primary));
     doc.rect(0, 0, 210, headerHeight, 'F');
@@ -143,6 +144,10 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
         doc.text(`${numberLabel} ${docNumber || 'N/A'}`, 196, 26, { align: 'right' });
     }
     doc.text(`Fecha: ${formatDate(documentDate)}`, 196, 32, { align: 'right' });
+    // Norma General 06-2018: el comprobante muestra hasta cuándo es válida su secuencia (fecha guardada sin hora)
+    if (validUntil) {
+        doc.text(`Válido hasta: ${String(validUntil).slice(0, 10).split('-').reverse().join('/')}`, 196, 38, { align: 'right' });
+    }
 
     setBodyTextColor(doc, theme);
     doc.setDrawColor(...(theme.border || DEFAULT_THEME.border));
@@ -450,17 +455,16 @@ const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
     doc.setFillColor(245, 247, 255);
     doc.roundedRect(14, currentY, 182, 40, 4, 4, 'F');
 
-    // QR Code (Google Charts API)
+    // QR de consulta en la DGII, dibujado módulo a módulo (jsPDF no puede cargar imágenes remotas)
     if (ecfData.qrCodeUrl) {
-        const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=80x80&chl=${encodeURIComponent(ecfData.qrCodeUrl)}`;
-        try {
-            doc.addImage(qrUrl, 'PNG', 18, currentY + 4, 32, 32);
-        } catch (e) {
-            // Si falla el QR, solo mostramos texto
-            doc.setFontSize(7);
-            doc.setTextColor(150, 150, 150);
-            doc.text('[QR]', 34, currentY + 20, { align: 'center' });
-        }
+        const modules = qrModules(ecfData.qrCodeUrl);
+        const cell = 32 / modules.length;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(18, currentY + 4, 32, 32, 'F');
+        doc.setFillColor(0, 0, 0);
+        modules.forEach((row, y) => row.forEach((on, x) => {
+            if (on) doc.rect(18 + x * cell, currentY + 4 + y * cell, cell, cell, 'F');
+        }));
     }
 
     const textX = ecfData.qrCodeUrl ? 56 : 22;
@@ -476,12 +480,15 @@ const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
     doc.text(`e-NCF: ${ecfData.eNcf}`, textX, currentY + 18);
 
     if (ecfData.securityCode) {
-        doc.text(`Código de seguridad: ${ecfData.securityCode}`, textX, currentY + 24);
+        doc.text(`Código de seguridad: ${ecfData.securityCode}`, textX, currentY + 23);
+    }
+    if (ecfData.signedAt) {
+        doc.text(`Fecha de firma digital: ${ecfData.signedAt}`, textX, currentY + 28);
     }
 
     doc.setFontSize(7);
     doc.setTextColor(...(theme.textSecondary || DEFAULT_THEME.textSecondary));
-    doc.text('Documento generado electrónicamente — Validar en dgii.gov.do', textX, currentY + 32);
+    doc.text('Escanea el código para consultar este comprobante en la DGII', textX, currentY + 35);
 
     setBodyTextColor(doc, theme);
     return currentY + 44;
@@ -510,6 +517,8 @@ const handleActionOutput = (doc, action, filename) => {
 export const generatePDF = async (docData, docType, companyProfile, customerDetails, emitterInfo, action = 'view') => {
     try {
         await ensurePdfLibraries();
+        // Un e-CF impreso lleva su QR, código de seguridad y fecha de firma (representación impresa DGII)
+        docData = await withEcfPrintData(docData);
     } catch (error) {
         console.error('Failed to load PDF generation scripts:', error);
         toast.error('No se pudieron cargar las librerías para generar el PDF.');
@@ -526,12 +535,15 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
     let numberLabel = 'NCF:';
     let documentDate = docData?.date;
     let isModificationDocument = false;
+    const validUntil = docType === 'invoice' ? (docData?.ncfExpiresAt || docData?.ecfData?.sequenceExpiresAt?.split('-').reverse().join('-')) : null;
+    // NCF guardado por el servidor (ncfNumber); "ncf" es el formato anterior
+    const savedNcf = docData?.ncfNumber && docData.ncfNumber !== 'NoFiscal' ? docData.ncfNumber : null;
 
     switch (docType) {
         case 'invoice':
             docTitle = 'Factura';
-            docNumber = docData?.ncf?.number || docData?.invoiceNumber;
-            if (docData?.ncf?.type === 'Sin Valor Fiscal') {
+            docNumber = docData?.ncf?.number || savedNcf || docData?.invoiceNumber;
+            if (docData?.ncf?.type === 'Sin Valor Fiscal' || (!docData?.ncf && !savedNcf)) {
                 numberLabel = 'Factura N°:';
                 docNumber = docData?.invoiceNumber;
             }
@@ -544,8 +556,8 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             break;
         case 'credit-note':
             docTitle = 'Nota de Crédito';
-            docNumber = docData?.ncf || docData?.creditNoteNumber;
-            if (docData?.ncf === 'N/A') {
+            docNumber = savedNcf || docData?.ncf || docData?.creditNoteNumber;
+            if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
                 docNumber = docData?.creditNoteNumber;
             }
@@ -557,8 +569,8 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             break;
         case 'debit-note':
             docTitle = 'Nota de Débito';
-            docNumber = docData?.ncf || docData?.debitNoteNumber;
-            if (docData?.ncf === 'N/A') {
+            docNumber = savedNcf || docData?.ncf || docData?.debitNoteNumber;
+            if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
                 docNumber = docData?.debitNoteNumber;
             }
@@ -576,12 +588,15 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             break;
     }
 
+    if (numberLabel === 'NCF:' && String(docNumber || '').startsWith('E')) numberLabel = 'e-NCF:';
+
     let cursorY = drawDocumentHeader(doc, theme, {
         companyProfile,
         docTitle,
         numberLabel,
         docNumber,
         documentDate,
+        validUntil,
     });
 
     cursorY = drawInfoCards(doc, theme, {

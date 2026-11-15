@@ -33,6 +33,9 @@ const PAYMENT_METHOD_MAP = {
 // El servidor corre en UTC: sin fijar la zona, una venta después de las 8:00 p. m. salía con la fecha del día siguiente
 const RD_TZ = 'America/Santo_Domingo';
 
+// Tipos cuya secuencia no vence (Formato e-CF v1.0, campo FechaVencimientoSecuencia: "0 = no corresponde")
+const SIN_VENCIMIENTO = [32, 34];
+
 function dateParts(date, timeZone) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -82,8 +85,9 @@ function getIndicadorFacturacion(taxRate) {
 export function buildEcfFromInvoice(invoice, company, tipoEcf, eNcf, sequence) {
   const tipoCode = ECF_TYPE_CODES[tipoEcf];
   const fechaEmision = formatDateDGII(invoice.date || new Date());
-  const fechaVencimiento = sequence?.fechaVencimiento 
-    ? formatDateDGII(sequence.fechaVencimiento, 'UTC') 
+  // Formato e-CF v1.0: la fecha de vencimiento "no corresponde" en la factura de consumo (32) ni en la nota de crédito (34)
+  const fechaVencimiento = sequence?.fechaVencimiento && !SIN_VENCIMIENTO.includes(tipoCode)
+    ? formatDateDGII(sequence.fechaVencimiento, 'UTC')
     : '';
 
   // Calcular totales por tasa de ITBIS
@@ -135,8 +139,8 @@ export function buildEcfFromInvoice(invoice, company, tipoEcf, eNcf, sequence) {
     },
   };
 
-  // Agregar datos del comprador (obligatorio para E31, opcional para E32)
-  if (tipoCode === 31 || (tipoCode === 32 && invoice.customerRnc)) {
+  // Agregar datos del comprador (obligatorio para E31; en E32 y en las notas E33/E34, cuando la venta tiene RNC)
+  if (tipoCode === 31 || ([32, 33, 34].includes(tipoCode) && invoice.customerRnc)) {
     ecfData.ECF.Encabezado.Comprador = {};
     if (invoice.customerRnc) {
       ecfData.ECF.Encabezado.Comprador.RNCComprador = invoice.customerRnc;
@@ -190,7 +194,7 @@ function buildItems(invoiceItems) {
       NombreItem: (item.productName || '').substring(0, 80),
       IndicadorBienoServicio: '1', // 1=Bien, 2=Servicio
       CantidadItem: String(quantity),
-      UnidadMedida: '1', // 1=Unidad
+      UnidadMedida: '43', // Tabla IV del Formato e-CF: 43 = Unidad (1 es Barril)
       PrecioUnitarioItem: String(unitPrice.toFixed(2)),
       MontoItem: String(montoItem.toFixed(2)),
     };
@@ -253,25 +257,135 @@ function calcularTotalesPorTasa(items) {
 }
 
 /**
- * Construye un objeto ECF para Nota de Crédito (E34) o Nota de Débito (E33)
+ * Construye un objeto ECF para Nota de Crédito (E34) o Nota de Débito (E33) según el Formato e-CF v1.0:
+ * - Las líneas son las de la factura (o las devueltas) llevadas al monto de la nota, así los totales cuadran.
+ * - InformacionReferencia es obligatoria: NCF modificado (e-CF o NCF en papel), su fecha y el código de modificación.
+ * - IndicadorNotaCredito (solo E34): 1 si pasaron más de 30 días desde la factura (esa nota no rebaja ITBIS).
+ * @param {{ lines?: Array, full?: boolean }} options - lines: artículos devueltos; full: la nota anula la factura
  */
-export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, sequence) {
-  const ecfData = buildEcfFromInvoice(
-    { ...originalInvoice, total: note.amount, items: originalInvoice.items || [] },
-    company, tipoEcf, eNcf, sequence
-  );
+export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, sequence, { lines, full = false } = {}) {
+  const noteDate = new Date(note.createdAt || Date.now());
+  const source = lines?.length ? lines : originalInvoice.items || [];
+  const net = (i) => parseFloat(i.unitPrice) * (1 - parseFloat(i.discountPercent || 0) / 100);
+  const withTax = source.reduce((sum, i) => sum + net(i) * parseInt(i.quantity) * (1 + parseFloat(i.taxRate || 0) / 100), 0);
+  const amount = parseFloat(note.amount);
+  const factor = withTax > 0 ? amount / withTax : 0;
+  const items = factor > 0
+    ? source.map((i) => ({ productName: i.productName, quantity: i.quantity, taxRate: i.taxRate, discountPercent: 0, unitPrice: (net(i) * factor).toFixed(2) }))
+    : [{ productName: note.reason || 'Ajuste', quantity: 1, taxRate: 0, discountPercent: 0, unitPrice: amount.toFixed(2) }];
+  // El MontoTotal sale de los mismos montos redondeados que van en el XML
+  const t = calcularTotalesPorTasa(items);
+  const total = [t.montoGravadoTotal, t.montoExento, t.totalITBIS].reduce((sum, n) => sum + Number(n.toFixed(2)), 0);
 
-  // Agregar información de referencia al NCF modificado
-  ecfData.ECF.InformacionReferencia = {
-    NCFModificado: originalInvoice.ncfNumber || originalInvoice.ecfDocuments?.[0]?.eNcf || '',
-    FechaNCFModificado: formatDateDGII(originalInvoice.date),
-    CodigoModificacion: tipoEcf === 'E34' ? '1' : '1', // 1=Disminución de ventas
-  };
-
-  if (note.reason) {
-    ecfData.ECF.InformacionReferencia.RazonModificacion = note.reason;
+  const ecfData = buildEcfFromInvoice({ ...originalInvoice, date: noteDate, total, items }, company, tipoEcf, eNcf, sequence);
+  const { TablaFormasPago, ...idDoc } = ecfData.ECF.Encabezado.IdDoc; // opcional/no corresponde en notas
+  if (tipoEcf === 'E34') {
+    const originalDate = new Date(originalInvoice.billedDate || originalInvoice.date);
+    const { TipoeCF, eNCF, ...rest } = idDoc;
+    ecfData.ECF.Encabezado.IdDoc = { TipoeCF, eNCF, IndicadorNotaCredito: noteDate - originalDate > 30 * 86400000 ? '1' : '0', ...rest };
+  } else {
+    ecfData.ECF.Encabezado.IdDoc = idDoc;
   }
 
+  // El e-CF guarda como fecha la de la venta; un NCF en papel, la de facturación
+  const fechaModificado = String(originalInvoice.ncfNumber || '').startsWith('E') ? originalInvoice.date : (originalInvoice.billedDate || originalInvoice.date);
+  // El XSD exige este orden: ... DetallesItems, InformacionReferencia, FechaHoraFirma
+  const { FechaHoraFirma, ...body } = ecfData.ECF;
+  ecfData.ECF = {
+    ...body,
+    InformacionReferencia: {
+      NCFModificado: originalInvoice.ncfNumber || '',
+      FechaNCFModificado: formatDateDGII(fechaModificado),
+      CodigoModificacion: tipoEcf === 'E34' && full ? '1' : '3', // 1: anula el NCF modificado; 3: corrige montos
+      RazonModificacion: (note.reason || '').substring(0, 90),
+    },
+    FechaHoraFirma,
+  };
+
+  return removeEmptyValues(ecfData);
+}
+
+/**
+ * Construye el e-CF que emite la empresa al comprar (Formato e-CF v1.0):
+ * - E41 Compras: el vendedor (persona sin RNC/comprobante) va en Comprador; retención por línea obligatoria.
+ * - E43 Gastos Menores: sin comprador ni retenciones; todas las líneas exentas.
+ * - E47 Pagos al Exterior: líneas exentas; retención de ISR obligatoria.
+ * Ninguno lleva TipoIngresos. Las líneas son "Bienes" y "Servicios" según los montos del gasto.
+ */
+export function buildEcfFromExpense(expense, company, tipoEcf, eNcf, sequence) {
+  const tipoCode = ECF_TYPE_CODES[tipoEcf];
+  const n = (v) => Number(v || 0);
+  const exento = tipoCode !== 41; // nota 50 del formato: 43 y 47 siempre exentos
+  const bienes = n(expense.montoBienes);
+  const servicios = n(expense.montoServicios);
+  const base = bienes + servicios;
+  const itbis = exento ? 0 : n(expense.itbisFacturado);
+  const gravado = itbis > 0;
+  const itbisRetenido = exento ? 0 : n(expense.itbisRetenido);
+  const isrRetenido = tipoCode === 43 ? 0 : n(expense.montoRetencionIsr);
+  const conRetencion = tipoCode === 41 || tipoCode === 47;
+  const nombre = (expense.description || '').substring(0, 80);
+
+  const lineas = [
+    { tipo: 1, monto: bienes, nombre: nombre || 'Bienes' },
+    { tipo: 2, monto: servicios, nombre: nombre || 'Servicios' },
+  ].filter((l) => l.monto > 0);
+  const items = lineas.map((l, i) => {
+    const item = { NumeroLinea: String(i + 1), IndicadorFacturacion: gravado ? '1' : '4' };
+    if (conRetencion) {
+      item.Retencion = { IndicadorAgenteRetencionoPercepcion: '1' };
+      // El ITBIS retenido se reparte según el peso de cada línea; el ISR retenido va en los servicios
+      if (tipoCode === 41) item.Retencion.MontoITBISRetenido = (base > 0 ? (itbisRetenido * l.monto) / base : 0).toFixed(2);
+      if (l.tipo === 2 || (tipoCode === 47 && servicios === 0)) item.Retencion.MontoISRRetenido = isrRetenido.toFixed(2);
+    }
+    return {
+      ...item,
+      NombreItem: l.nombre,
+      IndicadorBienoServicio: String(l.tipo),
+      CantidadItem: '1',
+      UnidadMedida: '43',
+      PrecioUnitarioItem: l.monto.toFixed(2),
+      MontoItem: l.monto.toFixed(2),
+    };
+  });
+
+  const formaPago = String(expense.paymentType || '01').slice(0, 2);
+  const totales = gravado
+    ? { MontoGravadoTotal: base.toFixed(2), MontoGravadoI1: base.toFixed(2), ITBIS1: '18', TotalITBIS: itbis.toFixed(2), TotalITBIS1: itbis.toFixed(2) }
+    : { MontoExento: base.toFixed(2) };
+  totales.MontoTotal = (base + itbis).toFixed(2);
+  if (tipoCode === 41) totales.TotalITBISRetenido = itbisRetenido.toFixed(2);
+  if (conRetencion) totales.TotalISRRetencion = isrRetenido.toFixed(2);
+
+  const idDoc = {
+    TipoeCF: String(tipoCode),
+    eNCF: eNcf,
+    FechaVencimientoSecuencia: sequence?.fechaVencimiento ? formatDateDGII(sequence.fechaVencimiento, 'UTC') : '',
+    ...(tipoCode === 41 ? { IndicadorMontoGravado: '0' } : {}),
+    TipoPago: formaPago === '04' ? '2' : '1', // 04 en el 606 = compra a crédito
+    ...(formaPago === '04' && expense.paymentDate ? { FechaLimitePago: formatDateDGII(expense.paymentDate) } : {}),
+  };
+
+  const ecfData = {
+    ECF: {
+      Encabezado: {
+        Version: '1.0',
+        IdDoc: idDoc,
+        Emisor: {
+          RNCEmisor: company.rnc || '',
+          RazonSocialEmisor: company.name || '',
+          NombreComercial: company.name || '',
+          DireccionEmisor: company.address || '',
+          FechaEmision: formatDateDGII(expense.invoiceDate || new Date()),
+        },
+        // E41: el vendedor informal (cédula); E43 no corresponde; E47 opcional (se omite)
+        ...(tipoCode === 41 ? { Comprador: { RNCComprador: String(expense.rncCedula || '').replace(/\D/g, ''), RazonSocialComprador: expense.supplierName || '' } } : {}),
+        Totales: totales,
+      },
+      DetallesItems: { Item: items },
+      FechaHoraFirma: formatDateTimeDGII(new Date()),
+    },
+  };
   return removeEmptyValues(ecfData);
 }
 

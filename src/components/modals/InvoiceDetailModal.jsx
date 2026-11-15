@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
 import { generateThermalReceiptHTML } from '../../utils/escposGenerator.js';
+import { withEcfPrintData } from '../../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../../utils/printer.js';
 import api from '../../api/client.js';
 import PaymentModal from './PaymentModal.jsx';
@@ -150,7 +151,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
             
             const printMode = companyProfile?.cash?.printing?.mode;
             if (printMode === 'escpos') {
-                const htmlString = generateThermalReceiptHTML(updatedOrderData, 'invoice', companyProfile, customerDetails, updatedOrderData.emitterInfo);
+                const htmlString = generateThermalReceiptHTML(await withEcfPrintData(updatedOrderData), 'invoice', companyProfile, customerDetails, updatedOrderData.emitterInfo);
                 const printerName = companyProfile?.cash?.printing?.printerName || '';
                 const success = await printEscPosReceipt(htmlString, printerName);
                 if (!success) toast.error('Facturado, pero la impresión térmica falló.');
@@ -356,7 +357,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                 <Button onClick={() => generatePDF(invoice, 'invoice', companyProfile, customerDetails, emitterInfoForPDF, 'download')}><Download size={18} className="mr-2"/> Descargar Factura (Carta)</Button>
                                 <Button variant="secondary" onClick={() => handleOpenEmailModal('invoice')}><Mail size={18} className="mr-2"/> Enviar por Correo</Button>
                                 <Button variant="secondary" onClick={async () => {
-                                    const htmlString = generateThermalReceiptHTML(invoice, 'invoice', companyProfile, customerDetails, emitterInfoForPDF);
+                                    const htmlString = generateThermalReceiptHTML(await withEcfPrintData(invoice), 'invoice', companyProfile, customerDetails, emitterInfoForPDF);
                                     const printerName = companyProfile?.cash?.printing?.printerName || '';
                                     const ok = await printEscPosReceipt(htmlString, printerName);
                                     if(!ok) toast.error('Impresión térmica fallida. Configura el nombre correcto en Perfil.');

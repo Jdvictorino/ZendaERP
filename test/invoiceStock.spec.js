@@ -5,9 +5,9 @@ import { vi } from 'vitest';
 vi.mock('../backend/src/db.js', () => ({ default: {} }));
 vi.mock('../backend/src/middleware/auth.js', () => ({ authenticate: (q, s, n) => n(), authorize: () => (q, s, n) => n() }));
 vi.mock('../backend/src/routes/alerts.js', () => ({ createAlert: vi.fn() }));
-vi.mock('../backend/src/services/ecfService.js', () => ({}));
+vi.mock('../backend/src/services/ecfService.js', () => ({ ECF_RECEIVED: ['enviado', 'aceptado'] }));
 
-const { takeStock, restoreStock, takeNcf } = await import('../backend/src/routes/invoices.js');
+const { takeStock, restoreStock, takeNcf, noteVoucher } = await import('../backend/src/routes/invoices.js');
 
 // Base de datos en memoria con la misma condición que el UPDATE real: solo descuenta si stock >= cantidad
 function fakeTx() {
@@ -86,14 +86,14 @@ function ncfTx(sequences, columns = {}) {
 describe('takeNcf', () => {
   it('B02 usa el contador de la empresa y se detiene al llegar al fin del rango', async () => {
     const tx = ncfTx([{ code: 'B02', prefix: 'B02', start: 1, end: 2, next: 1, active: true }], { ncfB02Prefix: 'B02', ncfB02SequenceNext: 2 });
-    await expect(takeNcf(tx, 'c1', 'B02')).resolves.toBe('B0200000002');
+    await expect(takeNcf(tx, 'c1', 'B02')).resolves.toEqual({ number: 'B0200000002', expiresAt: null });
     expect(tx.state.ncfB02SequenceNext).toBe(3);
     await expect(takeNcf(tx, 'c1', 'B02')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Se agotó') });
   });
 
   it('B04 cuenta en la configuración', async () => {
     const tx = ncfTx([{ code: 'B04', prefix: 'B04', start: 1, end: 50, next: 7, active: true }]);
-    await expect(takeNcf(tx, 'c1', 'B04')).resolves.toBe('B0400000007');
+    await expect(takeNcf(tx, 'c1', 'B04')).resolves.toEqual({ number: 'B0400000007', expiresAt: null });
     expect(tx.state.settings.ncfSequences[0].next).toBe(8);
   });
 
@@ -105,6 +105,31 @@ describe('takeNcf', () => {
 
   it('sin rango guardado, B01 sigue como antes (sin límite)', async () => {
     const tx = ncfTx([], { ncfB01Prefix: 'B01', ncfB01SequenceNext: 500 });
-    await expect(takeNcf(tx, 'c1', 'B01')).resolves.toBe('B0100000500');
+    await expect(takeNcf(tx, 'c1', 'B01')).resolves.toEqual({ number: 'B0100000500', expiresAt: null });
   });
+});
+
+describe('vencimiento de secuencias (Norma 06-2018)', () => {
+  it('una secuencia B01 vencida no emite; B02 no vence', async () => {
+    const vencida = [{ code: 'B01', prefix: 'B01', start: 1, end: 99, next: 1, active: true, expiresAt: '2020-12-31' }];
+    await expect(takeNcf(ncfTx(vencida, { ncfB01Prefix: 'B01' }), 'c1', 'B01')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('venció el 31-12-2020') });
+    const consumo = [{ code: 'B02', prefix: 'B02', start: 1, end: 99, next: 1, active: true, expiresAt: '2020-12-31' }];
+    await expect(takeNcf(ncfTx(consumo, { ncfB02Prefix: 'B02' }), 'c1', 'B02')).resolves.toEqual({ number: 'B0200000001', expiresAt: null });
+  });
+
+  it('devuelve el vencimiento para imprimirlo en la factura', async () => {
+    const vigente = [{ code: 'B01', prefix: 'B01', start: 1, end: 99, next: 4, active: true, expiresAt: '2999-12-31' }];
+    await expect(takeNcf(ncfTx(vigente, { ncfB01Prefix: 'B01', ncfB01SequenceNext: 4 }), 'c1', 'B01')).resolves.toEqual({ number: 'B0100000004', expiresAt: '2999-12-31' });
+  });
+});
+
+describe('noteVoucher: comprobante de la nota según la factura', () => {
+  const company = (ecfEnabled, sequences = []) => ({ ecfEnabled, settings: { ncfSequences: sequences } });
+  it('factura electrónica: nota electrónica', () => expect(noteVoucher({ ncfType: 'E31' }, company(true), 'B04')).toBe('ecf'));
+  it('factura en papel: B04, o e-CF si ya emite electrónicos y no tiene B04', () => {
+    expect(noteVoucher({ ncfType: 'B01' }, company(false), 'B04')).toBe('paper');
+    expect(noteVoucher({ ncfType: 'B01' }, company(true, [{ code: 'B04', active: true }]), 'B04')).toBe('paper');
+    expect(noteVoucher({ ncfType: 'B02' }, company(true), 'B04')).toBe('ecf');
+  });
+  it('venta sin comprobante fiscal: sin NCF', () => expect(noteVoucher({ ncfType: 'NoFiscal' }, company(true), 'B04')).toBe(null));
 });

@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { generatePDF } from '../utils/pdfGenerator.js';
 import { generateThermalReceiptHTML } from '../utils/escposGenerator.js';
+import { withEcfPrintData } from '../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../utils/printer.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import notificationService from '../utils/notificationService.js';
@@ -464,7 +465,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
     const handleDocumentPrint = async (orderData, type, customerDetails) => {
         const printMode = companyProfile?.cash?.printing?.mode;
         if (printMode === 'escpos') {
-            const htmlString = generateThermalReceiptHTML(orderData, type, companyProfile, customerDetails, null);
+            const htmlString = generateThermalReceiptHTML(await withEcfPrintData(orderData), type, companyProfile, customerDetails, null);
             const printerName = companyProfile?.cash?.printing?.printerName || '';
             const success = await printEscPosReceipt(htmlString, printerName);
             if (!success) toast.error('Impresión de ticket fallida.');

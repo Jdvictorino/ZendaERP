@@ -1,7 +1,7 @@
 {
   "name": "zenda-erp",
   "private": true,
-  "version": "1.1.9",
+  "version": "1.1.10",
   "type": "commonjs",
   "description": "El Mejor Amigo de Tus Finanzas.",
   "author": {
@@ -28,6 +28,7 @@
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.471.2",
     "opencode-ai": "^1.2.6",
+    "qr.js": "^0.0.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",

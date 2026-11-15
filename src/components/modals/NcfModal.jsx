@@ -17,8 +17,13 @@ const ncfTypes = [
     { code: 'B13', name: 'Gasto Menor (B13)', group: 'ncf' },
     { code: 'B14', name: 'Régimen Especial (B14)', group: 'ncf' },
     { code: 'B15', name: 'Gubernamental (B15)', group: 'ncf' },
-    { code: 'B16', name: 'Exportación (B16)', group: 'ncf' }
+    { code: 'B16', name: 'Exportación (B16)', group: 'ncf' },
+    { code: 'B17', name: 'Pagos al Exterior (B17)', group: 'ncf' }
 ];
+
+// Consumo (B02) y notas de crédito (B04) no vencen; las demás, el 31 de diciembre del año siguiente a su autorización
+const SIN_VENCIMIENTO = ['B02', 'B04'];
+const todayRD = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santo_Domingo' }).format(new Date());
 
 const NcfModal = ({ companyProfile, onClose, onSave, isMasterUser }) => {
     const [sequences, setSequences] = useState([]);
@@ -76,22 +81,30 @@ const NcfModal = ({ companyProfile, onClose, onSave, isMasterUser }) => {
                                 <th className="p-2 text-left">Desde</th>
                                 <th className="p-2 text-left">Hasta</th>
                                 <th className="p-2 text-left">Próximo</th>
+                                <th className="p-2 text-left">Vence</th>
                                 <th className="p-2 text-center">Activa</th>
                             </tr>
                         </thead>
                         <tbody>
                             {sequences.map((seq, index) => {
                                 const isOutOfSequence = seq.next > seq.end;
+                                const isExpired = !SIN_VENCIMIENTO.includes(seq.code) && seq.expiresAt && todayRD() > seq.expiresAt;
                                 return (
-                                    <tr key={seq.code} className={`border-b ${isOutOfSequence && seq.active ? 'bg-red-50' : ''}`}>
+                                    <tr key={seq.code} className={`border-b ${(isOutOfSequence || isExpired) && seq.active ? 'bg-red-50' : ''}`}>
                                         <td className="p-2">
                                             <p className="font-semibold">{seq.name}</p>
                                             {isOutOfSequence && seq.active && <p className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle size={12}/> Secuencia agotada</p>}
+                                            {isExpired && seq.active && <p className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle size={12}/> Secuencia vencida</p>}
                                         </td>
                                         <td className="p-2"><input type="text" value={seq.prefix} onChange={(e) => handleChange(index, 'prefix', e.target.value)} className="input-base w-24" readOnly={!isMasterUser} /></td>
                                         <td className="p-2"><input type="number" value={seq.start} onChange={(e) => handleChange(index, 'start', e.target.value)} className="input-base w-28" readOnly={!isMasterUser} /></td>
                                         <td className="p-2"><input type="number" value={seq.end} onChange={(e) => handleChange(index, 'end', e.target.value)} className="input-base w-28" readOnly={!isMasterUser} /></td>
                                         <td className="p-2"><input type="number" value={seq.next} onChange={(e) => handleChange(index, 'next', e.target.value)} className="input-base w-28" readOnly={!isMasterUser} /></td>
+                                        <td className="p-2">
+                                            {SIN_VENCIMIENTO.includes(seq.code)
+                                                ? <span className="text-xs text-ink-muted">No vence</span>
+                                                : <input type="date" value={seq.expiresAt || ''} onChange={(e) => handleChange(index, 'expiresAt', e.target.value)} className="input-base w-40" readOnly={!isMasterUser} aria-label={`Vencimiento de ${seq.name}`} />}
+                                        </td>
                                         <td className="p-2 text-center">
                                             <input type="checkbox" checked={seq.active} onChange={(e) => handleChange(index, 'active', e.target.checked)} className="h-5 w-5" disabled={!isMasterUser} />
                                         </td>
@@ -101,6 +114,9 @@ const NcfModal = ({ companyProfile, onClose, onSave, isMasterUser }) => {
                         </tbody>
                     </table>
                 </div>
+                <p className="mt-3 text-xs text-ink-muted">
+                    La DGII vence las secuencias el 31 de diciembre del año siguiente al de su autorización (Norma General 06-2018). Consumo (B02) y notas de crédito (B04) no vencen.
+                </p>
 
                 <div className="flex justify-end gap-2 mt-6 border-t pt-4">
                     <Button type="button" variant="secondary" onClick={onClose}>Cerrar</Button>

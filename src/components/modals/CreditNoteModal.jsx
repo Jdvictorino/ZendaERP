@@ -63,6 +63,10 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
             reason: `${noteType}: ${reason}`,
             items: isFull ? [] : Object.entries(returnQty).filter(([, q]) => q > 0).map(([itemId, quantity]) => ({ itemId, quantity }))
         }).then((creditNote) => {
+            // Nota de una factura electrónica: su e-CF (E34/E33) puede quedar pendiente de llegar a la DGII
+            if (creditNote.ecfResult && !creditNote.ecfResult.success) {
+                toast.error(`La nota quedó registrada con ${creditNote.ncfNumber}, pero la DGII aún no recibió su e-CF: ${creditNote.ecfResult.error || creditNote.ecfResult.ecfDocument?.dgiiMessage || 'sin respuesta'}. Reinténtalo desde Facturación Electrónica.`, { duration: 10000 });
+            }
             const customerDetails = (customers || []).find(c => c.id === invoice.customerId);
             const creditNoteData = {
                 ...creditNote,
