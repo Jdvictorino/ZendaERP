@@ -308,8 +308,11 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
         const subtotal = montoGravado + montoExento;
         const itbis = cart.reduce((sum, item) => sum + (item.itbisAmount * item.quantity), 0);
         const discountAmount = discountType === 'percentage' ? subtotal * (discount / 100) : Math.min(subtotal, discount);
-        const total = subtotal - discountAmount + itbis;
-        return { montoGravado, montoExento, subtotal, itbis, discountAmount, total };
+        // El descuento se aplica igual que en el servidor: como porcentaje de cada línea, así también baja el ITBIS
+        const discountPct = subtotal > 0 ? Math.min(100, (discountAmount / subtotal) * 100) : 0;
+        const itbisNet = itbis * (1 - discountPct / 100);
+        const total = subtotal - discountAmount + itbisNet;
+        return { montoGravado, montoExento, subtotal, itbis: itbisNet, discountAmount, discountPct, total };
     }, [cart, discount, discountType]);
 
     const orderTotal = Math.max(0, taxSummary.total);
@@ -415,8 +418,8 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 productName: item.name,
                 quantity: parseInt(item.quantity, 10),
                 unitPrice: parseFloat(item.price) || 0,
-                discountPercent: 0,
-                taxRate: parseFloat(item.taxRate) || (item.isTaxable ? 18 : 0),
+                discountPercent: taxSummary.discountPct,
+                taxRate: item.isTaxable === false ? 0 : (Number.isFinite(parseFloat(item.taxRate)) ? parseFloat(item.taxRate) : 18),
                 customizationNotes: item.customizationNotes || '',
                 customImageUrls: Array.isArray(item.customImageUrls) ? item.customImageUrls : [],
                 variantInfo: item.variantInfo || null,
