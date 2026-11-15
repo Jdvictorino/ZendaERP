@@ -700,6 +700,14 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     if (option.requiresBuyer && !buyerDoc) { toast.error(`${option.label} requiere un cliente con RNC o cédula.`); focusCustomer(); return; }
     if (!selectedCustomer) { toast.error('Selecciona el cliente de la venta.'); focusCustomer(); return; }
 
+    // No se vende más de lo que hay: se suman las líneas del mismo producto (el servidor también lo valida)
+    const qtyByProduct = {};
+    rows.forEach(r => { if (r.originalId) qtyByProduct[r.originalId] = (qtyByProduct[r.originalId] || 0) + (parseInt(r.qty, 10) || 0); });
+    const short = Object.entries(qtyByProduct)
+      .map(([id, qty]) => ({ product: catalog.find(p => p.id === id), qty }))
+      .find(({ product, qty }) => product && (Number(product.stock) || 0) < qty);
+    if (short) { toast.error(`Stock insuficiente para "${short.product.name}". Disponible: ${Number(short.product.stock) || 0}, pedido: ${short.qty}.`); return; }
+
     setIsSubmitting(true);
     const itemsData = rows.map(r => ({
       productId: r.originalId || undefined,

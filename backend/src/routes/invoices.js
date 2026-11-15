@@ -218,10 +218,19 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
       // Actualizar stock de productos
       for (const item of data.items) {
         if (item.productId) {
-          await tx.product.update({
-            where: { id: item.productId },
+          // Solo descuenta si alcanza: nunca deja el stock en negativo (también con dos ventas a la vez)
+          const { count } = await tx.product.updateMany({
+            where: { id: item.productId, companyId: req.companyId, stock: { gte: item.quantity } },
             data: { stock: { decrement: item.quantity } }
           });
+          if (count === 0) {
+            const product = await tx.product.findFirst({ where: { id: item.productId, companyId: req.companyId }, select: { name: true, stock: true } });
+            const err = new Error(product
+              ? `Stock insuficiente para "${product.name}". Disponible: ${product.stock}, pedido: ${item.quantity}.`
+              : 'Uno de los productos del pedido no existe.');
+            err.status = 409;
+            throw err;
+          }
 
           await tx.inventoryLog.create({
             data: {
