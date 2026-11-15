@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import { shifts } from '../../api/client.js';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
@@ -8,12 +7,13 @@ import { printHTML, printEscPosReceipt } from '../../utils/printer.js';
 import SupervisorAuthModal from './SupervisorAuthModal.jsx';
 import { logAction } from '../../utils/audit.js';
 import { isVoidInvoice } from '../../utils/invoiceStatus.js';
-
-const DEFAULT_DENOMS = [1000, 500, 200, 100, 50, 25, 10, 5, 1];
+import Alert from '../ui/Alert.jsx';
+import ShiftDialog, { CashCount, countTotal, emptyCount } from './ShiftDialog.jsx';
 
 export default function CloseShiftModal({ onClose, currentUserProfile, companyProfile, invoices, openShift, movements = [], registerId, supervisors = [] }) {
-  const currency = companyProfile?.currency || 'USD';
-  const [denoms, setDenoms] = useState(() => Object.fromEntries(DEFAULT_DENOMS.map(v => [v, 0])));
+  const currency = companyProfile?.currency || 'DOP';
+  const [denoms, setDenoms] = useState(emptyCount);
+  const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
   const tolerance = Number(companyProfile?.cash?.tolerance || 0);
   const [authorizedBy, setAuthorizedBy] = useState('');
@@ -21,7 +21,7 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
   const [cardCounted, setCardCounted] = useState('');
   const [transferCounted, setTransferCounted] = useState('');
 
-  const counted = useMemo(() => Object.entries(denoms).reduce((s, [k, q]) => s + (Number(k) * (parseInt(q || 0, 10))), 0), [denoms]);
+  const counted = countTotal(denoms);
 
   // Convertir timestamps de openedAt desde formato ISO o seconds
   const getTimestamp = (ts) => {
@@ -36,8 +36,8 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
     return Date.now();
   };
 
-  const { totals, efectivoEsperado, ingresos, egresos } = useMemo(() => {
-    if (!openShift) return { totals: { efectivo: 0, tarjeta: 0, chequeTransferencia: 0, credito: 0 }, efectivoEsperado: 0, ingresos: 0, egresos: 0 };
+  const { totals, efectivoEsperado, ingresos, egresos, opening } = useMemo(() => {
+    if (!openShift) return { totals: { efectivo: 0, tarjeta: 0, chequeTransferencia: 0, credito: 0 }, efectivoEsperado: 0, ingresos: 0, egresos: 0, opening: 0 };
     const start = getTimestamp(openShift.openedAt);
     const rows = (invoices || []).filter(inv => {
       const isActuallyBilled = inv.isBilled || inv.status === 'Pagado' || inv.status === 'Facturado';
@@ -53,8 +53,10 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
       chequeTransferencia += sum(pagos, 'chequeTransferencia');
       credito += sum(pagos, 'credito');
     });
-    const ingresos = (movements || []).filter(m => m.shiftId === openShift.id && m.type === 'ingreso').reduce((s, m) => s + (m.amount || 0), 0);
-    const egresos = (movements || []).filter(m => m.shiftId === openShift.id && m.type === 'retiro').reduce((s, m) => s + (m.amount || 0), 0);
+    // El backend guarda 'entrada'/'salida' y el monto como decimal en texto
+    const movTotal = (types) => (movements || []).filter(m => m.shiftId === openShift.id && types.includes(m.type)).reduce((s, m) => s + (Number(m.amount) || 0), 0);
+    const ingresos = movTotal(['entrada', 'ingreso']);
+    const egresos = movTotal(['salida', 'retiro']);
     const opening = Number(openShift.openingAmount || 0);
     const efectivoEsperado = opening + efectivo + ingresos - egresos;
     return { totals: { efectivo, tarjeta, chequeTransferencia, credito }, efectivoEsperado, ingresos, egresos, opening };
@@ -86,6 +88,8 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
       <div class="row"><span>Ventas Tarjeta</span><span>${formatCurrency(totals.tarjeta, currency)}</span></div>
       <div class="row"><span>Transfer/Cheque</span><span>${formatCurrency(totals.chequeTransferencia, currency)}</span></div>
       <div class="row"><span>Crédito</span><span>${formatCurrency(totals.credito, currency)}</span></div>
+      <div class="row"><span>Ingresos de caja</span><span>${formatCurrency(ingresos, currency)}</span></div>
+      <div class="row"><span>Retiros de caja</span><span>${formatCurrency(egresos, currency)}</span></div>
       <hr/>
       <div class="row tot"><span>Efectivo Esperado</span><span>${formatCurrency(efectivoEsperado, currency)}</span></div>
       <div class="row tot"><span>Efectivo Contado</span><span>${formatCurrency(counted, currency)}</span></div>
@@ -112,6 +116,7 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
       }
     }
 
+    setSaving(true);
     try {
       const notesWithAuth = authorizedBy 
         ? `${notes || ''}\nAutorizado por: ${authorizedBy}`.trim() 
@@ -159,6 +164,8 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
           blocks.push({ type: 'text', text: `Tarjeta: ${formatCurrency(totals.tarjeta, currency)}` });
           blocks.push({ type: 'text', text: `Transf/Cheque: ${formatCurrency(totals.chequeTransferencia, currency)}` });
           blocks.push({ type: 'text', text: `Crédito: ${formatCurrency(totals.credito, currency)}` });
+          blocks.push({ type: 'text', text: `Ingresos caja: ${formatCurrency(ingresos, currency)}` });
+          blocks.push({ type: 'text', text: `Retiros caja: ${formatCurrency(egresos, currency)}` });
           blocks.push({ type: 'hr' });
           blocks.push({ type: 'text', text: `Esperado: ${formatCurrency(efectivoEsperado, currency)}`, style: 'B' });
           blocks.push({ type: 'text', text: `Contado: ${formatCurrency(counted, currency)}`, style: 'B' });
@@ -184,78 +191,85 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
       onClose(true);
     } catch (error) {
       console.error('Error cerrando turno:', error);
+      setSaving(false);
     }
   };
 
+  const caja = registerId || openShift.registerId;
+  const outOfTolerance = tolerance > 0 && Math.abs(diferencia) > tolerance;
+  const line = (label, value, cls = '') => (
+    <div className={`flex items-center justify-between py-1.5 ${cls}`}>
+      <dt>{label}</dt><dd className="tabular-nums">{value}</dd>
+    </div>
+  );
+
   return (
-    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[70] p-4">
-      <div className="modal-panel p-6 w-full max-w-lg">
-        <div className="flex justify-between items-start gap-4 mb-2">
-          <h3 className="text-lg font-semibold text-ink">Cierre de Turno</h3>
-          <button onClick={() => onClose(false)} aria-label="Cerrar" className="modal-close"><X size={18} /></button>
-        </div>
-        <p className="text-sm text-ink-soft mb-4">Cuenta por denominación y confirma el cierre.</p>
-        {(registerId || openShift.registerId) && (
-          <div className="mb-2 text-sm text-ink-soft"><span className="font-medium">Caja:</span> {registerId || openShift.registerId}</div>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          {DEFAULT_DENOMS.map(v => (
-            <div key={v} className="flex items-center justify-between gap-2 border rounded p-2">
-              <div className="text-ink-soft font-medium">{formatCurrency(v, currency)}</div>
-              <input type="number" min="0" className="input-base w-24" value={denoms[v]} onChange={e => setDenoms(prev => ({...prev, [v]: e.target.value}))} />
+    <ShiftDialog
+      title="Cerrar turno"
+      subtitle={`${caja ? `Caja: ${caja}. ` : ''}Cuenta el efectivo y confirma el cuadre.`}
+      width="max-w-3xl"
+      onClose={() => onClose(false)}
+      footer={<>
+        <Button variant="ghost" className="mr-auto" onClick={async () => { try { await printHTML(buildCloseShiftHTML(), { silent: false, printBackground: true }); } catch {} }}>Imprimir resumen</Button>
+        <Button variant="secondary" onClick={() => onClose(false)}>Cancelar</Button>
+        <Button onClick={handleCloseShift} disabled={saving}>{saving ? 'Cerrando...' : 'Cerrar turno'}</Button>
+      </>}
+    >
+      <div className="grid gap-6 md:grid-cols-2">
+        <CashCount denoms={denoms} setDenoms={setDenoms} currency={currency} label="Efectivo contado" />
+
+        <div className="space-y-5">
+          <section>
+            <h4 className="text-sm font-semibold text-ink mb-1">Cuadre de efectivo</h4>
+            <dl className="text-sm text-ink-soft divide-y divide-line">
+              {line('Fondo inicial', formatCurrency(opening, currency))}
+              {line('Ventas en efectivo', formatCurrency(totals.efectivo, currency))}
+              {line('Ingresos de caja', formatCurrency(ingresos, currency))}
+              {line('Retiros de caja', `−${formatCurrency(egresos, currency)}`)}
+              {line('Efectivo esperado', formatCurrency(efectivoEsperado, currency), 'font-semibold text-ink')}
+              {line('Efectivo contado', formatCurrency(counted, currency), 'font-semibold text-ink')}
+              {line(
+                diferencia > 0 ? 'Sobrante' : diferencia < 0 ? 'Faltante' : 'Diferencia',
+                formatCurrency(diferencia, currency),
+                `font-bold ${diferencia === 0 ? 'text-success-700 dark:text-success-400' : 'text-red-600 dark:text-red-400'}`
+              )}
+            </dl>
+          </section>
+
+          <section>
+            <h4 className="text-sm font-semibold text-ink mb-2">Otros medios de pago</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="block text-sm text-ink-soft mb-1">Tarjeta</span>
+                <input type="number" min="0" step="0.01" className="input-base" value={cardCounted} onChange={e => setCardCounted(e.target.value)} />
+                <span className="block text-xs text-ink-muted mt-1">Esperado: {formatCurrency(totals.tarjeta || 0, currency)}</span>
+              </label>
+              <label className="block">
+                <span className="block text-sm text-ink-soft mb-1">Transferencia o cheque</span>
+                <input type="number" min="0" step="0.01" className="input-base" value={transferCounted} onChange={e => setTransferCounted(e.target.value)} />
+                <span className="block text-xs text-ink-muted mt-1">Esperado: {formatCurrency(totals.chequeTransferencia || 0, currency)}</span>
+              </label>
             </div>
-          ))}
-        </div>
-        <div className="mt-4 p-3 bg-surface-muted rounded flex items-center justify-between">
-          <span className="text-ink-soft">Efectivo contado</span>
-          <span className="text-xl font-bold text-brand-600">{formatCurrency(counted, currency)}</span>
-        </div>
-        <div className="mt-2 p-3 bg-surface-muted rounded">
-          <div className="flex justify-between items-center py-2 border-b border-line">
-            <span className="text-ink-soft">Fondo inicial</span>
-            <span className="font-semibold">{formatCurrency(totals.opening, currency)}</span>
-          </div>
-          <div className="flex items-center justify-between py-2 border-b border-line"><span>Efectivo esperado</span><span>{formatCurrency(efectivoEsperado, currency)}</span></div>
-          <div className="flex items-center justify-between py-2 border-b border-line"><span>Ingresos de caja</span><span>{formatCurrency(ingresos, currency)}</span></div>
-          <div className="flex items-center justify-between py-2 border-b border-line"><span>Retiros de caja</span><span>{formatCurrency(egresos, currency)}</span></div>
-          <div className="flex items-center justify-between font-bold pt-2"><span>Diferencia</span><span className={diferencia === 0 ? 'text-success-700' : 'text-red-600'}>{formatCurrency(diferencia, currency)}</span></div>
-        </div>
-        <div className="mt-3 p-3 border rounded bg-surface-muted">
-          <div className="font-medium mb-2">Conciliación No-Efectivo</div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-ink-soft mb-1">Tarjeta contado</label>
-              <input type="number" min="0" step="0.01" className="input-base" value={cardCounted} onChange={e => setCardCounted(e.target.value)} />
-              <div className="text-xs text-ink-muted mt-1">Esperado: {formatCurrency(totals.tarjeta || 0, currency)}</div>
-            </div>
-            <div>
-              <label className="block text-sm text-ink-soft mb-1">Transfer/Cheque contado</label>
-              <input type="number" min="0" step="0.01" className="input-base" value={transferCounted} onChange={e => setTransferCounted(e.target.value)} />
-              <div className="text-xs text-ink-muted mt-1">Esperado: {formatCurrency(totals.chequeTransferencia || 0, currency)}</div>
-            </div>
-          </div>
-        </div>
-        {tolerance > 0 && Math.abs(diferencia) > tolerance && (
-          <div className="mt-3 p-3 border rounded bg-red-50">
-            <p className="text-sm text-red-700">La diferencia excede la tolerancia de {formatCurrency(tolerance, currency)}.</p>
-            {!companyProfile?.cash?.requireSupervisorBeyondTolerance ? (
-              <>
-                <label className="block text-sm text-ink-soft mt-2">Autorizado por</label>
-                <input className="input-base" value={authorizedBy} onChange={e => setAuthorizedBy(e.target.value)} placeholder="Nombre/ID del supervisor" />
-              </>
-            ) : (
-              <div className="text-sm text-ink-soft mt-2">Se solicitará PIN de supervisor al confirmar.</div>
-            )}
-          </div>
-        )}
-        <div className="mt-3">
-          <label className="block text-sm text-ink-soft mb-1">Notas</label>
-          <textarea className="input-base" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
-        </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="secondary" onClick={() => onClose(false)}>Cancelar</Button>
-          <Button variant="secondary" onClick={async () => { try { await printHTML(buildCloseShiftHTML(), { silent: false, printBackground: true }); } catch {} }}>Imprimir Ticket (Sistema)</Button>
-          <Button onClick={handleCloseShift}>Cerrar Turno</Button>
+          </section>
+
+          {outOfTolerance && (
+            <Alert variant="danger">
+              <p>La diferencia pasa la tolerancia de {formatCurrency(tolerance, currency)}.</p>
+              {companyProfile?.cash?.requireSupervisorBeyondTolerance ? (
+                <p className="mt-1">Al cerrar se pedirá el PIN de un supervisor.</p>
+              ) : (
+                <label className="block mt-2">
+                  <span className="block mb-1">Autorizado por</span>
+                  <input className="input-base" value={authorizedBy} onChange={e => setAuthorizedBy(e.target.value)} placeholder="Nombre o ID del supervisor" />
+                </label>
+              )}
+            </Alert>
+          )}
+
+          <label className="block">
+            <span className="block text-sm text-ink-soft mb-1">Notas</span>
+            <textarea className="input-base" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
+          </label>
         </div>
       </div>
       {showAuth && (
@@ -276,6 +290,6 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
           }}
         />
       )}
-    </div>
+    </ShiftDialog>
   );
 }

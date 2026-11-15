@@ -4,6 +4,7 @@ import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import toast from 'react-hot-toast';
 import { printInSandbox } from '../../utils/printer.js';
+import ShiftDialog from './ShiftDialog.jsx';
 
 const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) => {
     const [closings, setClosings] = useState([]);
@@ -144,20 +145,13 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
     };
 
     return (
-        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[60] p-4">
-            <div className="modal-panel w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-                <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-6 border-b border-line">
-                    <h3 className="text-lg font-semibold text-ink">Reportes de Cierres de Caja</h3>
-                    <div className="flex items-center gap-2">
-                        <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-                    </div>
-                </div>
-                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ShiftDialog title="Reportes de caja" subtitle="Cierres guardados: revisa, firma e imprime." width="max-w-5xl" onClose={onClose}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-1">
                         <div className="mb-3 space-y-2">
                             <div className="grid grid-cols-2 gap-2">
-                                <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-base" />
-                                <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-base" />
+                                <input type="date" aria-label="Desde" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-base" />
+                                <input type="date" aria-label="Hasta" value={toDate} onChange={e => setToDate(e.target.value)} className="input-base" />
                             </div>
                         </div>
                         {loading ? (
@@ -180,7 +174,7 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
                                     const totals = c.totals || {};
                                     const ventas = (totals.totalEfectivo || 0) + (totals.totalTarjeta || 0);
                                     return (
-                                        <li key={c.id} className={`p-2 border rounded cursor-pointer ${selected?.id === c.id ? 'bg-brand-50 border-brand-200' : ''}`} onClick={() => handleSelect(c)}>
+                                        <li key={c.id} className={`p-2 border rounded-lg cursor-pointer ${selected?.id === c.id ? 'bg-brand-50 border-brand-200 dark:bg-brand-900/20 dark:border-brand-800' : 'border-line hover:bg-surface-muted'}`} onClick={() => handleSelect(c)}>
                                             <div className="text-sm font-medium">{c.id}</div>
                                             <div className="text-xs text-ink-muted">{when ? when.toLocaleString() : ''}</div>
                                             <div className="text-sm">Ventas: {formatCurrency(c.totalVentas ?? ventas ?? 0, companyProfile?.currency || 'DOP')}</div>
@@ -235,15 +229,14 @@ const CierreCajaReportModal = ({ onClose, currentUserProfile, companyProfile }) 
 
                                 <div className="mt-4 border-t pt-4 flex items-center gap-2">
                                     <input type="text" value={managerName} onChange={(e) => setManagerName(e.target.value)} className="input-base flex-1" placeholder="Nombre del gerente para firmar" />
-                                    <Button onClick={handleSign} disabled={isSigning} className="bg-success-600 hover:bg-success-700 focus:ring-success-600">{isSigning ? 'Firmando...' : 'Firmar como Gerente'}</Button>
-                                    <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 focus:ring-blue-600">Imprimir</Button>
+                                    <Button onClick={handleSign} disabled={isSigning}>{isSigning ? 'Firmando...' : 'Firmar como gerente'}</Button>
+                                    <Button variant="secondary" onClick={handlePrint}>Imprimir</Button>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+        </ShiftDialog>
     );
 };
 
