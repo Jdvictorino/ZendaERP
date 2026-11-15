@@ -1,11 +1,5 @@
 /**
- * ExpensesView - Versión migrada a PostgreSQL API
- */
-
-
-
-/**
- * ExpensesView - Versión migrada a PostgreSQL API
+ * ExpensesView - Compras y gastos (606). El formulario se abre como página, igual que Proveedores y Clientes.
  */
 import React, { useState, useMemo } from 'react';
 import { Trash2, PlusCircle, Loader2, AlertTriangle, CreditCard, Calendar, Hash, DollarSign, ArrowDownRight, Edit3 } from 'lucide-react';
@@ -13,7 +7,7 @@ import toast from 'react-hot-toast';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import ConfirmationModal from '../components/modals/ConfirmationModal.jsx';
-import ExpenseModal from '../components/modals/ExpenseModal.jsx';
+import ExpenseForm from '../components/forms/ExpenseForm.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
@@ -32,32 +26,26 @@ const ExpensesViewSQL = ({ companyProfile }) => {
     const [confirmDelete, setConfirmDelete] = useState(null);
     const currency = companyProfile?.currency || 'USD';
 
+    // El formulario ya envía montos y fechas listos; el servidor calcula el total facturado
     const handleSave = async (expenseData) => {
         try {
-            const dataToSave = {
-                ...expenseData,
-                invoiceDate: new Date(expenseData.invoiceDate).toISOString(),
-                paymentDate: new Date(expenseData.paymentDate).toISOString(),
-                montoFacturado: parseFloat(expenseData.montoFacturado),
-                itbisFacturado: parseFloat(expenseData.itbisFacturado),
-            };
-            
-            if (editingExpense && editingExpense.id) {
-                await update(editingExpense.id, dataToSave);
-            } else {
-                await create(dataToSave);
-            }
-            
+            const saved = editingExpense?.id
+                ? await update(editingExpense.id, expenseData)
+                : await create(expenseData);
+
             playSuccessSound();
-            toast.success('¡Gasto guardado!');
+            toast.success(expenseData.issueVoucher && saved?.ncf ? `Gasto guardado con el comprobante ${saved.ncf}.` : '¡Gasto guardado!');
+            // Comprobante electrónico que la DGII aún no recibió: queda para reintentar
+            if (saved?.ecfResult && !saved.ecfResult.success) {
+                toast.error(`La DGII aún no recibió el ${saved.ncf}: ${saved.ecfResult.error || saved.ecfResult.ecfDocument?.dgiiMessage || 'sin respuesta'}. Reinténtalo desde Facturación Electrónica.`, { duration: 10000 });
+            }
             setEditingExpense(null);
         } catch (err) {
             playErrorSound();
-            toast.error('No se pudo guardar el gasto.');
-            console.error(err);
+            toast.error(err?.message || 'No se pudo guardar el gasto.');
         }
     };
-    
+
     const handleDelete = async () => {
         if (!confirmDelete) return;
         try {
@@ -67,7 +55,8 @@ const ExpensesViewSQL = ({ companyProfile }) => {
             setConfirmDelete(null);
         } catch (err) {
             playErrorSound();
-            toast.error('No se pudo eliminar el gasto.');
+            toast.error(err?.message || 'No se pudo eliminar el gasto.');
+            setConfirmDelete(null);
         }
     };
 
@@ -111,6 +100,20 @@ const ExpensesViewSQL = ({ companyProfile }) => {
             averageExpense
         };
     }, [safeExpenses]);
+
+    if (editingExpense) {
+        return (
+            <div className="space-y-6">
+                <ExpenseForm
+                    expense={editingExpense}
+                    suppliers={suppliers || []}
+                    currency={currency}
+                    onClose={() => setEditingExpense(null)}
+                    onSave={handleSave}
+                />
+            </div>
+        );
+    }
 
     // Estados de carga y error
     if (loading) {
@@ -200,7 +203,10 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                                                 </TableCell>
                                                 <TableCell className="font-mono text-sm dark:text-gray-400 font-semibold">{e.rncCedula}</TableCell>
                                                 <TableCell className="font-medium text-ink dark:text-gray-100">{e.supplierName}</TableCell>
-                                                <TableCell className="font-mono text-sm dark:text-gray-400 font-semibold">{e.ncf || '—'}</TableCell>
+                                                <TableCell className="font-mono text-sm dark:text-gray-400 font-semibold">
+                                                    {e.ncf || '—'}
+                                                    {e.issuedVoucher && <span className="ml-2 rounded bg-brand-50 px-1.5 py-0.5 font-sans text-xs font-medium text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">Emitido</span>}
+                                                </TableCell>
                                                 <TableCell className="font-bold text-ink dark:text-gray-100">{formatCurrency(e.montoFacturado, currency)}</TableCell>
                                                 <TableCell className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(e.itbisFacturado, currency)}</TableCell>
                                                 <TableCell className="pr-6 text-right">
@@ -248,7 +254,7 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50 dark:border-gray-800">
                                         <span className="text-xs font-mono text-gray-400 dark:text-gray-500">{e.rncCedula}</span>
                                         <div className="flex gap-2">
@@ -270,7 +276,6 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                 </CardBody>
             </Card>
 
-            {editingExpense && <ExpenseModal expense={editingExpense} onClose={() => setEditingExpense(null)} onSave={handleSave} suppliers={suppliers || []} />}
             <ConfirmationModal show={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDelete} title="Eliminar Gasto" message={`¿Estás seguro de que quieres eliminar el gasto con NCF "${confirmDelete?.ncf}"?`} />
         </div>
     );

@@ -17,7 +17,8 @@ const ncfTypes = [
     { code: 'B13', name: 'Gasto Menor (B13)', group: 'ncf' },
     { code: 'B14', name: 'Régimen Especial (B14)', group: 'ncf' },
     { code: 'B15', name: 'Gubernamental (B15)', group: 'ncf' },
-    { code: 'B16', name: 'Exportación (B16)', group: 'ncf' }
+    { code: 'B16', name: 'Exportación (B16)', group: 'ncf' },
+    { code: 'B17', name: 'Pagos al Exterior (B17)', group: 'ncf' }
 ];
 
 // Consumo (B02) y notas de crédito (B04) no vencen; las demás, el 31 de diciembre del año siguiente a su autorización

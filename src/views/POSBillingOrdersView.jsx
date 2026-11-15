@@ -22,6 +22,7 @@ import AdminPinAuthModal from '../components/modals/AdminPinAuthModal.jsx';
 import { useScanner } from '../context/ScannerContext.jsx';
 import { generatePDF } from '../utils/pdfGenerator.js';
 import { generateThermalReceiptHTML } from '../utils/escposGenerator.js';
+import { withEcfPrintData } from '../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../utils/printer.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { confirmDialog } from '../utils/confirmDialog.jsx';
@@ -780,7 +781,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const handleDocumentPrint = async (orderData, type, customerDetails) => {
       const printMode = companyProfile?.cash?.printing?.mode;
       if (printMode === 'escpos') {
-          const htmlString = generateThermalReceiptHTML(orderData, type, companyProfile, customerDetails, null);
+          const htmlString = generateThermalReceiptHTML(await withEcfPrintData(orderData), type, companyProfile, customerDetails, null);
           const printerName = companyProfile?.cash?.printing?.printerName || '';
           const success = await printEscPosReceipt(htmlString, printerName);
           if (!success) toast.error('Impresión de ticket fallida.');

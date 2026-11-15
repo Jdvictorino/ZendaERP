@@ -3,15 +3,20 @@ import { z } from 'zod';
 import prisma from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
-import { emitEcf, emitNoteEcf, generateENCF, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
+import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
+import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
+
+export { takeNcf };
 
 const router = Router();
 router.use(authenticate);
 
+// El e-CF de la factura que recibió la DGII: su id basta para pedir el QR al imprimir (GET /ecf/documents/:id)
+const LAST_RECEIVED_ECF = { where: { dgiiStatus: { in: ECF_RECEIVED } }, orderBy: { createdAt: 'desc' }, take: 1, select: { id: true } };
+
 // Anular/cancelar y modificar facturas ya emitidas queda para gerencia; cajeros y supervisores solo venden y cobran.
 const VOID_STATUSES = ['Anulado', 'Cancelado'];
 const canManageInvoices = (user) => !!user?.isAdmin || ['admin', 'manager'].includes(user?.role);
-const httpError = (status, message) => Object.assign(new Error(message), { status });
 
 // Descuenta la existencia del producto, o de la variante si la línea es de una variante. Nunca la deja en negativo
 // (la condición stock >= cantidad va en el mismo UPDATE, así vale también con dos ventas a la vez).
@@ -28,36 +33,6 @@ export async function takeStock(tx, companyId, { productId, variantId, quantity 
   throw httpError(409, `Stock insuficiente para "${name}". Disponible: ${found.stock}, pedido: ${quantity}.`);
 }
 
-// Las secuencias autorizadas vencen el 31 de diciembre del año siguiente a su autorización (Norma General 06-2018),
-// salvo consumo (B02) y notas de crédito (B04), que no vencen.
-const NCF_SIN_VENCIMIENTO = ['B02', 'B04'];
-const todayRD = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santo_Domingo' }).format(new Date()); // AAAA-MM-DD
-
-// Siguiente NCF del tipo `code` (B01, B02, B03, B04) dentro del rango de Configuración > Secuencias NCF.
-// B01/B02 cuentan en sus columnas; los demás en settings.ncfSequences. El bloqueo por empresa evita números repetidos.
-// Devuelve { number, expiresAt } (expiresAt: AAAA-MM-DD o null).
-export async function takeNcf(tx, companyId, code) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`ncf:${companyId}`}))::text`;
-  const company = await tx.company.findUnique({ where: { id: companyId } });
-  const sequences = Array.isArray(company.settings?.ncfSequences) ? company.settings.ncfSequences : [];
-  const index = sequences.findIndex((s) => s.code === code);
-  const seq = sequences[index];
-  const column = ['B01', 'B02'].includes(code) ? `ncf${code}SequenceNext` : null;
-  const next = Number(column ? company[column] : seq?.next) || 1;
-  const prefix = (column && company[`ncf${code}Prefix`]) || seq?.prefix;
-  if (!prefix) throw httpError(400, `Falta configurar la secuencia de NCF ${code} en Configuración > Secuencias NCF.`);
-  if (seq && !seq.active) throw httpError(400, `La secuencia de NCF ${code} está inactiva. Actívala en Configuración > Secuencias NCF.`);
-  if (seq && next > Number(seq.end)) throw httpError(409, `Se agotó la secuencia autorizada de NCF ${code} (hasta ${seq.end}). Registra la nueva en Configuración > Secuencias NCF.`);
-  const expiresAt = !NCF_SIN_VENCIMIENTO.includes(code) && seq?.expiresAt ? seq.expiresAt : null;
-  if (expiresAt && todayRD() > expiresAt) {
-    throw httpError(409, `La secuencia de NCF ${code} venció el ${expiresAt.split('-').reverse().join('-')}. Solicita una nueva en la Oficina Virtual de la DGII y regístrala en Configuración > Secuencias NCF.`);
-  }
-  if (column) await tx.company.update({ where: { id: companyId }, data: { [column]: next + 1 } });
-  // shortcut: B03/B04 viven en settings JSON; un guardado de Configuración en el mismo instante podría pisar el contador. Pasarlos a columnas si llega a ocurrir.
-  else await tx.$executeRaw`UPDATE companies SET settings = jsonb_set(settings, ${['ncfSequences', String(index), 'next']}::text[], to_jsonb(${next + 1}::int)) WHERE id = ${companyId}`;
-  return { number: `${prefix}${String(next).padStart(8, '0')}`, expiresAt };
-}
-
 // Comprobante de una nota: el mismo tipo de la factura que modifica. Una factura electrónica se modifica con e-CF
 // (E34/E33); una en papel (B01/B02) con B04/B03, o con e-CF si la empresa ya emite electrónicos y no tiene esa
 // secuencia en papel (el Formato e-CF permite que un e-CF modifique un NCF en papel). Sin comprobante fiscal: null.
@@ -65,19 +40,7 @@ export function noteVoucher(invoice, company, paperCode) {
   const type = invoice.ncfType || '';
   if (type.startsWith('E')) return 'ecf';
   if (!['B01', 'B02'].includes(type)) return null;
-  const sequences = Array.isArray(company.settings?.ncfSequences) ? company.settings.ncfSequences : [];
-  const paper = sequences.some((s) => s.code === paperCode && s.active);
-  return company.ecfEnabled && !paper ? 'ecf' : 'paper';
-}
-
-// Reserva el e-NCF de una nota antes de registrarla: si no hay secuencia válida, la nota no se crea
-async function reserveNoteEncf(company, tipoEcf) {
-  if (!company.ecfEnabled) throw httpError(400, 'La factura es electrónica y su nota también debe serlo: activa la facturación electrónica en Gestión Fiscal.');
-  try {
-    return await generateENCF(company.id, tipoEcf);
-  } catch (error) {
-    throw httpError(400, error.message);
-  }
+  return issueChannel(company, paperCode);
 }
 
 // Devuelve a inventario las líneas de una factura (anulación, nota de crédito total, pedido eliminado)
@@ -144,6 +107,7 @@ router.get('/', async (req, res, next) => {
               product: { select: { id: true, name: true, code: true, sku: true } }
             }
           },
+          ecfDocuments: LAST_RECEIVED_ECF,
           _count: { select: { items: true } }
         },
         orderBy: { date: 'desc' },
@@ -190,6 +154,7 @@ router.get('/:id', async (req, res, next) => {
         },
         creditNotes: true,
         debitNotes: true,
+        ecfDocuments: LAST_RECEIVED_ECF,
         shipment: true
       }
     });
@@ -618,7 +583,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
 
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });
     const voucher = noteVoucher(invoice, company, 'B04');
-    const reserved = voucher === 'ecf' ? await reserveNoteEncf(company, 'E34') : null;
+    const reserved = voucher === 'ecf' ? await reserveEncf(company, 'E34') : null;
 
     const creditNote = await prisma.$transaction(async (tx) => {
       const ncfNumber = voucher === 'paper' ? (await takeNcf(tx, req.companyId, 'B04')).number : reserved?.eNcf ?? null;
@@ -664,7 +629,7 @@ router.post('/:id/debit-note', authorize('admin', 'manager'), async (req, res, n
     const tax = value * taxShare;
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });
     const voucher = noteVoucher(invoice, company, 'B03');
-    const reserved = voucher === 'ecf' ? await reserveNoteEncf(company, 'E33') : null;
+    const reserved = voucher === 'ecf' ? await reserveEncf(company, 'E33') : null;
 
     const debitNote = await prisma.$transaction(async (tx) => {
       const ncfNumber = voucher === 'paper' ? (await takeNcf(tx, req.companyId, 'B03')).number : reserved?.eNcf ?? null;

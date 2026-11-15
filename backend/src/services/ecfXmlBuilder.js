@@ -194,7 +194,7 @@ function buildItems(invoiceItems) {
       NombreItem: (item.productName || '').substring(0, 80),
       IndicadorBienoServicio: '1', // 1=Bien, 2=Servicio
       CantidadItem: String(quantity),
-      UnidadMedida: '1', // 1=Unidad
+      UnidadMedida: '43', // Tabla IV del Formato e-CF: 43 = Unidad (1 es Barril)
       PrecioUnitarioItem: String(unitPrice.toFixed(2)),
       MontoItem: String(montoItem.toFixed(2)),
     };
@@ -302,6 +302,90 @@ export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, 
     FechaHoraFirma,
   };
 
+  return removeEmptyValues(ecfData);
+}
+
+/**
+ * Construye el e-CF que emite la empresa al comprar (Formato e-CF v1.0):
+ * - E41 Compras: el vendedor (persona sin RNC/comprobante) va en Comprador; retención por línea obligatoria.
+ * - E43 Gastos Menores: sin comprador ni retenciones; todas las líneas exentas.
+ * - E47 Pagos al Exterior: líneas exentas; retención de ISR obligatoria.
+ * Ninguno lleva TipoIngresos. Las líneas son "Bienes" y "Servicios" según los montos del gasto.
+ */
+export function buildEcfFromExpense(expense, company, tipoEcf, eNcf, sequence) {
+  const tipoCode = ECF_TYPE_CODES[tipoEcf];
+  const n = (v) => Number(v || 0);
+  const exento = tipoCode !== 41; // nota 50 del formato: 43 y 47 siempre exentos
+  const bienes = n(expense.montoBienes);
+  const servicios = n(expense.montoServicios);
+  const base = bienes + servicios;
+  const itbis = exento ? 0 : n(expense.itbisFacturado);
+  const gravado = itbis > 0;
+  const itbisRetenido = exento ? 0 : n(expense.itbisRetenido);
+  const isrRetenido = tipoCode === 43 ? 0 : n(expense.montoRetencionIsr);
+  const conRetencion = tipoCode === 41 || tipoCode === 47;
+  const nombre = (expense.description || '').substring(0, 80);
+
+  const lineas = [
+    { tipo: 1, monto: bienes, nombre: nombre || 'Bienes' },
+    { tipo: 2, monto: servicios, nombre: nombre || 'Servicios' },
+  ].filter((l) => l.monto > 0);
+  const items = lineas.map((l, i) => {
+    const item = { NumeroLinea: String(i + 1), IndicadorFacturacion: gravado ? '1' : '4' };
+    if (conRetencion) {
+      item.Retencion = { IndicadorAgenteRetencionoPercepcion: '1' };
+      // El ITBIS retenido se reparte según el peso de cada línea; el ISR retenido va en los servicios
+      if (tipoCode === 41) item.Retencion.MontoITBISRetenido = (base > 0 ? (itbisRetenido * l.monto) / base : 0).toFixed(2);
+      if (l.tipo === 2 || (tipoCode === 47 && servicios === 0)) item.Retencion.MontoISRRetenido = isrRetenido.toFixed(2);
+    }
+    return {
+      ...item,
+      NombreItem: l.nombre,
+      IndicadorBienoServicio: String(l.tipo),
+      CantidadItem: '1',
+      UnidadMedida: '43',
+      PrecioUnitarioItem: l.monto.toFixed(2),
+      MontoItem: l.monto.toFixed(2),
+    };
+  });
+
+  const formaPago = String(expense.paymentType || '01').slice(0, 2);
+  const totales = gravado
+    ? { MontoGravadoTotal: base.toFixed(2), MontoGravadoI1: base.toFixed(2), ITBIS1: '18', TotalITBIS: itbis.toFixed(2), TotalITBIS1: itbis.toFixed(2) }
+    : { MontoExento: base.toFixed(2) };
+  totales.MontoTotal = (base + itbis).toFixed(2);
+  if (tipoCode === 41) totales.TotalITBISRetenido = itbisRetenido.toFixed(2);
+  if (conRetencion) totales.TotalISRRetencion = isrRetenido.toFixed(2);
+
+  const idDoc = {
+    TipoeCF: String(tipoCode),
+    eNCF: eNcf,
+    FechaVencimientoSecuencia: sequence?.fechaVencimiento ? formatDateDGII(sequence.fechaVencimiento, 'UTC') : '',
+    ...(tipoCode === 41 ? { IndicadorMontoGravado: '0' } : {}),
+    TipoPago: formaPago === '04' ? '2' : '1', // 04 en el 606 = compra a crédito
+    ...(formaPago === '04' && expense.paymentDate ? { FechaLimitePago: formatDateDGII(expense.paymentDate) } : {}),
+  };
+
+  const ecfData = {
+    ECF: {
+      Encabezado: {
+        Version: '1.0',
+        IdDoc: idDoc,
+        Emisor: {
+          RNCEmisor: company.rnc || '',
+          RazonSocialEmisor: company.name || '',
+          NombreComercial: company.name || '',
+          DireccionEmisor: company.address || '',
+          FechaEmision: formatDateDGII(expense.invoiceDate || new Date()),
+        },
+        // E41: el vendedor informal (cédula); E43 no corresponde; E47 opcional (se omite)
+        ...(tipoCode === 41 ? { Comprador: { RNCComprador: String(expense.rncCedula || '').replace(/\D/g, ''), RazonSocialComprador: expense.supplierName || '' } } : {}),
+        Totales: totales,
+      },
+      DetallesItems: { Item: items },
+      FechaHoraFirma: formatDateTimeDGII(new Date()),
+    },
+  };
   return removeEmptyValues(ecfData);
 }
 

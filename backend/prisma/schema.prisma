@@ -452,6 +452,20 @@ model Expense {
   paymentType     String?
   expenseType     String?
   description     String?
+
+  // Campos del formato 606 (DGII)
+  ncfModificado     String?
+  montoBienes       Decimal  @default(0) @db.Decimal(12, 2)
+  montoServicios    Decimal  @default(0) @db.Decimal(12, 2)
+  itbisRetenido     Decimal  @default(0) @db.Decimal(12, 2)
+  retencionIsrTipo  String?  // 1 alquileres, 2 honorarios, 3 otras rentas, ... (tabla 606)
+  montoRetencionIsr Decimal  @default(0) @db.Decimal(12, 2)
+  propina           Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Comprobante que emitió la empresa (B11/B13/B17 o E41/E43/E47); null si el NCF es del proveedor
+  issuedVoucher   String?
+  ncfExpiresAt    DateTime? @db.Date
+  ecfDocuments    EcfDocument[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -662,6 +676,9 @@ model EcfDocument {
   creditNote      CreditNote? @relation(fields: [creditNoteId], references: [id])
   debitNoteId     String?
   debitNote       DebitNote?  @relation(fields: [debitNoteId], references: [id])
+  // Comprobante de compras (E41), gastos menores (E43) o pagos al exterior (E47) emitido por un gasto
+  expenseId       String?
+  expense         Expense?    @relation(fields: [expenseId], references: [id])
   
   // Identificación del documento
   tipoEcf         String    // E31, E32, E33, E34, etc.

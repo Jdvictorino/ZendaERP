@@ -3,12 +3,20 @@ import { PrismaClient } from '@prisma/client';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
+const httpError = (status, message) => Object.assign(new Error(message), { status });
 const prisma = new PrismaClient();
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
 
 // GET /settings - Obtener configuraciones del usuario/empresa
+// Toda escritura de settings toma el mismo bloqueo por empresa que la emisión de NCF (takeNcf en invoices.js)
+// y relee la empresa dentro de él: un guardado de Configuración nunca pisa el contador de una secuencia.
+const withSettingsLock = (companyId, fn) => prisma.$transaction(async (tx) => {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`ncf:${companyId}`}))::text`;
+  return fn(tx);
+});
+
 router.get('/', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -130,8 +138,9 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    const { updated, newSettings, newNotifications } = await withSettingsLock(user.companyId, async (tx) => {
     // Obtener settings y notifications actuales para merge
-    const currentCompany = await prisma.company.findUnique({
+    const currentCompany = await tx.company.findUnique({
       where: { id: user.companyId },
       select: { settings: true, notifications: true }
     });
@@ -198,7 +207,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     const finalLogo = logo || logoUrl;
 
     // Actualizar la empresa
-    const updated = await prisma.company.update({
+    const updated = await tx.company.update({
       where: { id: user.companyId },
       data: {
         name: finalName,
@@ -211,6 +220,8 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
         settings: newSettings,
         notifications: newNotifications,
       }
+    });
+    return { updated, newSettings, newNotifications };
     });
 
     // Devolver respuesta en el mismo formato que GET
@@ -230,6 +241,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       allowCustomization: settings.allowCustomization !== undefined ? settings.allowCustomization : true,
       customerCategories: settings.customerCategories || [],
       smtp: newSettings.smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },
+      ncfSequences: liveSequences(updated),
       ncf: settings.ncf || {
         b01_prefix: '',
         b01_sequence_next: 1,
@@ -257,20 +269,21 @@ router.put('/ncf', authorize('admin', 'manager'), async (req, res) => {
     if (!Array.isArray(req.body)) {
       return res.status(400).json({ error: 'Envía la lista de secuencias NCF.' });
     }
-    const company = await prisma.company.findUnique({ where: { id: req.companyId } });
+    const updated = await withSettingsLock(req.companyId, async (tx) => {
+    const company = await tx.company.findUnique({ where: { id: req.companyId } });
     const current = Object.fromEntries(liveSequences(company).map((s) => [s.code, Number(s.next) || 1]));
 
     const sequences = [];
     for (const s of req.body) {
       const code = String(s.code || '').toUpperCase();
       const [start, end, next] = [s.start, s.end, s.next].map((n) => parseInt(n, 10));
-      if (!/^B\d{2}$/.test(code)) return res.status(400).json({ error: `Tipo de NCF no válido: ${s.code}` });
+      if (!/^B\d{2}$/.test(code)) throw httpError(400, `Tipo de NCF no válido: ${s.code}`);
       if (!(start >= 1 && end >= start && next >= start)) {
-        return res.status(400).json({ error: `Revisa la secuencia ${code}: el inicio debe ser 1 o más, el fin no puede ser menor que el inicio y el siguiente no puede ser menor que el inicio.` });
+        throw httpError(400, `Revisa la secuencia ${code}: el inicio debe ser 1 o más, el fin no puede ser menor que el inicio y el siguiente no puede ser menor que el inicio.`);
       }
       // Vencimiento (AAAA-MM-DD): el 31 de diciembre del año siguiente a la autorización. B02 y B04 no vencen.
       const expiresAt = ['B02', 'B04'].includes(code) || !s.expiresAt ? null : String(s.expiresAt).slice(0, 10);
-      if (expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) return res.status(400).json({ error: `Fecha de vencimiento no válida en la secuencia ${code}.` });
+      if (expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) throw httpError(400, `Fecha de vencimiento no válida en la secuencia ${code}.`);
       // Nunca se retrocede el contador: un número ya usado no se vuelve a emitir
       sequences.push({ code, name: String(s.name || code), prefix: String(s.prefix || code).trim(), start, end, next: Math.max(next, current[code] || 0), active: !!s.active, expiresAt });
     }
@@ -280,9 +293,11 @@ router.put('/ncf', authorize('admin', 'manager'), async (req, res) => {
       data[`ncf${s.code}Prefix`] = s.prefix;
       data[`ncf${s.code}SequenceNext`] = s.next;
     }
-    const updated = await prisma.company.update({ where: { id: req.companyId }, data });
+    return tx.company.update({ where: { id: req.companyId }, data });
+    });
     res.json({ ncfSequences: liveSequences(updated) });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
     console.error('Error updating NCF sequences:', error);
     res.status(500).json({ error: 'Error al actualizar secuencias NCF' });
   }

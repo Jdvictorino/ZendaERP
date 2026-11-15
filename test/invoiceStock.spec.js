@@ -5,7 +5,7 @@ import { vi } from 'vitest';
 vi.mock('../backend/src/db.js', () => ({ default: {} }));
 vi.mock('../backend/src/middleware/auth.js', () => ({ authenticate: (q, s, n) => n(), authorize: () => (q, s, n) => n() }));
 vi.mock('../backend/src/routes/alerts.js', () => ({ createAlert: vi.fn() }));
-vi.mock('../backend/src/services/ecfService.js', () => ({}));
+vi.mock('../backend/src/services/ecfService.js', () => ({ ECF_RECEIVED: ['enviado', 'aceptado'] }));
 
 const { takeStock, restoreStock, takeNcf, noteVoucher } = await import('../backend/src/routes/invoices.js');
 

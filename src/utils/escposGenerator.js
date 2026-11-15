@@ -1,6 +1,9 @@
 import { formatCurrency } from './formatCurrency.js';
+import { qrSvg } from './ecfPrint.js';
 
+// Para un e-CF, pasar docData por withEcfPrintData (ecfPrint.js) antes: así el ticket lleva QR y código de seguridad
 export const generateThermalReceiptHTML = (docData, docType, companyProfile, customerDetails, emitterInfo) => {
+    const ecf = docData?.ecfData;
     // Header
     const companyName = companyProfile?.name ? `<div class="center bold text-lg">${companyProfile.name.toUpperCase()}</div>` : '';
     const rnc = companyProfile?.rnc ? `<div class="center">RNC: ${companyProfile.rnc}</div>` : '';
@@ -43,6 +46,8 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
             numberLabel = 'NCF:';
             break;
     }
+
+    if (numberLabel === 'NCF:' && String(docNumber || '').startsWith('E')) numberLabel = 'e-NCF:';
 
     const dateToPrint = new Date(docData?.billedDate || docData?.date);
     const dateStr = !isNaN(dateToPrint.getTime()) ? dateToPrint.toLocaleString('es-DO') : new Date().toLocaleString('es-DO');
@@ -166,6 +171,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         <div class="center bold text-lg">${docTitle}</div>
         <div class="center">${numberLabel} ${docNumber || 'N/A'}</div>
         ${docType === 'invoice' && docData?.ncfExpiresAt ? `<div class="center">Válido hasta: ${String(docData.ncfExpiresAt).slice(0, 10).split('-').reverse().join('/')}</div>` : ''}
+        ${docType === 'invoice' && !docData?.ncfExpiresAt && ecf?.sequenceExpiresAt ? `<div class="center">Válido hasta: ${ecf.sequenceExpiresAt.replace(/-/g, '/')}</div>` : ''}
         <div class="center">Fecha: ${dateStr}</div>
         ${docType === 'invoice' && docData?.orderNumber && docData?.orderNumber !== docNumber ? `<div class="center">Orden: ${docData.orderNumber}</div>` : ''}
         
@@ -181,6 +187,12 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         
         <div class="border-t border-dashed mt-2 mb-2"></div>
         
+        ${ecf?.qrCodeUrl ? `
+        <div class="center mt-2">${qrSvg(ecf.qrCodeUrl)}</div>
+        <div class="center">Código de seguridad: ${ecf.securityCode || ''}</div>
+        ${ecf.signedAt ? `<div class="center">Fecha de firma digital: ${ecf.signedAt}</div>` : ''}
+        <div class="center">Consulte este comprobante en la DGII</div>
+        <div class="border-t border-dashed mt-2 mb-2"></div>` : ''}
         <div class="center mt-2">Le atendió: ${seller}</div>
         ${docData?.notes ? `<div class="center mt-1">Nota: ${docData.notes}</div>` : ''}
         <div class="center bold mt-2 mb-2">*** GRACIAS POR SU COMPRA ***</div>
