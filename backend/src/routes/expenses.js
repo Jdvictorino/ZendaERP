@@ -27,7 +27,18 @@ const expenseSchema = z.object({
   propina: money,
   paymentType: z.string().optional(),
   expenseType: z.string().optional(),
-  description: z.string().nullable().optional()
+  description: z.string().nullable().optional(),
+  // Pago al exterior (formato 609)
+  foreignPayment: z.object({
+    idType: z.enum(['Persona Física', 'Persona Jurídica']).optional(),
+    taxId: z.string().optional(),
+    country: z.string().regex(/^[A-Z]{2}$/, 'País en código ISO de 2 letras').optional(),
+    serviceType: z.string().optional(),
+    serviceDetail: z.string().optional(),
+    relatedParty: z.boolean().optional(),
+    documentNumber: z.string().optional(),
+    rentaPresunta: z.coerce.number().min(0).optional(),
+  }).nullable().optional()
 });
 
 // Comprobantes que emite la empresa al comprar: en papel (B) o su equivalente electrónico (E)
@@ -44,7 +55,11 @@ export function voucherProblem(code, e) {
     if (e.itbisFacturado > 0 && Math.abs(e.itbisFacturado - base * 0.18) > 1) return 'El ITBIS de un comprobante de compras es el 18 % de bienes y servicios.';
     if (e.montoRetencionIsr > 0 && !(e.montoServicios > 0)) return 'La retención de ISR aplica a servicios: indica el monto en servicios.';
   }
-  if (code === 'B17' && !e.supplierName?.trim()) return 'Indica el nombre del proveedor del exterior.';
+  if (code === 'B17') {
+    if (!e.supplierName?.trim()) return 'Indica el nombre del proveedor del exterior.';
+    const f = e.foreignPayment || {};
+    if (!f.country || !f.taxId?.trim() || !f.serviceType || !f.serviceDetail) return 'Completa los datos del pago al exterior (país, ID tributaria y servicio): los pide el formato 609.';
+  }
   return null;
 }
 
@@ -78,7 +93,9 @@ router.get('/', async (req, res, next) => {
       prisma.expense.findMany({
         where,
         include: {
-          supplier: { select: { id: true, name: true } }
+          supplier: { select: { id: true, name: true } },
+          // e-CF emitido por el gasto (E41/E43/E47): su id basta para imprimir el QR
+          ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true } }
         },
         orderBy: { invoiceDate: 'desc' },
         skip: take ? (parseInt(page) - 1) * take : undefined,

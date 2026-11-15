@@ -14,7 +14,11 @@ const getTypeId = (rnc) => {
 // Soporta ISO strings (PostgreSQL) y timestamps (legacy Firebase)
 const formatDateToDGII = (dateValue) => {
     if (!dateValue) return '';
-    
+    // Fechas sin hora (se guardan como medianoche UTC): en RD (UTC-4) saldrían con el día anterior
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}(T00:00:00(\.0+)?Z)?$/.test(dateValue)) {
+        return dateValue.slice(0, 10).replace(/-/g, '');
+    }
+
     let date;
     // ISO string (PostgreSQL)
     if (typeof dateValue === 'string') {
@@ -31,8 +35,18 @@ const formatDateToDGII = (dateValue) => {
     else {
         return '';
     }
-    
+
     return format(date, 'yyyyMMdd');
+};
+
+// Las facturas llegan de la API con ncfNumber / customerRnc / taxAmount; "ncf" es el formato anterior
+const ncfOf = (inv) => inv.ncf?.number || inv.ncfNumber || '';
+const rncOf = (inv) => inv.ncf?.customerRnc || inv.customerRnc || '';
+
+// Factura con comprobante fiscal (B01, B02, E31, ...); las "Sin Valor Fiscal" no van al 607/608
+export const isFiscalInvoice = (inv) => {
+    const ncf = ncfOf(inv);
+    return !!ncf && ncf !== 'NoFiscal' && ncf !== 'N/A' && inv.ncf?.type !== 'Sin Valor Fiscal';
 };
 
 /**
@@ -77,6 +91,31 @@ export const generate606Data = (expenses = [], suppliers = []) => {
 };
 
 /**
+ * Formato 609 (Pagos al Exterior): los gastos con Comprobante para Pagos al Exterior (B17/E47),
+ * en el orden y con los textos de la plantilla de la DGII.
+ */
+export const generate609Data = (expenses = []) => {
+    return expenses.filter(exp => ['B17', 'E47'].includes(exp.issuedVoucher)).map(exp => {
+        const f = exp.foreignPayment || {};
+        return {
+            "Nombre o Razón Social": exp.supplierName || '',
+            "Tipo ID Tributaria": f.idType || '',
+            "ID Tributaria": f.taxId || '',
+            "País de Destino": f.country || '',
+            "Tipo de Servicio Adquirido": f.serviceType || '',
+            "Detalle del Servicio Adquirido": f.serviceDetail || '',
+            "Parte Relacionada": f.relatedParty ? 'Si' : 'No',
+            "Número de Documento": f.documentNumber || exp.ncf || '',
+            "Fecha de Documento": formatDateToDGII(exp.invoiceDate),
+            "Monto Facturado": Number(exp.montoFacturado || 0),
+            "Fecha de Retención ISR": formatDateToDGII(exp.paymentDate),
+            "Renta Presunta": Number(f.rentaPresunta || exp.montoFacturado || 0),
+            "ISR Retenido": Number(exp.montoRetencionIsr || 0),
+        };
+    });
+};
+
+/**
  * Genera los datos para el reporte 607 (Ventas de Bienes y Servicios)
  * @param {Array} invoices - Array de facturas del período.
  * @returns {Array} - Datos formateados para el reporte.
@@ -99,15 +138,15 @@ export const generate607Data = (invoices = []) => {
             const ventaCredito = Math.max(ventaCreditoCalculada, creditoPagos);
 
             return {
-                "RNC o Cédula": inv.ncf?.customerRnc || '',
-                "Tipo Id": getTypeId(inv.ncf?.customerRnc),
-                "NCF": inv.ncf?.number || '',
+                "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
+                "Tipo Id": getTypeId(rncOf(inv)),
+                "NCF": ncfOf(inv),
                 "NCF ó Documento Modificado": inv.ncfModificado || '',
                 "Tipo de Ingreso": '01', // Ingresos por Operaciones (No Financieros)
                 "Fecha Comprobante": formatDateToDGII(inv.billedDate || inv.date),
                 "Fecha de Retención": '', // No manejado actualmente
                 "Monto Facturado": inv.subtotal || 0,
-                "ITBIS Facturado": inv.itbis || 0,
+                "ITBIS Facturado": Number(inv.itbis ?? inv.taxAmount ?? 0),
                 "ITBIS Retenido por Terceros": inv.itbisRetenido || 0,
                 "ITBIS Percibido": inv.itbisPercibido || 0,
                 "Retención Renta por Terceros": inv.retencionRenta || 0,
@@ -135,9 +174,9 @@ export const generate608Data = (invoices = []) => {
     return invoices
         .filter(isVoidInvoice)
         .map(inv => ({
-            "RNC o Cédula": inv.ncf?.customerRnc || '',
-            "Tipo Id": getTypeId(inv.ncf?.customerRnc),
-            "NCF": inv.ncf?.number || '',
+            "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
+            "Tipo Id": getTypeId(rncOf(inv)),
+            "NCF": ncfOf(inv),
             "Fecha Comprobante": formatDateToDGII(inv.billedDate || inv.date),
             "Fecha Anulación": formatDateToDGII(inv.cancelDate || inv.updatedAt || inv.date) || '',
             "Tipo de Anulación": inv.cancelReasonCode || '09', // 09: Otros (por defecto)

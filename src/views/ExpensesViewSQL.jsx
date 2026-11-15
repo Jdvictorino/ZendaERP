@@ -2,7 +2,8 @@
  * ExpensesView - Compras y gastos (606). El formulario se abre como página, igual que Proveedores y Clientes.
  */
 import React, { useState, useMemo } from 'react';
-import { Trash2, PlusCircle, Loader2, AlertTriangle, CreditCard, Calendar, Hash, DollarSign, ArrowDownRight, Edit3 } from 'lucide-react';
+import { Trash2, PlusCircle, Loader2, AlertTriangle, CreditCard, Calendar, Hash, DollarSign, ArrowDownRight, Edit3, Printer } from 'lucide-react';
+import { generatePDF } from '../utils/pdfGenerator.js';
 import toast from 'react-hot-toast';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
@@ -40,11 +41,15 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                 toast.error(`La DGII aún no recibió el ${saved.ncf}: ${saved.ecfResult.error || saved.ecfResult.ecfDocument?.dgiiMessage || 'sin respuesta'}. Reinténtalo desde Facturación Electrónica.`, { duration: 10000 });
             }
             setEditingExpense(null);
+            // Comprobante recién emitido: se abre para imprimirlo (el B11 lo firma el vendedor)
+            if (expenseData.issueVoucher && saved?.ncf) printVoucher(saved);
         } catch (err) {
             playErrorSound();
             toast.error(err?.message || 'No se pudo guardar el gasto.');
         }
     };
+
+    const printVoucher = (expense) => generatePDF(expense, 'purchase-voucher', companyProfile, null, null, 'view');
 
     const handleDelete = async () => {
         if (!confirmDelete) return;
@@ -211,6 +216,11 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                                                 <TableCell className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(e.itbisFacturado, currency)}</TableCell>
                                                 <TableCell className="pr-6 text-right">
                                                     <div className="flex justify-end gap-1">
+                                                        {e.issuedVoucher && (
+                                                            <Button variant="ghost" size="sm" onClick={() => printVoucher(e)} title="Imprimir comprobante" aria-label={`Imprimir comprobante ${e.ncf}`}>
+                                                                <Printer size={16} className="text-ink-muted hover:text-brand-500" />
+                                                            </Button>
+                                                        )}
                                                         <Button variant="ghost" size="sm" onClick={() => setEditingExpense(e)} title="Modificar">
                                                             <Edit3 size={16} className="text-ink-muted hover:text-brand-500" />
                                                         </Button>
@@ -258,6 +268,11 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50 dark:border-gray-800">
                                         <span className="text-xs font-mono text-gray-400 dark:text-gray-500">{e.rncCedula}</span>
                                         <div className="flex gap-2">
+                                            {e.issuedVoucher && (
+                                                <Button variant="ghost" size="sm" onClick={() => printVoucher(e)} aria-label={`Imprimir comprobante ${e.ncf}`} className="rounded-lg p-1.5">
+                                                    <Printer size={16} />
+                                                </Button>
+                                            )}
                                             <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(e)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg p-1.5">
                                                 <Trash2 size={16} />
                                             </Button>

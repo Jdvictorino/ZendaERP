@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Lock } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
+import { SERVICIOS_609, PAISES } from '../../utils/dgii609.js';
 
 const TIPOS_GASTO = [
     '01-GASTOS DE PERSONAL', '02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS',
@@ -57,6 +58,13 @@ const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency =
         paymentType: expense.paymentType ?? '01',
         description: expense.description ?? '',
     });
+    // Pago al exterior: datos del formato 609 (no van en el e-CF; se pueden corregir después de emitir)
+    const [foreign, setForeign] = useState({
+        idType: 'Persona Jurídica', taxId: '', country: '', serviceType: '', serviceDetail: '',
+        relatedParty: false, documentNumber: '', rentaPresunta: '',
+        ...(expense.foreignPayment || {}),
+    });
+    const setF = (name, value) => setForeign((prev) => ({ ...prev, [name]: value, ...(name === 'serviceType' ? { serviceDetail: '' } : {}) }));
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
 
@@ -90,6 +98,11 @@ const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency =
         if (voucherCode === 'B11' && form.rncCedula.replace(/\D/g, '').length !== 11) err.rncCedula = 'El B11 lleva la cédula del vendedor (11 dígitos).';
         if (['', 'B11', 'B17'].includes(voucherCode) && !form.supplierName.trim()) err.supplierName = 'Escribe el nombre del proveedor.';
         if (num(form.montoRetencionIsr) > 0 && !form.retencionIsrTipo) err.retencionIsrTipo = 'Elige el tipo de retención de ISR.';
+        if (voucherCode === 'B17') {
+            if (!foreign.taxId.trim()) err.taxId = 'Escribe el pasaporte o el NIT del proveedor.';
+            if (!foreign.country) err.country = 'Elige el país al que se paga.';
+            if (!foreign.serviceDetail) err.serviceDetail = 'Elige el tipo y el detalle del servicio.';
+        }
         setErrors(err);
         return Object.keys(err).length === 0;
     };
@@ -113,6 +126,7 @@ const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency =
                 invoiceDate: new Date(fields.invoiceDate).toISOString(),
                 paymentDate: fields.paymentDate ? new Date(fields.paymentDate).toISOString() : null,
                 ...(issueVoucher && !expense.id ? { issueVoucher, ncf: undefined } : {}),
+                ...(voucherCode === 'B17' ? { foreignPayment: { ...foreign, taxId: foreign.taxId.trim(), rentaPresunta: foreign.rentaPresunta === '' ? undefined : num(foreign.rentaPresunta) } } : {}),
             };
             await onSave(payload);
         } finally {
@@ -217,6 +231,61 @@ const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency =
                                     {errors.retencionIsrTipo && <p id="err-retencionIsrTipo" className="field-error">{errors.retencionIsrTipo}</p>}
                                 </div>
                                 {money('montoRetencionIsr', 'Monto retenido de ISR')}
+                            </div>
+                        </fieldset>
+                    )}
+
+                    {voucherCode === 'B17' && (
+                        <fieldset className="border p-4 rounded-lg">
+                            <legend className="text-lg font-semibold text-brand-600 px-2">Pago al exterior (609)</legend>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label htmlFor="exp-idType" className="block text-ink-soft mb-1">Tipo de ID tributaria</label>
+                                    <select id="exp-idType" value={foreign.idType} onChange={(e) => setF('idType', e.target.value)} className="input-base">
+                                        <option>Persona Jurídica</option>
+                                        <option>Persona Física</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="exp-taxId" className="block text-ink-soft mb-1">{foreign.idType === 'Persona Física' ? 'Pasaporte' : 'NIT (ID tributaria)'}</label>
+                                    <input id="exp-taxId" value={foreign.taxId} onChange={(e) => setF('taxId', e.target.value)} className="input-base" aria-invalid={!!errors.taxId} aria-describedby={errors.taxId ? 'err-taxId' : undefined} />
+                                    {errors.taxId && <p id="err-taxId" className="field-error">{errors.taxId}</p>}
+                                </div>
+                                <div>
+                                    <label htmlFor="exp-country" className="block text-ink-soft mb-1">País de destino</label>
+                                    <select id="exp-country" value={foreign.country} onChange={(e) => setF('country', e.target.value)} className="input-base" aria-invalid={!!errors.country} aria-describedby={errors.country ? 'err-country' : undefined}>
+                                        <option value="">Elegir país</option>
+                                        {PAISES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                                    </select>
+                                    {errors.country && <p id="err-country" className="field-error">{errors.country}</p>}
+                                </div>
+                                <div className="md:col-span-1">
+                                    <label htmlFor="exp-serviceType" className="block text-ink-soft mb-1">Tipo de servicio</label>
+                                    <select id="exp-serviceType" value={foreign.serviceType} onChange={(e) => setF('serviceType', e.target.value)} className="input-base">
+                                        <option value="">Elegir</option>
+                                        {Object.keys(SERVICIOS_609).map((t) => <option key={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label htmlFor="exp-serviceDetail" className="block text-ink-soft mb-1">Detalle del servicio</label>
+                                    <select id="exp-serviceDetail" value={foreign.serviceDetail} onChange={(e) => setF('serviceDetail', e.target.value)} className="input-base" disabled={!foreign.serviceType} aria-invalid={!!errors.serviceDetail} aria-describedby={errors.serviceDetail ? 'err-serviceDetail' : undefined}>
+                                        <option value="">{foreign.serviceType ? 'Elegir' : 'Primero elige el tipo de servicio'}</option>
+                                        {(SERVICIOS_609[foreign.serviceType] || []).map((d) => <option key={d}>{d}</option>)}
+                                    </select>
+                                    {errors.serviceDetail && <p id="err-serviceDetail" className="field-error">{errors.serviceDetail}</p>}
+                                </div>
+                                <div>
+                                    <label htmlFor="exp-documentNumber" className="block text-ink-soft mb-1">Número de factura o contrato</label>
+                                    <input id="exp-documentNumber" value={foreign.documentNumber} onChange={(e) => setF('documentNumber', e.target.value)} className="input-base" placeholder="Del documento del proveedor" />
+                                </div>
+                                <div>
+                                    <label htmlFor="exp-rentaPresunta" className="block text-ink-soft mb-1">Renta presunta (base del ISR)</label>
+                                    <input id="exp-rentaPresunta" type="number" min="0" step="0.01" inputMode="decimal" value={foreign.rentaPresunta} onChange={(e) => setF('rentaPresunta', e.target.value)} className="input-base" placeholder={`Igual al total: ${formatCurrency(total, currency)}`} />
+                                </div>
+                                <label className="flex items-center gap-2 self-end pb-2 text-ink-soft">
+                                    <input type="checkbox" checked={!!foreign.relatedParty} onChange={(e) => setF('relatedParty', e.target.checked)} />
+                                    Es parte relacionada
+                                </label>
                             </div>
                         </fieldset>
                     )}

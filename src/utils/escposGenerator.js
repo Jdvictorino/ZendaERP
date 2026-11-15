@@ -8,7 +8,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
     const companyName = companyProfile?.name ? `<div class="center bold text-lg">${companyProfile.name.toUpperCase()}</div>` : '';
     const rnc = companyProfile?.rnc ? `<div class="center">RNC: ${companyProfile.rnc}</div>` : '';
     const phone = companyProfile?.phone ? `<div class="center">Tel: ${companyProfile.phone}</div>` : '';
-    
+
     let addressHtml = '';
     if (companyProfile?.address) {
         const { street, city, sector } = companyProfile.address;
@@ -129,12 +129,14 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
     <head>
         <meta charset="utf-8">
         <style>
-            @page { margin: 0; size: 80mm auto; }
+            /* Rollo de 80 mm: el área imprimible es de 72 mm; más ancho se corta a la derecha */
+            @page { margin: 0; }
+            * { box-sizing: border-box; }
             body {
                 font-family: 'Courier New', Courier, monospace;
-                width: 76mm;
-                margin: 0 auto;
-                padding: 2mm 2mm;
+                width: 72mm;
+                margin: 0;
+                padding: 1mm 1mm 0;
                 font-size: 12px;
                 line-height: 1.25;
                 color: #000;
@@ -150,7 +152,9 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
             .text-right { text-align: right; }
             .border-b { border-bottom: 1px solid #000; }
             .border-t { border-top: 1px solid #000; }
-            .border-dashed { border-style: dashed !important; border-width: 1px; border-color: #000; }
+            /* Solo la línea que indica border-t/border-b, punteada (no un recuadro) */
+            .border-t.border-dashed { border-top-style: dashed; }
+            .border-b.border-dashed { border-bottom-style: dashed; }
             .mt-1 { margin-top: 4px; }
             .mt-2 { margin-top: 8px; }
             .mb-2 { margin-bottom: 8px; }
@@ -160,33 +164,33 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
             .w-6 { width: 24px; }
         </style>
     </head>
-    <body onload="window.print(); window.setTimeout(window.close, 100);">
+    <body>
         ${companyName}
         ${rnc}
         ${phone}
         ${addressHtml}
-        
+
         <div class="border-t border-dashed mt-2 mb-2"></div>
-        
+
         <div class="center bold text-lg">${docTitle}</div>
         <div class="center">${numberLabel} ${docNumber || 'N/A'}</div>
         ${docType === 'invoice' && docData?.ncfExpiresAt ? `<div class="center">Válido hasta: ${String(docData.ncfExpiresAt).slice(0, 10).split('-').reverse().join('/')}</div>` : ''}
         ${docType === 'invoice' && !docData?.ncfExpiresAt && ecf?.sequenceExpiresAt ? `<div class="center">Válido hasta: ${ecf.sequenceExpiresAt.replace(/-/g, '/')}</div>` : ''}
         <div class="center">Fecha: ${dateStr}</div>
         ${docType === 'invoice' && docData?.orderNumber && docData?.orderNumber !== docNumber ? `<div class="center">Orden: ${docData.orderNumber}</div>` : ''}
-        
+
         <div class="border-t border-dashed mt-2 mb-2"></div>
-        
+
         <div class="left">Cliente: ${customerName}</div>
         ${customerId && customerName !== 'Consumidor Final' ? `<div class="left">RNC/Ced: ${customerId}</div>` : ''}
         ${customerPhone ? `<div class="left">Tel: ${customerPhone}</div>` : ''}
-        
+
         <div class="border-t border-dashed mt-2 mb-2"></div>
-        
+
         ${itemsHtml}
-        
+
         <div class="border-t border-dashed mt-2 mb-2"></div>
-        
+
         ${ecf?.qrCodeUrl ? `
         <div class="center mt-2">${qrSvg(ecf.qrCodeUrl)}</div>
         <div class="center">Código de seguridad: ${ecf.securityCode || ''}</div>
@@ -196,7 +200,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         <div class="center mt-2">Le atendió: ${seller}</div>
         ${docData?.notes ? `<div class="center mt-1">Nota: ${docData.notes}</div>` : ''}
         <div class="center bold mt-2 mb-2">*** GRACIAS POR SU COMPRA ***</div>
-        
+
         <div style="height: 10mm;"></div>
     </body>
     </html>
