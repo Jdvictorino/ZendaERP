@@ -43,7 +43,9 @@ const invoiceSchema = z.object({
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { status, customerId, from, to, page = 1, limit = 50 } = req.query;
+    const { status, customerId, from, to, page = 1, limit } = req.query;
+    // Sin ?limit se devuelve la lista completa: las pantallas (caja, reportes, 607) necesitan todos los registros
+    const take = limit ? parseInt(limit) : undefined;
     
     const where = { companyId: req.companyId };
     if (status) where.status = status;
@@ -67,8 +69,8 @@ router.get('/', async (req, res, next) => {
           _count: { select: { items: true } }
         },
         orderBy: { date: 'desc' },
-        skip: (parseInt(page) - 1) * parseInt(limit),
-        take: parseInt(limit)
+        skip: take ? (parseInt(page) - 1) * take : undefined,
+        take
       }),
       prisma.invoice.count({ where })
     ]);
@@ -83,9 +85,9 @@ router.get('/', async (req, res, next) => {
       data: mappedInvoices,
       pagination: {
         page: parseInt(page),
-        limit: parseInt(limit),
+        limit: take ?? total,
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: take ? Math.ceil(total / take) : 1
       }
     });
   } catch (error) {
@@ -216,10 +218,19 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
       // Actualizar stock de productos
       for (const item of data.items) {
         if (item.productId) {
-          await tx.product.update({
-            where: { id: item.productId },
+          // Solo descuenta si alcanza: nunca deja el stock en negativo (también con dos ventas a la vez)
+          const { count } = await tx.product.updateMany({
+            where: { id: item.productId, companyId: req.companyId, stock: { gte: item.quantity } },
             data: { stock: { decrement: item.quantity } }
           });
+          if (count === 0) {
+            const product = await tx.product.findFirst({ where: { id: item.productId, companyId: req.companyId }, select: { name: true, stock: true } });
+            const err = new Error(product
+              ? `Stock insuficiente para "${product.name}". Disponible: ${product.stock}, pedido: ${item.quantity}.`
+              : 'Uno de los productos del pedido no existe.');
+            err.status = 409;
+            throw err;
+          }
 
           await tx.inventoryLog.create({
             data: {
