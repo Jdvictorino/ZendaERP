@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=720, height=1280" />
+    <title>Zenda ERP · secuencia del hero (9:16)</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/hero.css" />
+  </head>
+  <body>
+    <div id="root" data-composition-id="hero-v" data-start="0" data-width="720" data-height="1280" data-duration="8" data-fps="24">
+      <div id="cam" class="clip" data-start="0" data-duration="8" data-track-index="1" data-layout-allow-overflow>
+        <img id="photo" src="assets/hero.jpg" alt="" />
+        <div id="scr" class="screen"><img src="assets/pos.png" alt="" /></div>
+      </div>
+      <div id="paper" class="clip" data-start="0" data-duration="8" data-track-index="2"></div>
+      <div id="stage" class="clip" data-start="0" data-duration="8" data-track-index="2" data-layout-allow-overflow>
+        <div id="pan" class="screen">
+          <img src="assets/pos.png" alt="" />
+          <div id="press"></div>
+          <div id="ring"></div>
+        </div>
+      </div>
+      <div id="shade" class="clip" data-start="0" data-duration="8" data-track-index="3"></div>
+      <div id="feed" class="clip" data-start="0" data-duration="8" data-track-index="4" data-layout-allow-overflow>
+        <img id="ticket" src="assets/ticket.png" alt="" />
+      </div>
+      <div id="slot" class="clip" data-start="0" data-duration="8" data-track-index="5"></div>
+    </div>
+    <script src="assets/hero.js"></script>
+  </body>
+</html>
