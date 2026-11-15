@@ -50,7 +50,7 @@ async function getAuthenticatedEcf(company) {
  * Genera un e-NCF de 13 posiciones: E + 2 dígitos tipo + 10 dígitos secuencial
  * Ejemplo: E310000000001
  */
-async function generateENCF(companyId, tipoEcf) {
+export async function generateENCF(companyId, tipoEcf) {
   const typeCode = tipoEcf.replace('E', ''); // "31", "32", etc.
 
   // Buscar secuencia activa
@@ -187,12 +187,13 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
       });
     }
 
-    // 8. Actualizar la factura con el e-NCF
+    // 8. Actualizar la factura con el e-NCF (y el vencimiento de su secuencia, que va en la representación impresa)
     await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         ncfNumber: eNcf,
         ncfType: tipoEcf,
+        ncfExpiresAt: tipoEcf === 'E32' ? null : sequence.fechaVencimiento || null,
       },
     });
 
@@ -222,6 +223,64 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
       ecfDocument: await prisma.ecfDocument.findUnique({ where: { id: ecfDoc.id } }),
       error: error.message,
     };
+  }
+}
+
+/**
+ * Emite la Nota de Crédito (E34) o de Débito (E33) electrónica de una nota ya registrada.
+ * El e-NCF se reserva antes (generateENCF) para no crear la nota si no hay secuencia válida.
+ * El documento queda enlazado a la nota, no a la factura: la venta no cambia de estado ni de NCF.
+ * @param {{ kind: 'credit'|'debit', note, invoice, eNcf, sequence, lines?, full? }} params
+ */
+export async function emitNoteEcf({ kind, note, invoice, eNcf, sequence, lines, full }) {
+  const tipoEcf = kind === 'credit' ? 'E34' : 'E33';
+  const company = await prisma.company.findUnique({ where: { id: invoice.companyId } });
+  const ecfObject = buildEcfFromNote(note, invoice, company, tipoEcf, eNcf, sequence, { lines, full });
+  const xmlContent = ecfToXml(ecfObject);
+  const certs = getCertCredentials(company);
+  const xmlSigned = new Signature(certs.key, certs.cert).signXml(xmlContent, 'ECF');
+  const totales = ecfObject.ECF.Encabezado.Totales;
+
+  const ecfDoc = await prisma.ecfDocument.create({
+    data: {
+      companyId: company.id,
+      ...(kind === 'credit' ? { creditNoteId: note.id } : { debitNoteId: note.id }),
+      tipoEcf,
+      eNcf,
+      xmlContent,
+      xmlSigned,
+      securityCode: getCodeSixDigitfromSignature(xmlSigned),
+      rncEmisor: company.rnc || '',
+      rncComprador: invoice.customerRnc || null,
+      nombreComprador: invoice.customerName || invoice.customer?.name || null,
+      montoTotal: totales.MontoTotal,
+      itbisTotal: totales.TotalITBIS || 0,
+      fechaEmision: new Date(note.createdAt || Date.now()),
+      dgiiStatus: 'pendiente',
+    },
+  });
+
+  try {
+    // Las notas siempre van como e-CF completo (el resumen RFCE es solo para la factura de consumo)
+    const { ecf: ecfClient } = await getAuthenticatedEcf(company);
+    const response = await ecfClient.sendElectronicDocument(xmlSigned, `${company.rnc}${eNcf}.xml`);
+    await prisma.ecfDocument.update({
+      where: { id: ecfDoc.id },
+      data: {
+        trackId: response?.trackId || null,
+        dgiiStatus: response?.trackId ? 'enviado' : 'pendiente',
+        dgiiMessage: response?.mensajes?.[0]?.valor || response?.error || null,
+        enviadoAt: new Date(),
+      },
+    });
+    return { success: !!response?.trackId, ecfDocument: await prisma.ecfDocument.findUnique({ where: { id: ecfDoc.id } }), response };
+  } catch (error) {
+    // El documento queda guardado: se reintenta desde Facturación Electrónica
+    const failed = await prisma.ecfDocument.update({
+      where: { id: ecfDoc.id },
+      data: { dgiiStatus: 'error', dgiiMessage: error.message || 'Error al enviar a la DGII' },
+    });
+    return { success: false, ecfDocument: failed, error: error.message };
   }
 }
 
@@ -285,7 +344,7 @@ export async function syncInvoiceWithEcf(ecfDocumentId) {
     where: { id: invoice.id },
     data: received
       ? { isBilled: true, billedDate: invoice.billedDate || new Date(), invoiceNumber: invoice.orderNumber, ncfNumber: doc.eNcf, ncfType: doc.tipoEcf }
-      : { isBilled: false, billedDate: null, ncfNumber: null, ncfType: null },
+      : { isBilled: false, billedDate: null, ncfNumber: null, ncfType: null, ncfExpiresAt: null },
     include: { items: true, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } },
   });
 }
@@ -479,6 +538,7 @@ export function getCertificateInfo(company) {
 }
 
 export default {
+  emitNoteEcf,
   emitEcf,
   checkTrackIdStatus,
   syncInvoiceWithEcf,

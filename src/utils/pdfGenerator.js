@@ -91,7 +91,7 @@ const setBodyTextColor = (doc, theme) => {
     doc.setTextColor(...(theme.textPrimary || DEFAULT_THEME.textPrimary));
 };
 
-const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate }) => {
+const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate, validUntil }) => {
     const headerHeight = 48;
     doc.setFillColor(...(theme.primary || DEFAULT_THEME.primary));
     doc.rect(0, 0, 210, headerHeight, 'F');
@@ -143,6 +143,10 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
         doc.text(`${numberLabel} ${docNumber || 'N/A'}`, 196, 26, { align: 'right' });
     }
     doc.text(`Fecha: ${formatDate(documentDate)}`, 196, 32, { align: 'right' });
+    // Norma General 06-2018: el comprobante muestra hasta cuándo es válida su secuencia (fecha guardada sin hora)
+    if (validUntil) {
+        doc.text(`Válido hasta: ${String(validUntil).slice(0, 10).split('-').reverse().join('/')}`, 196, 38, { align: 'right' });
+    }
 
     setBodyTextColor(doc, theme);
     doc.setDrawColor(...(theme.border || DEFAULT_THEME.border));
@@ -526,12 +530,15 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
     let numberLabel = 'NCF:';
     let documentDate = docData?.date;
     let isModificationDocument = false;
+    const validUntil = docType === 'invoice' ? docData?.ncfExpiresAt : null;
+    // NCF guardado por el servidor (ncfNumber); "ncf" es el formato anterior
+    const savedNcf = docData?.ncfNumber && docData.ncfNumber !== 'NoFiscal' ? docData.ncfNumber : null;
 
     switch (docType) {
         case 'invoice':
             docTitle = 'Factura';
-            docNumber = docData?.ncf?.number || docData?.invoiceNumber;
-            if (docData?.ncf?.type === 'Sin Valor Fiscal') {
+            docNumber = docData?.ncf?.number || savedNcf || docData?.invoiceNumber;
+            if (docData?.ncf?.type === 'Sin Valor Fiscal' || (!docData?.ncf && !savedNcf)) {
                 numberLabel = 'Factura N°:';
                 docNumber = docData?.invoiceNumber;
             }
@@ -544,8 +551,8 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             break;
         case 'credit-note':
             docTitle = 'Nota de Crédito';
-            docNumber = docData?.ncf || docData?.creditNoteNumber;
-            if (docData?.ncf === 'N/A') {
+            docNumber = savedNcf || docData?.ncf || docData?.creditNoteNumber;
+            if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
                 docNumber = docData?.creditNoteNumber;
             }
@@ -557,8 +564,8 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             break;
         case 'debit-note':
             docTitle = 'Nota de Débito';
-            docNumber = docData?.ncf || docData?.debitNoteNumber;
-            if (docData?.ncf === 'N/A') {
+            docNumber = savedNcf || docData?.ncf || docData?.debitNoteNumber;
+            if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
                 docNumber = docData?.debitNoteNumber;
             }
@@ -576,12 +583,15 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             break;
     }
 
+    if (numberLabel === 'NCF:' && String(docNumber || '').startsWith('E')) numberLabel = 'e-NCF:';
+
     let cursorY = drawDocumentHeader(doc, theme, {
         companyProfile,
         docTitle,
         numberLabel,
         docNumber,
         documentDate,
+        validUntil,
     });
 
     cursorY = drawInfoCards(doc, theme, {

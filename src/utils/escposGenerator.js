@@ -165,6 +165,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         
         <div class="center bold text-lg">${docTitle}</div>
         <div class="center">${numberLabel} ${docNumber || 'N/A'}</div>
+        ${docType === 'invoice' && docData?.ncfExpiresAt ? `<div class="center">Válido hasta: ${String(docData.ncfExpiresAt).slice(0, 10).split('-').reverse().join('/')}</div>` : ''}
         <div class="center">Fecha: ${dateStr}</div>
         ${docType === 'invoice' && docData?.orderNumber && docData?.orderNumber !== docNumber ? `<div class="center">Orden: ${docData.orderNumber}</div>` : ''}
         

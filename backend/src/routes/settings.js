@@ -268,8 +268,11 @@ router.put('/ncf', authorize('admin', 'manager'), async (req, res) => {
       if (!(start >= 1 && end >= start && next >= start)) {
         return res.status(400).json({ error: `Revisa la secuencia ${code}: el inicio debe ser 1 o más, el fin no puede ser menor que el inicio y el siguiente no puede ser menor que el inicio.` });
       }
+      // Vencimiento (AAAA-MM-DD): el 31 de diciembre del año siguiente a la autorización. B02 y B04 no vencen.
+      const expiresAt = ['B02', 'B04'].includes(code) || !s.expiresAt ? null : String(s.expiresAt).slice(0, 10);
+      if (expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) return res.status(400).json({ error: `Fecha de vencimiento no válida en la secuencia ${code}.` });
       // Nunca se retrocede el contador: un número ya usado no se vuelve a emitir
-      sequences.push({ code, name: String(s.name || code), prefix: String(s.prefix || code).trim(), start, end, next: Math.max(next, current[code] || 0), active: !!s.active });
+      sequences.push({ code, name: String(s.name || code), prefix: String(s.prefix || code).trim(), start, end, next: Math.max(next, current[code] || 0), active: !!s.active, expiresAt });
     }
 
     const data = { settings: { ...(company.settings || {}), ncfSequences: sequences } };

@@ -883,6 +883,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                 <th className="p-3 text-right">Inicio</th>
                                                 <th className="p-3 text-right">Fin</th>
                                                 <th className="p-3 text-right">Siguiente</th>
+                                                <th className="p-3">Vence</th>
                                                 <th className="p-3">Estado</th>
                                             </tr>
                                         </thead>
@@ -890,7 +891,8 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                             {(formData.ncfSequences || []).length > 0 ? (
                                                 formData.ncfSequences.map(seq => {
                                                     const remaining = Number(seq.end || 0) - Number(seq.next || seq.start || 1) + 1;
-                                                    const exhausted = Number(seq.next || 0) > Number(seq.end || 0);
+                                                    const expired = !['B02', 'B04'].includes(seq.code) && seq.expiresAt && new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santo_Domingo' }).format(new Date()) > seq.expiresAt;
+                                                    const exhausted = Number(seq.next || 0) > Number(seq.end || 0) || expired;
                                                     return (
                                                         <tr key={seq.code} className="hover:bg-slate-50/40 dark:hover:bg-slate-900/10">
                                                             <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{seq.name}</td>
@@ -898,6 +900,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                             <td className="p-3 text-right">{seq.start}</td>
                                                             <td className="p-3 text-right">{seq.end}</td>
                                                             <td className="p-3 text-right font-bold text-brand-600 dark:text-brand-400">{seq.next}</td>
+                                                            <td className="p-3 text-xs">{['B02', 'B04'].includes(seq.code) ? 'No vence' : seq.expiresAt ? seq.expiresAt.split('-').reverse().join('/') : 'Sin registrar'}</td>
                                                             <td className="p-3">
                                                                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                                                     exhausted 
@@ -906,7 +909,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                                             ? 'bg-success-100 text-success-700 dark:bg-success-950/40 dark:text-success-400' 
                                                                             : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                                                                 }`}>
-                                                                    {exhausted ? 'Agotado' : seq.active ? 'Activo' : 'Inactivo'}
+                                                                    {expired ? 'Vencida' : exhausted ? 'Agotado' : seq.active ? 'Activo' : 'Inactivo'}
                                                                 </span>
                                                                 <p className="mt-1 text-xs text-slate-400 font-medium">
                                                                     {remaining > 0 ? `${remaining} disponibles` : 'Renovar secuencia'}
@@ -917,7 +920,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                 })
                                             ) : (
                                                 <tr>
-                                                    <td colSpan={6} className="text-center p-6 text-slate-400 font-medium text-xs">
+                                                    <td colSpan={7} className="text-center p-6 text-slate-400 font-medium text-xs">
                                                         No hay secuencias registradas. Haz clic en "Configurar Secuencias NCF" para inicializarlas.
                                                     </td>
                                                 </tr>
