@@ -28,6 +28,17 @@ describe('ExpenseForm', () => {
     expect(container.textContent).toContain('El B11 lleva la cédula del vendedor');
   });
 
+  it('pago al exterior (B17): pide los datos del 609', async () => {
+    const onSave = vi.fn();
+    await act(async () => root.render(<ExpenseForm onClose={() => {}} onSave={onSave} />));
+    await act(async () => [...container.querySelectorAll('input[type=radio]')][3].click());
+    expect(labelText()).toContain('Pago al exterior (609)');
+    expect(container.querySelector('#exp-country').options.length).toBeGreaterThan(200);
+    await act(async () => button('Guardar y emitir B17').click());
+    expect(onSave).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Elige el país al que se paga');
+  });
+
   it('un gasto con comprobante emitido muestra el NCF y bloquea los montos', async () => {
     const expense = { id: 'g1', ncf: 'B1100000007', issuedVoucher: 'B11', invoiceDate: '2026-11-15T00:00:00.000Z', montoBienes: '100.00', montoServicios: '0.00', rncCedula: '00112345678', supplierName: 'Juan' };
     await act(async () => root.render(<ExpenseForm expense={expense} onClose={() => {}} onSave={vi.fn()} />));

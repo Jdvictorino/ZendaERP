@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { autoUpdater } = require('electron-updater');
 const createCustomMenu = require('./menu');
 
@@ -96,26 +97,31 @@ ipcMain.handle('save-image-as', async (event, relativePath) => {
     }
 });
 
-// Impresión de HTML en Electron
+// Impresión de HTML en Electron (tickets térmicos y documentos)
 ipcMain.handle('print-html', async (event, { htmlContent, options }) => {
+  // Archivo temporal en vez de data: URL (un logo en base64 puede pasar el límite de una URL)
+  const file = path.join(os.tmpdir(), `zenda-print-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
+  let printWin;
   try {
-    // Sin JavaScript: el HTML lleva datos que escriben los usuarios y solo debe imprimirse
-    const printWin = new BrowserWindow({
-      show: false,
-      webPreferences: { offscreen: true, javascript: false }
+    fs.writeFileSync(file, htmlContent, 'utf8');
+    // Ventana oculta normal: Chromium no imprime desde ventanas "offscreen".
+    // Sin JavaScript: el HTML lleva datos que escriben los usuarios y solo debe imprimirse.
+    printWin = new BrowserWindow({ show: false, webPreferences: { javascript: false } });
+    await printWin.loadFile(file); // ya resuelve cuando la página terminó de cargar
+    const { deviceName, ...rest } = options || { silent: false };
+    // El resultado real llega cuando la cola de impresión aceptó (o rechazó) el trabajo
+    return await new Promise((resolve) => {
+      printWin.webContents.print(
+        { printBackground: true, margins: { marginType: 'none' }, ...rest, ...(deviceName ? { deviceName } : {}) },
+        (success, failureReason) => resolve(success ? { success: true } : { success: false, error: failureReason })
+      );
     });
-    await printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent));
-    await new Promise(resolve => {
-      printWin.webContents.on('did-finish-load', resolve);
-    });
-    printWin.webContents.print(options || { silent: false, printBackground: true });
-    
-    // Dejar margen de tiempo para que el spooler capture la data antes de cerrar la ventana invisible
-    setTimeout(() => { if (!printWin.isDestroyed()) printWin.close(); }, 1000);
-    return { success: true };
   } catch (err) {
     console.error('print-html error:', err);
     return { success: false, error: String(err) };
+  } finally {
+    if (printWin && !printWin.isDestroyed()) printWin.close();
+    fs.rm(file, { force: true }, () => {});
   }
 });
 

@@ -12,3 +12,6 @@ ALTER TABLE "expenses" ADD COLUMN "issuedVoucher" TEXT;
 ALTER TABLE "expenses" ADD COLUMN "ncfExpiresAt" DATE;
 ALTER TABLE "ecf_documents" ADD COLUMN "expenseId" TEXT;
 ALTER TABLE "ecf_documents" ADD CONSTRAINT "ecf_documents_expenseId_fkey" FOREIGN KEY ("expenseId") REFERENCES "expenses"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Datos del pago al exterior que pide el formato 609 (beneficiario, país, tipo de servicio, ...)
+ALTER TABLE "expenses" ADD COLUMN "foreignPayment" JSONB;

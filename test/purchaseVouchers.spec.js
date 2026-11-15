@@ -97,3 +97,38 @@ describe('QR de la representación impresa', () => {
     expect(qrSvg(url)).toMatch(/^<svg[^>]+viewBox="0 0 \d+ \d+"/);
   });
 });
+
+describe('609, 607 y PDF del comprobante', async () => {
+  const { generate609Data, generate607Data, isFiscalInvoice } = await import('../src/utils/dgiiReportGenerator.js');
+  const { voucherDocData } = await import('../src/utils/pdfGenerator.js');
+
+  it('609: solo pagos al exterior, con los datos que pide la plantilla', () => {
+    const rows = generate609Data([
+      { ...compra, issuedVoucher: 'B17', ncf: 'B1700000001', montoFacturado: 2000, paymentDate: '2026-11-20T00:00:00.000Z', foreignPayment: { idType: 'Persona Jurídica', taxId: '98-765', country: 'US', serviceType: 'Gastos de representación', serviceDetail: 'Publicidad', relatedParty: false, documentNumber: 'INV-77' } },
+      { ...compra, issuedVoucher: 'B11' },
+    ]);
+    expect(rows).toEqual([expect.objectContaining({ 'ID Tributaria': '98-765', 'País de Destino': 'US', 'Detalle del Servicio Adquirido': 'Publicidad', 'Parte Relacionada': 'No', 'Número de Documento': 'INV-77', 'Monto Facturado': 2000, 'Renta Presunta': 2000, 'ISR Retenido': 200, 'Fecha de Retención ISR': '20261120' })]);
+  });
+
+  it('607/608 leen las facturas como las entrega la API (ncfNumber, customerRnc, taxAmount)', () => {
+    const inv = { ncfNumber: 'B0100000005', ncfType: 'B01', customerRnc: '1-01-01010-1', taxAmount: '180.00', subtotal: 1000, total: 1180, status: 'Pagado', date: '2026-11-10' };
+    expect(isFiscalInvoice(inv)).toBe(true);
+    expect(isFiscalInvoice({ ncfNumber: 'NoFiscal' })).toBe(false);
+    expect(generate607Data([inv])[0]).toMatchObject({ 'NCF': 'B0100000005', 'RNC o Cédula': '101010101', 'Tipo Id': '1', 'ITBIS Facturado': 180 });
+  });
+
+  it('el PDF del B11 lleva totales, retenciones y la firma del vendedor', () => {
+    const d = voucherDocData({ ...compra, issuedVoucher: 'B11', ncf: 'B1100000003' }, 'DOP');
+    expect(d).toMatchObject({ ncfNumber: 'B1100000003', montoGravado: 3000, itbis: 540, total: 3540, customerName: 'Juan Pérez' });
+    expect(d.items.map((i) => i.productName)).toEqual(['Bienes', 'Servicios']);
+    expect(d.notes).toContain('ISR retenido');
+    expect(d.notes).toContain('firma del vendedor');
+    expect(voucherDocData({ ...compra, itbisFacturado: 0, issuedVoucher: 'B13' }).montoExento).toBe(3000);
+  });
+
+  it('B17 exige los datos del 609', () => {
+    const base = { montoBienes: 0, montoServicios: 100, itbisFacturado: 0, montoRetencionIsr: 0, supplierName: 'Acme Inc.' };
+    expect(voucherProblem('B17', base)).toContain('609');
+    expect(voucherProblem('B17', { ...base, foreignPayment: { country: 'US', taxId: '1', serviceType: 'Gastos de seguros', serviceDetail: 'Gastos de seguros' } })).toBe(null);
+  });
+});

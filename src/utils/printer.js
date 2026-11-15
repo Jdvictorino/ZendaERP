@@ -57,13 +57,16 @@ export const printEscPosLines = async (lines = [], printerName = '') => {
   return false;
 };
 
+// Ticket térmico: en la app de escritorio va directo a la impresora configurada (sin diálogo);
+// en el navegador (admin web) abre el diálogo de impresión para elegir la térmica.
 export const printEscPosReceipt = async (htmlString = '', printerName = '') => {
   try {
     if (window?.electronAPI?.printHTML) {
-      const options = { silent: true, deviceName: printerName || undefined };
-      const res = await window.electronAPI.printHTML(htmlString, options);
+      const res = await window.electronAPI.printHTML(htmlString, { silent: true, deviceName: printerName || undefined });
+      if (!res?.success) console.warn('Impresión térmica rechazada:', res?.error);
       return !!res?.success;
     }
+    return await printInSandbox(htmlString);
   } catch (e) {
     console.warn('IPC printHTML (thermal fallback) falló', e);
   }
