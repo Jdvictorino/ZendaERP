@@ -35,4 +35,7 @@ ffmpeg('-i', 'assets-src/ticket.png', '-q:v', '90', 'public/img/ticket.webp')
 ffmpeg('-i', HERO_H, '-vf', "select='eq(n,24)',scale=1200:630:force_original_aspect_ratio=increase,crop=1200:630", '-frames:v', '1', '-q:v', '3', 'public/og.jpg')
 // Fondo del cierre: la secuencia completa como video corto sin audio
 ffmpeg('-i', HERO_H, '-an', '-c:v', 'libx264', '-crf', '28', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', 'public/img/venta-loop.mp4')
+// Fondo de "Todo tu negocio": video promocional del dueño, sin audio
+ffmpeg('-i', 'assets-src/promo.mp4', '-an', '-c:v', 'libx264', '-crf', '28', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', 'public/img/promo-loop.mp4')
+ffmpeg('-ss', '7', '-i', 'assets-src/promo.mp4', '-frames:v', '1', '-q:v', '72', 'public/img/promo-loop.webp')
 console.log('assets listos')

@@ -82,7 +82,7 @@
           </div>
         </div>
 
-        <div class="hero-layer left-4 right-4 top-20 sm:right-auto sm:max-w-sm md:left-[5vw] md:top-[20vh]" data-range="0.14,0.3">
+        <div class="hero-layer left-4 right-4 top-20 sm:right-auto sm:max-w-sm md:left-[5vw] md:top-auto md:bottom-[8vh]" data-range="0.22,0.36">
           <div class="glass p-6">
             <p class="step-n text-sm">8:02 a. m.</p>
             <h2 class="display mt-2 text-3xl md:text-4xl">Abres la caja y vendes</h2>
@@ -90,7 +90,7 @@
           </div>
         </div>
 
-        <div class="hero-layer left-4 right-4 top-20 sm:right-auto sm:max-w-sm md:left-[5vw] md:top-auto md:bottom-[12vh]" data-range="0.36,0.52">
+        <div class="hero-layer left-4 right-4 top-20 sm:right-auto sm:max-w-sm md:left-[5vw] md:top-auto md:bottom-[12vh]" data-range="0.37,0.47">
           <div class="glass p-6">
             <p class="step-n text-sm">RD$1,390.00</p>
             <h2 class="display mt-2 text-3xl md:text-4xl">Cobras como te paguen</h2>
@@ -98,7 +98,7 @@
           </div>
         </div>
 
-        <div class="hero-layer bottom-6 left-4 right-4 sm:right-auto sm:max-w-sm md:bottom-auto md:left-[5vw] md:top-[30vh]" data-range="0.58,0.76">
+        <div class="hero-layer bottom-6 left-4 right-4 sm:right-auto sm:max-w-sm md:bottom-auto md:left-[5vw] md:top-[30vh]" data-range="0.6,0.8">
           <div class="glass p-6">
             <p class="step-n text-sm">E320000000124</p>
             <h2 class="display mt-2 text-3xl md:text-4xl">Sale el comprobante</h2>
@@ -131,28 +131,30 @@
     </div>
 
     <!-- Qué incluye -->
-    <section id="modulos" class="py-24 md:py-32" aria-labelledby="modulos-title">
-      <div class="container-x">
+    <section id="modulos" class="relative overflow-hidden bg-night py-24 text-white md:py-32" aria-labelledby="modulos-title">
+      <video class="band-video" src="/img/promo-loop.mp4" poster="/img/promo-loop.webp" muted loop playsinline preload="none" data-autoplay aria-hidden="true" tabindex="-1"></video>
+      <div class="absolute inset-0 bg-gradient-to-b from-night/85 via-night/75 to-night/90" aria-hidden="true"></div>
+      <div class="container-x relative">
         <h2 id="modulos-title" class="display max-w-3xl text-4xl md:text-6xl" data-reveal>Todo tu negocio en un solo sistema.</h2>
-        <p class="mt-5 max-w-xl text-lg text-soft" data-reveal>Lo que vendes por la mañana ya está en el inventario, en la caja y en el reporte de fin de mes.</p>
+        <p class="mt-5 max-w-xl text-lg text-white/85" data-reveal>Lo que vendes por la mañana ya está en el inventario, en la caja y en el reporte de fin de mes.</p>
         <div class="persp mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          <article class="card p-7" data-flip>
+          <article class="card p-7 text-ink" data-flip>
             <h3 class="text-xl font-bold">Punto de venta</h3>
             <p class="mt-3 text-soft">Busca o escanea con el celular y cobra en efectivo, tarjeta, transferencia o a crédito. Cierre de caja por turno.</p>
           </article>
-          <article class="card p-7" data-flip>
+          <article class="card p-7 text-ink" data-flip>
             <h3 class="text-xl font-bold">Comprobantes fiscales</h3>
             <p class="mt-3 text-soft">NCF B01 a B17 con su rango y vencimiento, y e-CF E31 a E47. Las notas de crédito y débito llevan su propio comprobante.</p>
           </article>
-          <article class="card p-7" data-flip>
+          <article class="card p-7 text-ink" data-flip>
             <h3 class="text-xl font-bold">Inventario</h3>
             <p class="mt-3 text-soft">El stock baja con cada venta y te avisa cuando algo se está acabando. Subes tu catálogo desde Excel.</p>
           </article>
-          <article class="card p-7" data-flip>
+          <article class="card p-7 text-ink" data-flip>
             <h3 class="text-xl font-bold">Cobros y crédito</h3>
             <p class="mt-3 text-soft">Plazo por cliente, abonos y estado de cuenta por correo con un clic. Ves quién te debe y desde cuándo.</p>
           </article>
-          <article class="card p-7" data-flip>
+          <article class="card p-7 text-ink" data-flip>
             <h3 class="text-xl font-bold">Compras y gastos</h3>
             <p class="mt-3 text-soft">Registras cada gasto con su NCF y emites el comprobante de compra (B11, B13 o B17) cuando el proveedor no factura.</p>
           </article>
