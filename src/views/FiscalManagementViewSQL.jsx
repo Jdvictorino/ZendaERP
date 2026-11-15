@@ -5,7 +5,7 @@ import { AlertTriangle, BookOpen, Download, Zap, FileText, TrendingUp, ShoppingC
 import { formatCurrency } from '../utils/formatCurrency.js';
 import reportFilters from '../utils/reportFilters.js';
 import { loadScript } from '../utils/loadScript.js';
-import { generate606Data, generate607Data, generate608Data, exportToTxt } from '../utils/dgiiReportGenerator.js';
+import { generate606Data, generate607Data, generate608Data, generate609Data, isFiscalInvoice, exportToTxt } from '../utils/dgiiReportGenerator.js';
 import ReportDataTable from '../components/ReportDataTable.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
@@ -27,7 +27,7 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
     const { data: invoicesRaw, loading: loadingInvoices } = useApiCrud('/invoices');
     const { data: expensesRaw, loading: loadingExpenses } = useApiCrud('/expenses');
     const { data: suppliersRaw, loading: loadingSuppliers } = useApiCrud('/suppliers');
-    
+
     const invoices = invoicesRaw || [];
     const expenses = expensesRaw || [];
     const suppliers = suppliersRaw || [];
@@ -59,15 +59,15 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
         return { filteredInvoices, filteredExpenses, filteredCreditNotes };
     }, [invoices, expenses, creditNotes, reportMonth, reportYear, fromDate, toDate]);
 
-    const fiscalInvoices = useMemo(() => filteredData.filteredInvoices.filter(inv => inv.ncf && inv.ncf.type && inv.ncf.type !== 'Sin Valor Fiscal'), [filteredData]);
+    const fiscalInvoices = useMemo(() => filteredData.filteredInvoices.filter(isFiscalInvoice), [filteredData]);
     const fiscalExpenses = useMemo(() => filteredData.filteredExpenses.filter(exp => exp.ncf && exp.ncf.trim() !== ''), [filteredData]);
     const cancelledInvoices = useMemo(() => fiscalInvoices.filter(inv => isVoidInvoice(inv)), [fiscalInvoices]);
-    const fiscalCreditNotes = useMemo(() => (filteredData.filteredCreditNotes || []).filter(note => note.ncf && note.ncf.number), [filteredData]);
+    const fiscalCreditNotes = useMemo(() => (filteredData.filteredCreditNotes || []).filter(note => note.ncf?.number || note.ncfNumber), [filteredData]);
 
     const overview = useMemo(() => {
         const totalSales = fiscalInvoices.reduce((sum, inv) => sum + Number(inv.total || 0), 0);
         const totalPurchases = fiscalExpenses.reduce((sum, exp) => sum + Number(exp.totalMontoFacturado || exp.montoFacturado || 0), 0);
-        const itbisVentas = fiscalInvoices.reduce((sum, inv) => sum + Number(inv.itbis || 0), 0);
+        const itbisVentas = fiscalInvoices.reduce((sum, inv) => sum + Number(inv.itbis ?? inv.taxAmount ?? 0), 0);
         const itbisCompras = fiscalExpenses.reduce((sum, exp) => sum + Number(exp.itbisFacturado || 0), 0);
         const totalCreditNotes = fiscalCreditNotes.reduce((sum, note) => sum + Number(note.total || note.totalAmount || 0), 0);
         return {
@@ -112,6 +112,12 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
             }
             data = generate608Data(cancelledInvoices);
             title = 'Reporte 608 - Comprobantes Anulados';
+            headers = Object.keys(data[0] || {});
+        }
+
+        if (type === '609') {
+            data = generate609Data(fiscalExpenses);
+            title = 'Reporte 609 - Pagos al Exterior';
             headers = Object.keys(data[0] || {});
         }
 
@@ -228,6 +234,9 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
                             </Button>
                             <Button onClick={() => handleGenerateReport('608')}>
                                 <BookOpen className="mr-2" size={16} /> 608
+                            </Button>
+                            <Button onClick={() => handleGenerateReport('609')}>
+                                <BookOpen className="mr-2" size={16} /> 609
                             </Button>
                             <span className="mx-2 h-6 w-px bg-slate-200 dark:bg-slate-700" />
                             <Button variant="secondary" onClick={() => handleExport('txt')}>

@@ -25,6 +25,10 @@ const formatDate = (dateObject) => {
     if (dateObject instanceof Date) {
         return dateObject.toLocaleDateString('es-DO');
     }
+    // Fecha sin hora (guardada como medianoche UTC): en RD (UTC-4) saldría con el día anterior
+    if (typeof dateObject === 'string' && /^\d{4}-\d{2}-\d{2}(T00:00:00(\.0+)?Z)?$/.test(dateObject)) {
+        return dateObject.slice(0, 10).split('-').reverse().join('/');
+    }
     // ISO string (PostgreSQL/Prisma)
     if (typeof dateObject === 'string') {
         const parsed = new Date(dateObject);
@@ -93,9 +97,10 @@ const setBodyTextColor = (doc, theme) => {
 };
 
 const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate, validUntil }) => {
+    // Encabezado blanco: texto oscuro sobre el papel y una línea fina debajo (sin banda de color)
     const headerHeight = 48;
-    doc.setFillColor(...(theme.primary || DEFAULT_THEME.primary));
-    doc.rect(0, 0, 210, headerHeight, 'F');
+    const ink = theme.textPrimary || DEFAULT_THEME.textPrimary;
+    const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
 
     const hasLogo = Boolean(companyProfile.logo);
     if (hasLogo) {
@@ -106,7 +111,7 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
         }
     }
 
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(...ink);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.text(companyProfile.name || 'Nombre de la Empresa', hasLogo ? 52 : 18, 20);
@@ -130,10 +135,12 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
+    doc.setTextColor(...muted);
     if (contactLines.length) {
         doc.text(contactLines, hasLogo ? 52 : 18, 28, { lineHeightFactor: 1.4 });
     }
 
+    doc.setTextColor(...ink);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.text(docTitle || 'Documento', 196, 18, { align: 'right' });
@@ -150,8 +157,8 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
     }
 
     setBodyTextColor(doc, theme);
-    doc.setDrawColor(...(theme.border || DEFAULT_THEME.border));
-    doc.setLineWidth(0.4);
+    doc.setDrawColor(...ink);
+    doc.setLineWidth(0.5);
     doc.line(14, headerHeight, 196, headerHeight);
 
     return headerHeight + 6;
@@ -198,7 +205,7 @@ const buildEmitterLines = (doc, emitterInfo) => {
     return doc.splitTextToSize(lines.length ? lines : [''], 80);
 };
 
-const drawInfoCards = (doc, theme, { customerDetails, docData, emitterInfo, startY }) => {
+const drawInfoCards = (doc, theme, { customerDetails, docData, emitterInfo, startY, leftTitle = 'Cliente' }) => {
     const cardPadding = 7;
     const cardHeightBase = 38;
     const columnWidth = 86;
@@ -216,7 +223,7 @@ const drawInfoCards = (doc, theme, { customerDetails, docData, emitterInfo, star
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('Cliente', 14 + cardPadding, startY + cardPadding + 2);
+    doc.text(leftTitle, 14 + cardPadding, startY + cardPadding + 2);
     doc.text('Atendido por', 108 + cardPadding, startY + cardPadding + 2);
 
     doc.setFont('helvetica', 'normal');
@@ -311,8 +318,8 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY }) => {
             lineColor: theme.border || DEFAULT_THEME.border,
         },
         headStyles: {
-            fillColor: theme.primary || DEFAULT_THEME.primary,
-            textColor: [255, 255, 255],
+            fillColor: theme.subtleBg || DEFAULT_THEME.subtleBg, // formato blanco: cabecera de tabla clara
+            textColor: theme.textPrimary || DEFAULT_THEME.textPrimary,
             fontStyle: 'bold',
         },
         alternateRowStyles: {
@@ -514,7 +521,45 @@ const handleActionOutput = (doc, action, filename) => {
     return doc;
 };
 
+// Comprobante que emite la empresa al comprar (B11/B13/B17 o E41/E43/E47), a partir del gasto
+const VOUCHER_TITLES = {
+    B11: 'Comprobante de Compras', E41: 'Comprobante de Compras Electrónico',
+    B13: 'Comprobante de Gastos Menores', E43: 'Comprobante de Gastos Menores Electrónico',
+    B17: 'Comprobante para Pagos al Exterior', E47: 'Comprobante para Pagos al Exterior Electrónico',
+};
+export const voucherDocData = (expense, currency = 'DOP') => {
+    const n = (v) => Number(v || 0);
+    const itbis = n(expense.itbisFacturado);
+    const base = n(expense.montoBienes) + n(expense.montoServicios) || n(expense.montoFacturado);
+    const total = base + itbis;
+    const withheld = n(expense.itbisRetenido) + n(expense.montoRetencionIsr);
+    const items = [['Bienes', expense.montoBienes], ['Servicios', expense.montoServicios]]
+        .filter(([, amount]) => n(amount) > 0)
+        .map(([name, amount]) => ({ productName: name, description: expense.description || '', quantity: 1, unitPrice: n(amount) }));
+    const notes = [
+        n(expense.itbisRetenido) > 0 && `ITBIS retenido: ${formatCurrency(n(expense.itbisRetenido), currency)}`,
+        n(expense.montoRetencionIsr) > 0 && `ISR retenido: ${formatCurrency(n(expense.montoRetencionIsr), currency)}`,
+        withheld > 0 && `Neto pagado al ${['B11', 'E41'].includes(expense.issuedVoucher) ? 'vendedor' : 'proveedor'}: ${formatCurrency(total - withheld, currency)}`,
+        // El B11 en papel lo firma el vendedor al recibir el pago
+        expense.issuedVoucher === 'B11' && '\nRecibido conforme (firma del vendedor): ________________________________    Cédula: ____________________',
+    ].filter(Boolean).join('\n');
+    return {
+        ...expense,
+        ncfNumber: expense.ncf,
+        date: expense.invoiceDate,
+        items,
+        montoGravado: itbis > 0 ? base : 0,
+        montoExento: itbis > 0 ? 0 : base,
+        itbis,
+        total,
+        notes,
+        customerName: expense.supplierName,
+        customerId: expense.rncCedula || expense.foreignPayment?.taxId,
+    };
+};
+
 export const generatePDF = async (docData, docType, companyProfile, customerDetails, emitterInfo, action = 'view') => {
+    if (docType === 'purchase-voucher') docData = voucherDocData(docData, companyProfile?.currency || 'DOP');
     try {
         await ensurePdfLibraries();
         // Un e-CF impreso lleva su QR, código de seguridad y fecha de firma (representación impresa DGII)
@@ -535,7 +580,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
     let numberLabel = 'NCF:';
     let documentDate = docData?.date;
     let isModificationDocument = false;
-    const validUntil = docType === 'invoice' ? (docData?.ncfExpiresAt || docData?.ecfData?.sequenceExpiresAt?.split('-').reverse().join('-')) : null;
+    const validUntil = ['invoice', 'purchase-voucher'].includes(docType) ? (docData?.ncfExpiresAt || docData?.ecfData?.sequenceExpiresAt?.split('-').reverse().join('-')) : null;
     // NCF guardado por el servidor (ncfNumber); "ncf" es el formato anterior
     const savedNcf = docData?.ncfNumber && docData.ncfNumber !== 'NoFiscal' ? docData.ncfNumber : null;
 
@@ -580,6 +625,11 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             }
             isModificationDocument = true;
             break;
+        case 'purchase-voucher':
+            docTitle = VOUCHER_TITLES[docData?.issuedVoucher] || 'Comprobante';
+            docNumber = docData?.ncfNumber;
+            documentDate = docData?.invoiceDate;
+            break;
         case 'quote':
         default:
             docTitle = 'Cotización';
@@ -604,6 +654,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         docData,
         emitterInfo,
         startY: cursorY,
+        leftTitle: docType === 'purchase-voucher' ? (['B11', 'E41'].includes(docData?.issuedVoucher) ? 'Vendedor' : 'Proveedor') : 'Cliente',
     });
 
     if (isModificationDocument) {
@@ -623,7 +674,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         cursorY = drawFinancialSection(doc, theme, {
             docData,
             currency,
-            bankDetails: companyProfile?.bankDetails,
+            bankDetails: docType === 'purchase-voucher' ? null : companyProfile?.bankDetails,
             startY: cursorY + 4,
         });
     }
@@ -708,8 +759,8 @@ export const generateAccountStatementPDF = async ({ entries = [], companyProfile
                 lineColor: theme.border || DEFAULT_THEME.border,
             },
             headStyles: {
-                fillColor: theme.primary || DEFAULT_THEME.primary,
-                textColor: [255, 255, 255],
+                fillColor: theme.subtleBg || DEFAULT_THEME.subtleBg, // formato blanco: cabecera de tabla clara
+                textColor: theme.textPrimary || DEFAULT_THEME.textPrimary,
                 fontStyle: 'bold',
             },
             alternateRowStyles: {

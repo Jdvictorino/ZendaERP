@@ -466,6 +466,8 @@ model Expense {
   issuedVoucher   String?
   ncfExpiresAt    DateTime? @db.Date
   ecfDocuments    EcfDocument[]
+  // Pago al exterior (formato 609): { idType, taxId, country, serviceType, serviceDetail, relatedParty, documentNumber, rentaPresunta }
+  foreignPayment  Json?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
