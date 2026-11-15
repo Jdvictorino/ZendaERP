@@ -11,6 +11,32 @@ router.use(authenticate);
 // Anular/cancelar y modificar facturas ya emitidas queda para gerencia; cajeros y supervisores solo venden y cobran.
 const VOID_STATUSES = ['Anulado', 'Cancelado'];
 const canManageInvoices = (user) => !!user?.isAdmin || ['admin', 'manager'].includes(user?.role);
+const httpError = (status, message) => Object.assign(new Error(message), { status });
+
+// Descuenta la existencia del producto, o de la variante si la línea es de una variante. Nunca la deja en negativo
+// (la condición stock >= cantidad va en el mismo UPDATE, así vale también con dos ventas a la vez).
+export async function takeStock(tx, companyId, { productId, variantId, quantity }) {
+  const { count } = variantId
+    ? await tx.productVariant.updateMany({ where: { id: variantId, productId, product: { companyId }, stock: { gte: quantity } }, data: { stock: { decrement: quantity } } })
+    : await tx.product.updateMany({ where: { id: productId, companyId, stock: { gte: quantity } }, data: { stock: { decrement: quantity } } });
+  if (count > 0) return;
+  const found = variantId
+    ? await tx.productVariant.findFirst({ where: { id: variantId, productId, product: { companyId } }, select: { name: true, stock: true, product: { select: { name: true } } } })
+    : await tx.product.findFirst({ where: { id: productId, companyId }, select: { name: true, stock: true } });
+  if (!found) throw httpError(409, 'Uno de los productos del pedido no existe.');
+  const name = variantId ? `${found.product.name} (${found.name})` : found.name;
+  throw httpError(409, `Stock insuficiente para "${name}". Disponible: ${found.stock}, pedido: ${quantity}.`);
+}
+
+// Devuelve a inventario las líneas de una factura (anulación, nota de crédito total, pedido eliminado)
+export async function restoreStock(tx, invoice, userId, reason, referenceType, referenceId = invoice.id) {
+  for (const item of invoice.items) {
+    if (!item.productId) continue;
+    if (item.variantId) await tx.productVariant.update({ where: { id: item.variantId }, data: { stock: { increment: item.quantity } } });
+    else await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+    await tx.inventoryLog.create({ data: { productId: item.productId, userId, type: 'entrada', quantity: item.quantity, reason, referenceId, referenceType } });
+  }
+}
 
 const invoiceItemSchema = z.object({
   productId: z.string().uuid().optional(),
@@ -167,20 +193,18 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
     const total = subtotal + taxAmount; // = sum of (unitPrice * qty) after discounts
     const changeAmount = data.amountPaid > total ? data.amountPaid - total : 0;
 
-    // Generar número de orden
-    const lastInvoice = await prisma.invoice.findFirst({
-      where: { companyId: req.companyId },
-      orderBy: { createdAt: 'desc' },
-      select: { orderNumber: true }
-    });
-    
-    const nextNumber = lastInvoice 
-      ? parseInt(lastInvoice.orderNumber.replace(/\D/g, '')) + 1 
-      : 1;
-    const orderNumber = `ORD-${String(nextNumber).padStart(6, '0')}`;
-
     // Crear factura con items en transacción
     const invoice = await prisma.$transaction(async (tx) => {
+      // Bloqueo por empresa hasta el fin de la transacción: dos pedidos a la vez no reciben el mismo número
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${req.companyId}))::text`;
+      const lastInvoice = await tx.invoice.findFirst({
+        where: { companyId: req.companyId },
+        orderBy: { createdAt: 'desc' },
+        select: { orderNumber: true }
+      });
+      const nextNumber = lastInvoice ? parseInt(lastInvoice.orderNumber.replace(/\D/g, '')) + 1 : 1;
+      const orderNumber = `ORD-${String(nextNumber).padStart(6, '0')}`;
+
       const newInvoice = await tx.invoice.create({
         data: {
           companyId: req.companyId,
@@ -215,22 +239,10 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
         }
       });
 
-      // Actualizar stock de productos
+      // Actualizar stock de productos (o de la variante)
       for (const item of data.items) {
         if (item.productId) {
-          // Solo descuenta si alcanza: nunca deja el stock en negativo (también con dos ventas a la vez)
-          const { count } = await tx.product.updateMany({
-            where: { id: item.productId, companyId: req.companyId, stock: { gte: item.quantity } },
-            data: { stock: { decrement: item.quantity } }
-          });
-          if (count === 0) {
-            const product = await tx.product.findFirst({ where: { id: item.productId, companyId: req.companyId }, select: { name: true, stock: true } });
-            const err = new Error(product
-              ? `Stock insuficiente para "${product.name}". Disponible: ${product.stock}, pedido: ${item.quantity}.`
-              : 'Uno de los productos del pedido no existe.');
-            err.status = 409;
-            throw err;
-          }
+          await takeStock(tx, req.companyId, item);
 
           await tx.inventoryLog.create({
             data: {
@@ -287,8 +299,8 @@ router.patch('/:id/status', authorize('admin', 'manager', 'cashier'), async (req
     if (!existing) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
-    if (VOID_STATUSES.includes(status) && !canManageInvoices(req.user)) {
-      return res.status(403).json({ error: 'Solo un gerente o administrador puede anular o cancelar facturas.' });
+    if (VOID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Para anular usa la opción Anular: así se devuelve el inventario.' });
     }
 
     const invoice = await prisma.invoice.update({
@@ -309,77 +321,80 @@ router.patch('/:id/status', authorize('admin', 'manager', 'cashier'), async (req
 router.put('/:id', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
   try {
     const invoice = await prisma.invoice.findFirst({
-      where: { id: req.params.id, companyId: req.companyId }
+      where: { id: req.params.id, companyId: req.companyId },
+      include: { items: { select: { id: true } } }
     });
-
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
 
-    // Campos que se pueden actualizar
-    const allowed = ['discountAmount', 'total', 'appliedCoupon', 'notes', 'status', 'items', 'amountPaid', 'paymentMethod'];
+    const body = req.body;
+    const manager = canManageInvoices(req.user);
     const updateData = {};
-    for (const field of allowed) {
-      if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
-      }
-    }
+    const grossTotal = Number(invoice.subtotal) + Number(invoice.taxAmount); // total antes de descuentos (precios con ITBIS)
 
-    if (req.body.paidAmount !== undefined) {
-      updateData.amountPaid = req.body.paidAmount;
-    }
-    if (req.body.paymentStatus !== undefined) {
-      updateData.status = req.body.paymentStatus;
-    }
+    if (body.notes !== undefined) updateData.notes = body.notes;
+    if (body.paymentMethod !== undefined) updateData.paymentMethod = body.paymentMethod;
+    if (body.paymentGateway !== undefined) updateData.paymentGateway = body.paymentGateway;
 
-    if (!canManageInvoices(req.user)) {
-      if (VOID_STATUSES.includes(updateData.status)) {
-        return res.status(403).json({ error: 'Solo un gerente o administrador puede anular o cancelar facturas.' });
-      }
-      const amountFields = ['items', 'total', 'discountAmount', 'appliedCoupon'].filter(f => updateData[f] !== undefined);
-      if (invoice.isBilled && amountFields.length) {
+    // Descuento (cupón): el total lo calcula el servidor; en una factura ya emitida solo lo cambia gerencia
+    if (body.discountAmount !== undefined) {
+      if (invoice.isBilled && !manager) {
         return res.status(403).json({ error: 'Una factura ya emitida no se puede modificar. Pide a un gerente una nota de crédito o débito.' });
       }
+      const discount = Number(body.discountAmount) || 0;
+      if (discount < 0 || discount > grossTotal + 0.01) {
+        return res.status(400).json({ error: 'El descuento no puede ser mayor que el total.' });
+      }
+      updateData.discountAmount = discount;
+      updateData.total = grossTotal - discount;
+    }
+    const total = updateData.total ?? Number(invoice.total);
+
+    // Cobro: el monto se valida contra el total y el estado de pago sale de los montos, no de la pantalla
+    const paid = body.amountPaid ?? body.paidAmount;
+    if (paid !== undefined) {
+      const amount = Number(paid);
+      if (!(amount >= 0) || amount > total + 0.01) {
+        return res.status(400).json({ error: 'El monto pagado no puede ser mayor que el total de la factura.' });
+      }
+      if (!manager && amount < Number(invoice.amountPaid) - 0.01) {
+        return res.status(403).json({ error: 'Solo un gerente o administrador puede reducir lo pagado de una factura.' });
+      }
+      updateData.amountPaid = amount;
+      if (!VOID_STATUSES.includes(invoice.status)) {
+        updateData.status = amount >= total - 0.01 ? 'Pagado' : amount > 0 ? 'Pagado Parcialmente' : 'Pendiente';
+      }
+    }
+    const status = body.status ?? body.paymentStatus;
+    if (status !== undefined && updateData.status === undefined) {
+      if (VOID_STATUSES.includes(status)) {
+        return res.status(400).json({ error: 'Para anular usa la opción Anular: así se devuelve el inventario.' });
+      }
+      if (status === 'Pagado' && Number(invoice.amountPaid) < total - 0.01) {
+        return res.status(400).json({ error: 'Registra el pago antes de marcar la factura como pagada.' });
+      }
+      updateData.status = status;
     }
 
-    // Si se actualizan los items, actualizarlos en cascada
-    if (updateData.items && Array.isArray(updateData.items)) {
-      const items = updateData.items;
-      delete updateData.items;
+    // Desglose de cobros (efectivo, tarjeta, transferencia) que usa el cierre de caja: solo se agregan, no se reescriben
+    const previous = Array.isArray(invoice.payments) ? invoice.payments : [];
+    const added = body.paymentBreakdown ? [body.paymentBreakdown] : Array.isArray(body.payments) ? body.payments.slice(previous.length) : [];
+    if (added.length) updateData.payments = [...previous, ...added];
 
-      await prisma.$transaction(async (tx) => {
-        // Eliminar items actuales
-        await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+    // De las líneas solo se editan las notas de personalización: cantidades y precios no cambian tras crear el pedido
+    // (moverían el stock y el ITBIS ya calculados)
+    const ownItems = new Set(invoice.items.map((i) => i.id));
+    const noteUpdates = Array.isArray(body.items)
+      ? body.items.filter((i) => i?.id && ownItems.has(i.id)).map((i) => prisma.invoiceItem.update({ where: { id: i.id }, data: { customizationNotes: i.customizationNotes || null } }))
+      : [];
 
-        // Recrear items con los datos nuevos
-        for (const item of items) {
-          await tx.invoiceItem.create({
-            data: {
-              invoiceId: invoice.id,
-              productId: item.productId || null,
-              variantId: item.variantId || null,
-              productName: item.productName || item.name || '',
-              quantity: parseInt(item.quantity) || 1,
-              unitPrice: parseFloat(item.unitPrice ?? item.price) || 0,
-              discountPercent: parseFloat(item.discountPercent) || 0,
-              taxRate: parseFloat(item.taxRate) || 18,
-              subtotal: parseFloat(item.subtotal) || 0,
-              customizationNotes: item.customizationNotes || null,
-              customImageUrls: Array.isArray(item.customImageUrls) ? item.customImageUrls : [],
-              variantInfo: item.variantInfo || null,
-            }
-          });
-        }
-      });
-    }
+    const results = await prisma.$transaction([
+      ...noteUpdates,
+      prisma.invoice.update({ where: { id: invoice.id }, data: updateData, include: { items: true } })
+    ]);
 
-    const updated = await prisma.invoice.update({
-      where: { id: req.params.id },
-      data: updateData,
-      include: { items: true }
-    });
-
-    res.json(updated);
+    res.json(results[results.length - 1]);
   } catch (error) {
     next(error);
   }
@@ -443,6 +458,9 @@ router.post('/:id/bill', authorize('admin', 'manager', 'supervisor', 'cashier'),
     }
 
     // ── NCF Tradicional (B01, B02, NoFiscal) ──
+    if (ncfType && !['B01', 'B02', 'NoFiscal'].includes(ncfType)) {
+      return res.status(400).json({ error: 'Tipo de comprobante no válido.' });
+    }
     const company = await prisma.company.findUnique({
       where: { id: req.companyId }
     });
@@ -454,33 +472,26 @@ router.post('/:id/bill', authorize('admin', 'manager', 'supervisor', 'cashier'),
       return res.status(400).json({ error: 'Configuración incompleta: Falta el prefijo NCF para Consumo (B02).' });
     }
 
-    let ncfNumber = 'NoFiscal';
-    let updateCompany = {};
+    const field = ncfType === 'B01' ? 'ncfB01SequenceNext' : ncfType === 'B02' ? 'ncfB02SequenceNext' : null;
+    const updatedInvoice = await prisma.$transaction(async (tx) => {
+      // Se reserva la factura primero: dos clics o dos cajas a la vez no la facturan (ni gastan NCF) dos veces
+      const claimed = await tx.invoice.updateMany({
+        where: { id: invoice.id, companyId: req.companyId, isBilled: false },
+        data: { isBilled: true, billedDate: new Date() }
+      });
+      if (claimed.count === 0) throw httpError(400, 'La factura ya está facturada');
 
-    if (ncfType === 'B01' && company.ncfB01Prefix) {
-      ncfNumber = `${company.ncfB01Prefix}${String(company.ncfB01SequenceNext).padStart(8, '0')}`;
-      updateCompany = { ncfB01SequenceNext: company.ncfB01SequenceNext + 1 };
-    } else if (ncfType === 'B02' && company.ncfB02Prefix) {
-      ncfNumber = `${company.ncfB02Prefix}${String(company.ncfB02SequenceNext).padStart(8, '0')}`;
-      updateCompany = { ncfB02SequenceNext: company.ncfB02SequenceNext + 1 };
-    }
-
-    const [updatedInvoice] = await prisma.$transaction([
-      prisma.invoice.update({
-        where: { id: req.params.id },
-        data: {
-          isBilled: true,
-          billedDate: new Date(),
-          invoiceNumber: invoice.orderNumber,
-          ncfNumber,
-          ncfType: ncfType || 'NoFiscal',
-          customerRnc
-        }
-      }),
-      ...(Object.keys(updateCompany).length > 0 
-        ? [prisma.company.update({ where: { id: req.companyId }, data: updateCompany })]
-        : [])
-    ]);
+      let ncfNumber = 'NoFiscal';
+      if (field) {
+        // Incremento atómico de la secuencia: cada factura recibe un NCF distinto
+        const next = await tx.company.update({ where: { id: req.companyId }, data: { [field]: { increment: 1 } }, select: { [field]: true } });
+        ncfNumber = `${company[`ncf${ncfType}Prefix`]}${String(next[field] - 1).padStart(8, '0')}`;
+      }
+      return tx.invoice.update({
+        where: { id: invoice.id },
+        data: { invoiceNumber: invoice.orderNumber, ncfNumber, ncfType: ncfType || 'NoFiscal', customerRnc }
+      });
+    });
 
     res.json(updatedInvoice);
   } catch (error) {
@@ -490,48 +501,28 @@ router.post('/:id/bill', authorize('admin', 'manager', 'supervisor', 'cashier'),
 
 /**
  * POST /api/invoices/:id/cancel
- * Anular factura
+ * Anular factura (gerencia): devuelve el inventario una sola vez
  */
-router.post('/:id/cancel', authorize('admin'), async (req, res, next) => {
+router.post('/:id/cancel', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const { reason } = req.body;
-    
+
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
       include: { items: true }
     });
-
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
 
-    // Restaurar stock
     await prisma.$transaction(async (tx) => {
-      for (const item of invoice.items) {
-        if (item.productId) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { increment: item.quantity } }
-          });
-
-          await tx.inventoryLog.create({
-            data: {
-              productId: item.productId,
-              userId: req.user.id,
-              type: 'entrada',
-              quantity: item.quantity,
-              reason: `Anulación de factura - ${invoice.orderNumber}: ${reason || 'Sin motivo'}`,
-              referenceId: invoice.id,
-              referenceType: 'invoice_cancel'
-            }
-          });
-        }
-      }
-
-      await tx.invoice.update({
-        where: { id: req.params.id },
+      // Solo la primera anulación devuelve el inventario (dos clics no lo duplican)
+      const { count } = await tx.invoice.updateMany({
+        where: { id: invoice.id, companyId: req.companyId, status: { notIn: VOID_STATUSES } },
         data: { status: 'Anulado' }
       });
+      if (count === 0) throw httpError(400, 'La factura ya está anulada.');
+      await restoreStock(tx, invoice, req.user.id, `Anulación de factura - ${invoice.orderNumber}: ${reason || 'Sin motivo'}`, 'invoice_cancel');
     });
 
     res.json({ message: 'Factura anulada' });
@@ -542,62 +533,42 @@ router.post('/:id/cancel', authorize('admin'), async (req, res, next) => {
 
 /**
  * POST /api/invoices/:id/credit-note
- * Crear nota de crédito para una factura
+ * Nota de crédito. Solo la que completa el total anula la factura y devuelve el inventario.
  */
 router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const { amount, reason, ncfNumber } = req.body;
-    
+    const value = parseFloat(amount);
+    if (!(value > 0)) {
+      return res.status(400).json({ error: 'El monto de la nota de crédito debe ser mayor que 0.' });
+    }
+
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true }
+      include: { items: true, creditNotes: { select: { amount: true } } }
     });
-
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
+    if (VOID_STATUSES.includes(invoice.status)) {
+      return res.status(400).json({ error: 'La factura ya está anulada.' });
+    }
 
-    // Crear nota de crédito y reintegrar stock
+    const total = Number(invoice.total);
+    const credited = invoice.creditNotes.reduce((sum, n) => sum + Number(n.amount), 0) + value;
+    if (credited > total + 0.01) {
+      return res.status(400).json({ error: `La nota excede lo que queda por acreditar (RD$${(total - credited + value).toFixed(2)}).` });
+    }
+
     const creditNote = await prisma.$transaction(async (tx) => {
-      // Crear la nota de crédito
       const note = await tx.creditNote.create({
-        data: {
-          companyId: req.companyId,
-          invoiceId: invoice.id,
-          amount: parseFloat(amount),
-          reason,
-          ncfNumber
-        }
+        data: { companyId: req.companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber }
       });
-
-      // Reintegrar stock
-      for (const item of invoice.items) {
-        if (item.productId) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { increment: item.quantity } }
-          });
-
-          await tx.inventoryLog.create({
-            data: {
-              productId: item.productId,
-              userId: req.user.id,
-              type: 'entrada',
-              quantity: item.quantity,
-              reason: `Nota de Crédito - ${note.id}`,
-              referenceId: note.id,
-              referenceType: 'credit_note'
-            }
-          });
-        }
+      // shortcut: una nota parcial no devuelve artículos al inventario; si hace falta, se ajusta el stock a mano
+      if (credited >= total - 0.01) {
+        await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'Anulado' } });
+        await restoreStock(tx, invoice, req.user.id, `Nota de Crédito - ${note.id}`, 'credit_note', note.id);
       }
-
-      // Actualizar factura
-      await tx.invoice.update({
-        where: { id: invoice.id },
-        data: { status: 'Anulado' }
-      });
-
       return note;
     });
 
@@ -609,37 +580,34 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
 
 /**
  * POST /api/invoices/:id/debit-note
- * Crear nota de débito para una factura
+ * Nota de débito: suma al total con el ITBIS en la misma proporción que la factura (para que el 607 cuadre)
  */
 router.post('/:id/debit-note', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const { amount, reason, ncfNumber } = req.body;
-    
+    const value = parseFloat(amount);
+    if (!(value > 0)) {
+      return res.status(400).json({ error: 'El monto de la nota de débito debe ser mayor que 0.' });
+    }
+
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId }
     });
-
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
 
-    const debitNote = await prisma.debitNote.create({
-      data: {
-        companyId: req.companyId,
-        invoiceId: invoice.id,
-        amount: parseFloat(amount),
-        reason,
-        ncfNumber
-      }
-    });
-
-    // Actualizar total de la factura 
-    await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { 
-        total: { increment: parseFloat(amount) }
-      }
-    });
+    const taxShare = Number(invoice.total) > 0 ? Number(invoice.taxAmount) / Number(invoice.total) : 0;
+    const tax = value * taxShare;
+    const [debitNote] = await prisma.$transaction([
+      prisma.debitNote.create({
+        data: { companyId: req.companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber }
+      }),
+      prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { total: { increment: value }, taxAmount: { increment: tax }, subtotal: { increment: value - tax } }
+      })
+    ]);
 
     res.status(201).json(debitNote);
   } catch (error) {
@@ -649,7 +617,7 @@ router.post('/:id/debit-note', authorize('admin', 'manager'), async (req, res, n
 
 /**
  * DELETE /api/invoices/:id
- * Eliminar un pedido/factura (solo si está en estado Pendiente o Anulado)
+ * Eliminar un pedido sin facturar (Pendiente o Anulado). Un pedido pendiente devuelve su inventario.
  */
 router.delete('/:id', authorize('admin', 'manager'), async (req, res, next) => {
   try {
@@ -657,29 +625,23 @@ router.delete('/:id', authorize('admin', 'manager'), async (req, res, next) => {
       where: { id: req.params.id, companyId: req.companyId },
       include: { items: true }
     });
-
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
-
-    // Solo permitir eliminar pedidos pendientes o anulados
+    if (invoice.isBilled) {
+      return res.status(400).json({ error: 'Una factura emitida no se elimina: anúlala o haz una nota de crédito.' });
+    }
     if (!['Pendiente', 'Anulado'].includes(invoice.status)) {
-      return res.status(400).json({ 
-        error: 'Solo se pueden eliminar pedidos en estado Pendiente o Anulado' 
-      });
+      return res.status(400).json({ error: 'Solo se pueden eliminar pedidos en estado Pendiente o Anulado' });
     }
 
-    // Eliminar en transacción (items + factura)
     await prisma.$transaction(async (tx) => {
-      // Primero eliminar los items
-      await tx.invoiceItem.deleteMany({
-        where: { invoiceId: invoice.id }
-      });
-
-      // Luego eliminar la factura
-      await tx.invoice.delete({
-        where: { id: invoice.id }
-      });
+      // Un pedido anulado ya devolvió su inventario al anularse
+      if (invoice.status === 'Pendiente') {
+        await restoreStock(tx, invoice, req.user.id, `Pedido eliminado - ${invoice.orderNumber}`, 'invoice_delete');
+      }
+      await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.invoice.delete({ where: { id: invoice.id } });
     });
 
     res.json({ success: true, message: 'Pedido eliminado correctamente' });

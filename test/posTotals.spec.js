@@ -37,3 +37,14 @@ describe('POS: totales y descuentos', () => {
     expect(computeTotals(rows, 0).discAmt).toBeCloseTo(0, 10);
   });
 });
+
+describe('computeTotals: ITBIS de cada producto', () => {
+  it('un exento no lleva ITBIS y uno al 16 % usa su tasa', () => {
+    const t = computeTotals([
+      { price: 100, qty: 1, disc: 0, taxable: false, taxRate: 0 },
+      { price: 116, qty: 1, disc: 0, taxable: true, taxRate: 16 },
+    ], 0);
+    expect(t.tax).toBeCloseTo(16, 2);
+    expect(t.total).toBeCloseTo(216, 2);
+  });
+});

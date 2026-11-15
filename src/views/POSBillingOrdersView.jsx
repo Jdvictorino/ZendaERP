@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import api from '../api/client.js';
 import { useApiCrud } from '../hooks/useApi.js';
-import { 
+import {
   Search, Plus, Minus, Trash2, Receipt, ChevronDown, Check, ShoppingCart, Smartphone, XCircle, UserPlus
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,6 +27,8 @@ import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { confirmDialog } from '../utils/confirmDialog.jsx';
 
 const TAX_RATE = 0.18;
+// Tasa de ITBIS de la línea: la del producto (0 si es exento); 18 % para líneas escritas a mano
+const rateOf = (r) => (r.taxable ? (Number(r.taxRate ?? TAX_RATE * 100) || 0) / 100 : 0);
 
 // shortcut: la moneda se toma del perfil en cada render del POS (ver posCurrency = ... abajo); si fmt se usa fuera de esta vista, pasar la moneda explícita
 let posCurrency = 'DOP';
@@ -46,7 +48,7 @@ export function computeTotals(rows, globalDisc) {
     const line = r.price * r.qty * (1 - r.disc / 100);
     const lineNet = line * g;
     gross += line; total += lineNet;
-    if (r.taxable) tax += lineNet - lineNet / (1 + TAX_RATE);
+    tax += lineNet - lineNet / (1 + rateOf(r));
   }
   return { gross, discAmt: gross - total, tax, subtotal: total - tax, total };
 }
@@ -125,11 +127,8 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
   const handleInput = (v) => {
     setQuery(v);
     if (v.length < 2) { setResults([]); setOpen(false); return; }
-    const r = catalog.filter(p =>
-      (p.name && p.name.toLowerCase().includes(v.toLowerCase())) || 
-      (p.barcode && p.barcode.includes(v)) || 
-      (p.productCode && p.productCode.includes(v))
-    );
+    const term = v.toLowerCase();
+    const r = catalog.filter(p => [p.name, p.barcode, p.sku, p.code].some(f => f && String(f).toLowerCase().includes(term)));
     setResults(r);
     setOpen(r.length > 0);
     setHighlightIdx(0);
@@ -179,7 +178,8 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
           onClick={() => {
             if (open && results[highlightIdx]) { pick(results[highlightIdx]); }
             else if (query.trim()) {
-                const p = catalog.find(x => (x.name && x.name.toLowerCase().includes(query.toLowerCase())) || x.barcode === query || x.productCode === query);
+                const q = query.trim().toLowerCase();
+                const p = catalog.find(x => [x.barcode, x.sku, x.code].some(f => f && String(f).toLowerCase() === q)) || catalog.find(x => x.name && x.name.toLowerCase().includes(q));
                 if (p) pick(p); else onAdd(null);
                 setQuery(""); setOpen(false);
             } else { onAdd(null); }
@@ -194,7 +194,7 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
                   <span className="text-sm font-semibold text-ink">{p.name}</span>
                   {i === highlightIdx && <Check size={14} className="text-brand-600" />}
                 </div>
-                <span className="text-xs text-ink-muted dark:text-gray-400">{p.productCode || p.barcode || '-'} — {fmt(p.salePrice || p.price)}</span>
+                <span className="text-xs text-ink-muted dark:text-gray-400">{p.sku || p.code || p.barcode || '-'} — {fmt(p.salePrice || p.price)} · Existencia: {p.stock ?? 0}</span>
               </div>
             ))}
           </div>
@@ -252,7 +252,7 @@ function MobileGridCard({ row, onQty, onPrice, onDelete, onDesc }) {
 
 function GridRow({ row, index, onQty, onDisc, onPrice, onDelete, onDesc }) {
   const total = row.price * row.qty * (1 - row.disc / 100);
-  const tax = row.taxable ? total - (total / (1 + TAX_RATE)) : 0;
+  const tax = total - total / (1 + rateOf(row));
   const cellInput = "input-base h-8 px-2 text-right tabular-nums";
   return (
     <tr className="border-b border-line hover:bg-surface-muted/60 transition-colors group">
@@ -268,7 +268,7 @@ function GridRow({ row, index, onQty, onDisc, onPrice, onDelete, onDesc }) {
       </td>
       <td className="px-3 py-2"><input aria-label="Descuento de la línea (%)" className={`${cellInput} w-16`} type="number" min="0" max="100" value={row.disc} onChange={e => onDisc(row.id, e.target.value)} /></td>
       <td className="px-3 py-2 text-right"><input aria-label="Precio unitario" className={`${cellInput} w-24`} type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} /></td>
-      <td className="px-3 py-2 text-right text-xs text-ink-muted tabular-nums">{row.taxable ? fmt(tax) : 'Exento'}</td>
+      <td className="px-3 py-2 text-right text-xs text-ink-muted tabular-nums">{rateOf(row) > 0 ? fmt(tax) : 'Exento'}</td>
       <td className="px-3 py-2 text-right text-sm font-semibold text-ink tabular-nums">{fmt(total)}</td>
       <td className="px-3 py-2 text-center"><button aria-label="Quitar línea" className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onDelete(row.id)}><Trash2 size={16} /></button></td>
     </tr>
@@ -395,8 +395,23 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const { data: pData } = useApiCrud('/products');
   const { data: cData } = useApiCrud('/customers');
   const { data: shiftsData, refetch: refetchShifts } = useApiCrud('/shifts');
-  // Los productos inactivos (p. ej. importados sin precio) no se venden desde la caja
-  const catalog = Array.isArray(pData) ? pData.filter((p) => p.status !== 'inactive') : [];
+  // Los productos inactivos (p. ej. importados sin precio) no se venden desde la caja.
+  // Un producto con variantes se vende por variante: cada una aparece con su precio y su existencia.
+  const catalog = useMemo(() => (Array.isArray(pData) ? pData : [])
+    .filter((p) => p.status !== 'inactive')
+    .flatMap((p) => (p.variants?.length
+      ? p.variants.map((v) => ({
+          ...p,
+          id: `${p.id}:${v.id}`,
+          productId: p.id,
+          variantId: v.id,
+          name: `${p.name} (${v.name})`,
+          sku: v.sku || p.sku,
+          barcode: v.barcode || p.barcode,
+          salePrice: Number(v.salePrice) > 0 ? Number(v.salePrice) : Number(p.salePrice) + Number(v.priceAdjustment || 0),
+          stock: v.stock,
+        }))
+      : [p])), [pData]);
   const customersList = Array.isArray(cData) ? cData : [];
   const { data: iData } = useApiCrud('/invoices');
   const invoicesData = Array.isArray(iData) ? iData : (iData?.data || []);
@@ -506,12 +521,12 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       const isModalOpen = !!(
-        paymentForOrder || 
-        showAddCustomerModal || 
-        adminPinAction || 
-        showScannerModal || 
-        showAdminPinModal || 
-        showOpenShift || 
+        paymentForOrder ||
+        showAddCustomerModal ||
+        adminPinAction ||
+        showScannerModal ||
+        showAdminPinModal ||
+        showOpenShift ||
         showCloseShift ||
         showCierreCajaModal ||
         showCierreReports
@@ -563,18 +578,14 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   // Set default customer
   useEffect(() => {
     if (activeCustomers.length > 0 && !selectedCustomer) {
-      const defaultCustomer = activeCustomers.find(c => 
-        (c.rnc === '00122558965') || 
-        (c.identificationNumber === '00122558965') ||
-        (c.name && c.name.toLowerCase().includes('walk-in'))
-      );
+      const defaultCustomer = activeCustomers.find(c => /consumidor final|walk-in/i.test(c.name || ''));
       if (defaultCustomer) {
         handleCustomerSelect(defaultCustomer);
       }
     }
   }, [activeCustomers, selectedCustomer]);
   const formattedSearchTerm = customerSearchTerm.trim().toLowerCase();
-  
+
   const customerOptions = useMemo(() => {
      if (!formattedSearchTerm) return activeCustomers.slice(0, 25);
      return activeCustomers.filter(c => {
@@ -588,19 +599,19 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       setIsCustomerDropdownOpen(true);
       if (selectedCustomer) setSelectedCustomer(null);
   };
-  
+
   const handleCustomerSelect = (customer) => {
       setSelectedCustomer(customer);
       setCustomerSearchTerm(customer.name + (customer.rnc ? ` - ${customer.rnc}` : ''));
       setIsCustomerDropdownOpen(false);
   };
-  
+
   const clearCustomerSelection = () => {
       setSelectedCustomer(null);
       setCustomerSearchTerm('');
   };
 
-  const { 
+  const {
       isConnected, linkedDeviceName, disconnectDevice, registerScanHandler, unregisterScanHandler, initSession
   } = useScanner();
   const [barcodeScan, setBarcodeScan] = useState('');
@@ -609,33 +620,19 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       if (!codeRaw) return;
       const codeStr = String(codeRaw).trim();
       const codeNum = codeStr.replace(/\D/g, '');
-      const found = catalog.find(p => {
-          const pb = p.barcode ? String(p.barcode).trim() : '';
-          const pc = p.productCode ? String(p.productCode).trim() : '';
-          return pb === codeStr || pc === codeStr || (codeNum && (pb === codeNum || pc === codeNum));
-      });
-      
+      const found = catalog.find(p => [p.barcode, p.code, p.sku].some(f => {
+          const s = f ? String(f).trim() : '';
+          return s && (s === codeStr || (codeNum && s === codeNum));
+      }));
+
       if (found) {
-          setRows(r => {
-             const existing = r.find(x => x.originalId === found.id);
-             if (existing) return r.map(x => x.originalId === found.id ? { ...x, qty: x.qty + 1 } : x);
-             return [...r, {
-               id: uuidv4(),  
-               originalId: found.id,
-               desc: found.name, 
-               code: found.productCode || found.barcode || "-", 
-               price: found.salePrice || found.price || 0, 
-               qty: 1, 
-               disc: 0, 
-               taxable: found.hasTax ?? true 
-             }];
-          });
+          addProduct(found);
           toast.success(`Agregado: ${found.name}`);
       } else {
           toast.error(`No se encontró el código ${codeStr}`);
       }
       setBarcodeScan('');
-  }, [catalog]);
+  }, [catalog]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
       registerScanHandler(handleBarcodeScan);
@@ -649,20 +646,20 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       setRows(r => [...r, { id: uuidv4(), desc: "", code: "", price: 0, qty: 1, disc: 0, taxable: true }]);
     } else {
       setRows(r => {
-        const existing = r.find(x => x.originalId === p.id);
-        if (existing) return r.map(x => x.originalId === p.id ? { ...x, qty: x.qty + 1 } : x);
-        const codeStr = p.productCode || p.barcode || "-";
-        const priceNum = p.salePrice || p.price || 0;
-        const taxable = p.hasTax ?? true;
+        // la misma línea se suma (key distingue variantes del mismo producto)
+        if (r.some(x => x.key === p.id)) return r.map(x => x.key === p.id ? { ...x, qty: x.qty + 1 } : x);
         return [...r, {
           id: uuidv4(),
-          originalId: p.id,
-          desc: p.name, 
-          code: codeStr, 
-          price: priceNum, 
-          qty: 1, 
-          disc: 0, 
-          taxable: taxable 
+          key: p.id,
+          originalId: p.productId || p.id,
+          variantId: p.variantId || null,
+          desc: p.name,
+          code: p.sku || p.code || p.barcode || "-",
+          price: Number(p.salePrice ?? p.price) || 0,
+          qty: 1,
+          disc: 0,
+          taxable: p.isTaxable !== false && Number(p.taxRate ?? 18) > 0,
+          taxRate: Number(p.taxRate ?? 18),
         }];
       });
     }
@@ -699,10 +696,12 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     const buyerDoc = selectedCustomer?.rnc || selectedCustomer?.identificationNumber || '';
     if (option.requiresBuyer && !buyerDoc) { toast.error(`${option.label} requiere un cliente con RNC o cédula.`); focusCustomer(); return; }
     if (!selectedCustomer) { toast.error('Selecciona el cliente de la venta.'); focusCustomer(); return; }
+    // el efectivo de una venta de contado entra en la caja: sin turno abierto no cuadraría en el cierre
+    if (!isCredit && !openShift) { toast.error('Abre un turno de caja para cobrar ventas de contado.'); return; }
 
     // No se vende más de lo que hay: se suman las líneas del mismo producto (el servidor también lo valida)
     const qtyByProduct = {};
-    rows.forEach(r => { if (r.originalId) qtyByProduct[r.originalId] = (qtyByProduct[r.originalId] || 0) + (parseInt(r.qty, 10) || 0); });
+    rows.forEach(r => { if (r.key) qtyByProduct[r.key] = (qtyByProduct[r.key] || 0) + (parseInt(r.qty, 10) || 0); });
     const short = Object.entries(qtyByProduct)
       .map(([id, qty]) => ({ product: catalog.find(p => p.id === id), qty }))
       .find(({ product, qty }) => product && (Number(product.stock) || 0) < qty);
@@ -711,13 +710,13 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     setIsSubmitting(true);
     const itemsData = rows.map(r => ({
       productId: r.originalId || undefined,
-      variantId: null,
+      variantId: r.variantId || null,
       productName: String(r.desc).trim(),
       quantity: parseInt(r.qty, 10),
       unitPrice: Number(r.price) || 0,
       // el descuento general se combina con el de la línea para que el total facturado sea el mismo que ve el cajero
       discountPercent: combinedDiscount(r.disc, globalDisc),
-      taxRate: r.taxable ? TAX_RATE * 100 : 0,
+      taxRate: rateOf(r) * 100,
       customizationNotes: '',
       customImageUrls: [],
       variantInfo: null,
@@ -953,27 +952,27 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
 
             {paymentForOrder && (
-          <PaymentModal 
-              invoice={paymentForOrder} 
+          <PaymentModal
+              invoice={paymentForOrder}
               customers={customersList}
-              companyProfile={companyProfile} 
+              companyProfile={companyProfile}
               onClose={() => {
                   setPaymentForOrder(null);
                   if (isBillAndPayFlow) setIsBillAndPayFlow(false);
-              }} 
+              }}
               onSuccess={handlePaymentSuccess}
               useApi={true}
           />
       )}
-      
+
       {showScannerModal && (
-          <ScannerLinkModal 
+          <ScannerLinkModal
               onClose={() => setShowScannerModal(false)}
           />
       )}
 
       {showAddCustomerModal && (
-          <CustomerModal 
+          <CustomerModal
               customer={{}}
               onClose={() => setShowAddCustomerModal(false)}
               onSave={async (newCustomer) => {
@@ -992,7 +991,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       )}
 
       {adminPinAction && (
-        <AdminPinAuthModal 
+        <AdminPinAuthModal
           adminUser={adminUser}
           currentUserProfile={currentUserProfile}
           onClose={handleAdminPinSuccess}
@@ -1011,19 +1010,19 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       )}
 
       {showCierreCajaModal && (
-        <CierreCajaModal 
-          currentUserProfile={currentUserProfile} 
-          companyProfile={companyProfile} 
-          onClose={() => { setShowCierreCajaModal(false); refetchShifts(); }} 
+        <CierreCajaModal
+          currentUserProfile={currentUserProfile}
+          companyProfile={companyProfile}
+          onClose={() => { setShowCierreCajaModal(false); refetchShifts(); }}
           useApi={true}
         />
       )}
 
       {showCierreReports && (
-        <CierreCajaReportModal 
-          onClose={() => setShowCierreReports(false)} 
-          currentUserProfile={currentUserProfile} 
-          companyProfile={companyProfile} 
+        <CierreCajaReportModal
+          onClose={() => setShowCierreReports(false)}
+          currentUserProfile={currentUserProfile}
+          companyProfile={companyProfile}
           useApi={true}
         />
       )}

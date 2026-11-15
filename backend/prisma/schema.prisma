@@ -335,6 +335,8 @@ model Invoice {
   paymentTermDays Int?      // plazo de crédito en días (null/0 = contado)
   dueDate         DateTime? // vencimiento: fecha de la venta + plazo
   amountPaid    Decimal @default(0) @db.Decimal(12, 2)
+  payments      Json    @default("[]") // desglose de cada cobro (efectivo, tarjeta, transferencia) para el cierre de caja
+  paymentGateway Json?  // enlace de cobro por pasarela
   changeAmount  Decimal @default(0) @db.Decimal(12, 2)
   
   // Entrega

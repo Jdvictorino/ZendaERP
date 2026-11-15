@@ -450,7 +450,7 @@ export default function App() {
             case 'offers':
                 return <OffersView companyProfile={companyProfile} />;
             case 'orders':
-                return companyProfile?.orderMode === 'distributor'
+                return (companyProfile?.orderMode || companyProfile?.settings?.orderMode) === 'distributor'
                     ? <POSBillingOrdersView companyProfile={companyProfile} currentUserProfile={currentUserProfile} setView={setViewWithGuard} adminUser={user} />
                     : <OrdersView companyProfile={companyProfile} currentUserProfile={currentUserProfile} setView={setViewWithGuard} />;
             case 'invoices':
