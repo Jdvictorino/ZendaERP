@@ -43,7 +43,9 @@ const invoiceSchema = z.object({
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { status, customerId, from, to, page = 1, limit = 50 } = req.query;
+    const { status, customerId, from, to, page = 1, limit } = req.query;
+    // Sin ?limit se devuelve la lista completa: las pantallas (caja, reportes, 607) necesitan todos los registros
+    const take = limit ? parseInt(limit) : undefined;
     
     const where = { companyId: req.companyId };
     if (status) where.status = status;
@@ -67,8 +69,8 @@ router.get('/', async (req, res, next) => {
           _count: { select: { items: true } }
         },
         orderBy: { date: 'desc' },
-        skip: (parseInt(page) - 1) * parseInt(limit),
-        take: parseInt(limit)
+        skip: take ? (parseInt(page) - 1) * take : undefined,
+        take
       }),
       prisma.invoice.count({ where })
     ]);
@@ -83,9 +85,9 @@ router.get('/', async (req, res, next) => {
       data: mappedInvoices,
       pagination: {
         page: parseInt(page),
-        limit: parseInt(limit),
+        limit: take ?? total,
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: take ? Math.ceil(total / take) : 1
       }
     });
   } catch (error) {

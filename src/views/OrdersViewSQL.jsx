@@ -103,7 +103,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
     const { data: customersData, loading: loadingCustomers, refetch: refetchCustomers } = useApiCrud('/customers');
 
     // La API devuelve arrays directamente (el hook ya extrae .data de la respuesta)
-    const rawProducts = Array.isArray(productsData) ? productsData : (productsData?.data || []);
+    const rawProducts = (Array.isArray(productsData) ? productsData : (productsData?.data || [])).filter((p) => p.status !== 'inactive');
     const customers = Array.isArray(customersData) ? customersData : (customersData?.data || []);
     const safeCustomers = customers || [];
     

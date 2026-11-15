@@ -65,7 +65,9 @@ function transformCustomerData(data) {
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { status, category, search, page = 1, limit = 50 } = req.query;
+    const { status, category, search, page = 1, limit } = req.query;
+    // Sin ?limit se devuelve la lista completa: las pantallas (caja, reportes, 607) necesitan todos los registros
+    const take = limit ? parseInt(limit) : undefined;
     
     const where = { companyId: req.companyId };
     if (status) where.status = status;
@@ -83,8 +85,8 @@ router.get('/', async (req, res, next) => {
       prisma.customer.findMany({
         where,
         orderBy: { name: 'asc' },
-        skip: (parseInt(page) - 1) * parseInt(limit),
-        take: parseInt(limit)
+        skip: take ? (parseInt(page) - 1) * take : undefined,
+        take
       }),
       prisma.customer.count({ where })
     ]);
@@ -93,9 +95,9 @@ router.get('/', async (req, res, next) => {
       data: customers,
       pagination: {
         page: parseInt(page),
-        limit: parseInt(limit),
+        limit: take ?? total,
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: take ? Math.ceil(total / take) : 1
       }
     });
   } catch (error) {

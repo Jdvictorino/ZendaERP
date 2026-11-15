@@ -395,7 +395,8 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const { data: pData } = useApiCrud('/products');
   const { data: cData } = useApiCrud('/customers');
   const { data: shiftsData, refetch: refetchShifts } = useApiCrud('/shifts');
-  const catalog = Array.isArray(pData) ? pData : [];
+  // Los productos inactivos (p. ej. importados sin precio) no se venden desde la caja
+  const catalog = Array.isArray(pData) ? pData.filter((p) => p.status !== 'inactive') : [];
   const customersList = Array.isArray(cData) ? cData : [];
   const { data: iData } = useApiCrud('/invoices');
   const invoicesData = Array.isArray(iData) ? iData : (iData?.data || []);
