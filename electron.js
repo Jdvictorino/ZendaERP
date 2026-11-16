@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { autoUpdater } = require('electron-updater');
 const createCustomMenu = require('./menu');
+const { safeUserPath, isImagePath } = require('./safePath');
 
 const isDev = !app.isPackaged;
 
@@ -52,7 +53,9 @@ ipcMain.on('get-user-data-path', (event) => {
 });
 
 ipcMain.handle('open-image-path', async (event, relativePath) => {
-    const fullPath = path.join(app.getPath('userData'), relativePath);
+    const fullPath = safeUserPath(app.getPath('userData'), relativePath);
+    // shell.openPath puede lanzar programas: solo se abren imágenes dentro de la carpeta de la app
+    if (!fullPath || !isImagePath(fullPath)) return { success: false, error: 'Ruta no permitida' };
     try {
         await shell.openPath(fullPath);
         return { success: true };
@@ -63,7 +66,8 @@ ipcMain.handle('open-image-path', async (event, relativePath) => {
 });
 
 ipcMain.handle('get-image-data-url', async (event, relativePath) => {
-    const fullPath = path.join(app.getPath('userData'), relativePath);
+    const fullPath = safeUserPath(app.getPath('userData'), relativePath);
+    if (!fullPath || !isImagePath(fullPath)) return null;
     try {
         const data = fs.readFileSync(fullPath);
         const base64 = data.toString('base64');
@@ -76,7 +80,8 @@ ipcMain.handle('get-image-data-url', async (event, relativePath) => {
 });
 
 ipcMain.handle('save-image-as', async (event, relativePath) => {
-    const sourcePath = path.join(app.getPath('userData'), relativePath);
+    const sourcePath = safeUserPath(app.getPath('userData'), relativePath);
+    if (!sourcePath || !isImagePath(sourcePath)) return { success: false, error: 'Ruta no permitida' };
     try {
         const { filePath } = await dialog.showSaveDialog({
             title: 'Guardar imagen como...',
