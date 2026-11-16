@@ -194,7 +194,7 @@ router.post('/:id/close', authorize(...rolesFor('orders', 'finance-cash-shifts')
         difference,
         status: 'closed',
         closedAt: new Date(),
-        notes: notes ? `${shift.notes || ''}\n${notes}`.trim() : shift.notes
+        notes: await withApprover(notes ? `${shift.notes || ''}\n${notes}`.trim() : shift.notes, approverId)
       },
       include: {
         user: { select: { firstName: true, lastName: true } },
