@@ -6,6 +6,28 @@ import { authenticate, authorize } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticate);
 
+// Cobros hechos dentro del turno, del desglose de pagos de cada factura (el POS crea la factura con
+// amountPaid 0 y el cobro llega luego en payments). Misma regla que src/utils/shiftCash.js.
+const VOID_STATUSES = ['Anulado', 'Cancelado'];
+const round2 = (n) => Math.round(n * 100) / 100;
+function shiftPayments(invoices, from, to = new Date()) {
+  const totals = { efectivo: 0, tarjeta: 0, chequeTransferencia: 0, credito: 0 };
+  for (const inv of invoices) {
+    if (VOID_STATUSES.includes(inv.status)) continue;
+    for (const p of Array.isArray(inv.payments) ? inv.payments : []) {
+      const t = new Date(p?.date || inv.billedDate || inv.date);
+      if (!(t >= from && t <= to)) continue;
+      for (const k in totals) totals[k] += Number(p[k]) || 0;
+    }
+  }
+  return totals;
+}
+// Un cobro dentro del turno actualiza la factura, así que basta con las tocadas desde la apertura
+const shiftInvoices = (companyId, from) => prisma.invoice.findMany({
+  where: { companyId, updatedAt: { gte: from }, status: { notIn: VOID_STATUSES } },
+  select: { id: true, orderNumber: true, invoiceNumber: true, customerName: true, total: true, paymentMethod: true, amountPaid: true, status: true, date: true, billedDate: true, payments: true }
+});
+
 /**
  * GET /api/shifts
  * Listar turnos de caja
@@ -136,29 +158,16 @@ router.post('/:id/close', authorize('admin', 'manager', 'cashier'), async (req, 
       return m.type === 'entrada' ? acc + Number(m.amount) : acc - Number(m.amount);
     }, 0);
 
-    // Obtener ventas en efectivo durante el turno
-    const cashSales = await prisma.invoice.aggregate({
-      where: {
-        companyId: req.companyId,
-        paymentMethod: 'efectivo',
-        status: { not: 'Anulado' },
-        date: {
-          gte: shift.openedAt
-        }
-      },
-      _sum: { amountPaid: true }
-    });
-
-    const expectedAmount = Number(shift.openingAmount) + 
-      (cashSales._sum.amountPaid || 0) + 
-      movementTotal;
-
-    const difference = closingAmount - expectedAmount;
+    // Efectivo cobrado durante el turno (Prisma devuelve Decimal: todo pasa por Number para no concatenar texto)
+    const { efectivo } = shiftPayments(await shiftInvoices(req.companyId, shift.openedAt), shift.openedAt);
+    const counted = Number(closingAmount) || 0;
+    const expectedAmount = round2(Number(shift.openingAmount) + efectivo + movementTotal);
+    const difference = round2(counted - expectedAmount);
 
     const updatedShift = await prisma.cashShift.update({
       where: { id: req.params.id },
       data: {
-        closingAmount,
+        closingAmount: counted,
         expectedAmount,
         difference,
         status: 'closed',
@@ -277,33 +286,10 @@ router.get('/closings', async (req, res, next) => {
     // Calcular datos adicionales para cada cierre
     const closingsWithData = await Promise.all(closings.map(async (shift) => {
       // Obtener facturas del período del turno
-      const invoices = await prisma.invoice.findMany({
-        where: {
-          companyId: req.companyId,
-          date: {
-            gte: shift.openedAt,
-            lte: shift.closedAt || new Date()
-          },
-          status: { not: 'Anulado' }
-        },
-        select: {
-          id: true,
-          orderNumber: true,
-          invoiceNumber: true,
-          customerName: true,
-          total: true,
-          paymentMethod: true,
-          amountPaid: true
-        }
-      });
-
-      const totalEfectivo = invoices
-        .filter(i => i.paymentMethod === 'efectivo')
-        .reduce((sum, i) => sum + Number(i.amountPaid || 0), 0);
-      
-      const totalTarjeta = invoices
-        .filter(i => i.paymentMethod === 'tarjeta')
-        .reduce((sum, i) => sum + Number(i.amountPaid || 0), 0);
+      const end = shift.closedAt || new Date();
+      const touched = await shiftInvoices(req.companyId, shift.openedAt);
+      const { efectivo: totalEfectivo, tarjeta: totalTarjeta } = shiftPayments(touched, shift.openedAt, end);
+      const invoices = touched.filter(i => i.date >= shift.openedAt && i.date <= end);
 
       const totalMovimientos = shift.movements.reduce((sum, m) => {
         return m.type === 'entrada' ? sum + Number(m.amount) : sum - Number(m.amount);

@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { printHTML, printEscPosReceipt } from '../../utils/printer.js';
 import SupervisorAuthModal from './SupervisorAuthModal.jsx';
 import { logAction } from '../../utils/audit.js';
-import { isVoidInvoice } from '../../utils/invoiceStatus.js';
+import { shiftPayments } from '../../utils/shiftCash.js';
 import Alert from '../ui/Alert.jsx';
 import ShiftDialog, { CashCount, countTotal, emptyCount } from './ShiftDialog.jsx';
 
@@ -38,21 +38,7 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
 
   const { totals, efectivoEsperado, ingresos, egresos, opening } = useMemo(() => {
     if (!openShift) return { totals: { efectivo: 0, tarjeta: 0, chequeTransferencia: 0, credito: 0 }, efectivoEsperado: 0, ingresos: 0, egresos: 0, opening: 0 };
-    const start = getTimestamp(openShift.openedAt);
-    const rows = (invoices || []).filter(inv => {
-      const isActuallyBilled = inv.isBilled || inv.status === 'Pagado' || inv.status === 'Facturado';
-      const dateToUse = inv.billedDate || inv.createdAt || inv.date;
-      return isActuallyBilled && dateToUse && (getTimestamp(dateToUse)) >= start && !isVoidInvoice(inv);
-    });
-    const sum = (arr, key) => arr.reduce((s, p) => s + (parseFloat(p?.[key]) || 0), 0);
-    let efectivo = 0, tarjeta = 0, chequeTransferencia = 0, credito = 0;
-    rows.forEach(inv => {
-      const pagos = Array.isArray(inv.payments) ? inv.payments : [];
-      efectivo += sum(pagos, 'efectivo');
-      tarjeta += sum(pagos, 'tarjeta');
-      chequeTransferencia += sum(pagos, 'chequeTransferencia');
-      credito += sum(pagos, 'credito');
-    });
+    const { efectivo, tarjeta, chequeTransferencia, credito } = shiftPayments(invoices, getTimestamp(openShift.openedAt));
     // El backend guarda 'entrada'/'salida' y el monto como decimal en texto
     const movTotal = (types) => (movements || []).filter(m => m.shiftId === openShift.id && types.includes(m.type)).reduce((s, m) => s + (Number(m.amount) || 0), 0);
     const ingresos = movTotal(['entrada', 'ingreso']);
