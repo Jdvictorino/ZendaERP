@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { isVoidInvoice } from './invoiceStatus.js';
+import { filterByDateRange } from './reportFilters.js';
 
 // Función para determinar el Tipo de ID según la longitud del RNC/Cédula
 const getTypeId = (rnc) => {
@@ -44,7 +45,11 @@ const ncfOf = (inv) => inv.ncf?.number || inv.ncfNumber || '';
 const rncOf = (inv) => inv.ncf?.customerRnc || inv.customerRnc || '';
 
 // Fecha del comprobante: un e-CF lleva la de la venta (FechaEmision); un NCF en papel, la de facturación
-const voucherDateOf = (inv) => (ncfOf(inv).startsWith('E') ? inv.date || inv.billedDate : inv.billedDate || inv.date);
+export const voucherDateOf = (inv) => (ncfOf(inv).startsWith('E') ? inv.date || inv.billedDate : inv.billedDate || inv.date);
+
+// Facturas cuyo comprobante cae en el período (607/608); filterByDateRange queda igual para los demás reportes
+export const filterByVoucherDate = (invoices = [], from, to) =>
+    filterByDateRange(invoices.map(inv => ({ inv, d: voucherDateOf(inv) })), 'd', from, to).map(x => x.inv);
 
 // Factura con comprobante fiscal (B01, B02, E31, ...); las "Sin Valor Fiscal" no van al 607/608
 export const isFiscalInvoice = (inv) => {
