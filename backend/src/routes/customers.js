@@ -185,9 +185,6 @@ router.put('/:id', authorize(...rolesFor('customers')), async (req, res, next) =
   try {
     const parsed = customerSchema.partial().parse(req.body);
     const data = transformCustomerData(parsed);
-    // Un PUT sin campos de impuesto no debe resetear el tipo a consumidor final
-    const b = req.body;
-    if (b.taxpayerType || b.type || 'exemptionNumber' in b || 'exemptionExpiresAt' in b) Object.assign(data, customerTaxFields(b));
     
     const existing = await prisma.customer.findFirst({
       where: { id: req.params.id, companyId: req.companyId }
@@ -196,6 +193,10 @@ router.put('/:id', authorize(...rolesFor('customers')), async (req, res, next) =
     if (!existing) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
+
+    // Un PUT sin campos de impuesto conserva los guardados
+    const b = req.body;
+    if (b.taxpayerType || b.type || 'exemptionNumber' in b || 'exemptionExpiresAt' in b) Object.assign(data, customerTaxFields(b, existing));
 
     const customer = await prisma.customer.update({
       where: { id: req.params.id },

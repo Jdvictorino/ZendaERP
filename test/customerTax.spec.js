@@ -23,3 +23,16 @@ describe('customerTaxFields', () => {
     expect(customerTaxFields({})).toEqual({ taxpayerType: 'consumidor_final', exemptionNumber: null, exemptionExpiresAt: null });
   });
 });
+
+describe('customerTaxFields sobre un cliente existente (PUT)', () => {
+  const zf = { taxpayerType: 'zona_franca', exemptionNumber: 'ZF-1', exemptionExpiresAt: new Date('2027-05-01T00:00:00Z') };
+  it('solo exemptionNumber conserva tipo y vencimiento', () => {
+    expect(customerTaxFields({ exemptionNumber: 'X' }, zf)).toEqual({ ...zf, exemptionNumber: 'X' });
+  });
+  it('solo taxpayerType igual conserva el carnet', () => {
+    expect(customerTaxFields({ taxpayerType: 'zona_franca' }, zf)).toEqual(zf);
+  });
+  it('cambiar a tipo no exemptible borra el carnet', () => {
+    expect(customerTaxFields({ taxpayerType: 'empresa' }, zf)).toEqual({ taxpayerType: 'empresa', exemptionNumber: null, exemptionExpiresAt: null });
+  });
+});
