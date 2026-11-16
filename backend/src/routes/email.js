@@ -3,12 +3,15 @@ import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { sendCompanyMail } from '../services/emailService.js';
 import { z } from 'zod';
+import { createWindowCounter, isCompanyContact } from '../services/mailGuard.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Todas las rutas de email requieren autenticación
 router.use(authenticate);
+
+const mailLimiter = createWindowCounter(50, 60 * 60 * 1000);
 
 const sendEmailSchema = z.object({
   to: z.string().email('Email de destino inválido'),
@@ -31,6 +34,13 @@ router.post('/send', async (req, res, next) => {
 
     if (!user || !user.company) {
       return res.status(404).json({ error: 'Empresa no encontrada para el usuario' });
+    }
+
+    if (!(await isCompanyContact(prisma, req.companyId, data.to))) {
+      return res.status(400).json({ error: 'Solo se puede enviar a clientes, proveedores o usuarios de la empresa' });
+    }
+    if (!mailLimiter.hit(req.companyId)) {
+      return res.status(429).json({ error: 'Se alcanzó el límite de 50 correos por hora' });
     }
 
     const attachments = [];
