@@ -262,16 +262,16 @@ router.get('/report/606', async (req, res, next) => {
       return res.status(400).json({ error: 'year y month son requeridos' });
     }
 
-    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const endDate = new Date(parseInt(year), parseInt(month), 0);
+    // Las fechas se guardan a medianoche UTC; el mes va hasta el 1.º del siguiente (sin cortar el último día)
+    const startDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, 1));
+    const endDate = new Date(Date.UTC(parseInt(year), parseInt(month), 1));
 
     const expenses = await prisma.expense.findMany({
       where: {
         companyId: req.companyId,
-        invoiceDate: {
-          gte: startDate,
-          lte: endDate
-        }
+        invoiceDate: { gte: startDate, lt: endDate },
+        // Los pagos al exterior (B17/E47) van en el 609, no en el 606
+        OR: [{ issuedVoucher: null }, { issuedVoucher: { notIn: ['B17', 'E47'] } }]
       },
       orderBy: { invoiceDate: 'asc' }
     });
