@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { assertSameCompany } from '../services/ownership.js';
 
 const router = Router();
 
@@ -181,7 +182,7 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const data = productSchema.parse(req.body);
-    
+    await assertSameCompany(prisma, req.companyId, data);
     const product = await prisma.product.create({
       data: {
         ...data,
@@ -221,7 +222,7 @@ router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
 router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const data = updateProductSchema.parse(req.body);
-    
+    await assertSameCompany(prisma, req.companyId, data);
     // Verificar que existe y pertenece a la empresa
     const existing = await prisma.product.findFirst({
       where: { id: req.params.id, companyId: req.companyId }
@@ -495,6 +496,10 @@ router.post('/bulk-import', authorize(...rolesFor('import-products')), async (re
         errors.push({ row: i + 1, error: err.message || 'Error de validación' });
       }
     }
+
+    // Categorías y proveedores del archivo: cada uno se revisa una sola vez
+    for (const categoryId of new Set(validProducts.map((v) => v.categoryId).filter(Boolean))) await assertSameCompany(prisma, req.companyId, { categoryId });
+    for (const supplierId of new Set(validProducts.map((v) => v.supplierId).filter(Boolean))) await assertSameCompany(prisma, req.companyId, { supplierId });
 
     // Insertar productos en lotes
     let imported = 0;

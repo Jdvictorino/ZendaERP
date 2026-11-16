@@ -1,3 +1,4 @@
+import { assertSameCompany } from '../services/ownership.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
@@ -182,6 +183,7 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
   try {
     const data = invoiceSchema.parse(req.body);
+    await assertSameCompany(prisma, req.companyId, data);
 
     // El servidor valida precio, ITBIS y descuento de cada línea contra el catálogo de la empresa
     const [company, customer] = await Promise.all([

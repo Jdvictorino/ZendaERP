@@ -1,3 +1,4 @@
+import { assertSameCompany } from '../services/ownership.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
@@ -112,6 +113,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
 router.post('/', authenticate, authorize(...rolesFor('shipments')), async (req, res, next) => {
   try {
     const data = shipmentSchema.parse(req.body);
+    await assertSameCompany(prisma, req.companyId, { driverId: data.assignedDriverId });
 
     let invoice = null;
     let invoiceId = data.invoiceId || null;
@@ -321,6 +323,8 @@ router.put('/:id', authenticate, authorize(...rolesFor('shipments')), async (req
       }
     }
 
+    await assertSameCompany(prisma, req.companyId, { driverId: updateData.assignedDriverId });
+
     const updated = await prisma.shipment.update({
       where: { id: req.params.id },
       data: updateData,
@@ -357,6 +361,8 @@ router.patch('/:id/assign', authenticate, authorize('admin', 'manager'), async (
     if (!shipment) {
       return res.status(404).json({ error: 'Envío no encontrado' });
     }
+
+    await assertSameCompany(prisma, req.companyId, { driverId });
 
     const updated = await prisma.shipment.update({
       where: { id: req.params.id },
