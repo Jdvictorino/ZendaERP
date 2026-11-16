@@ -1,3 +1,4 @@
+import { formatEmployeeId } from './employeeNumber.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -78,7 +79,7 @@ export const authService = {
   /**
    * Registrar nueva empresa y usuario administrador
    */
-  async register({ email, password, firstName, lastName, companyName, phone, photoUrl, companyLogo, cellphone, idNumber, gender, address, businessType }) {
+  async register({ email, password, firstName, lastName, companyName, phone, photoUrl, companyLogo, cellphone, idNumber, gender, address, businessType, cargo }) {
     const normalizedEmail = normalizeEmail(email);
 
     // Verificar si el email ya existe
@@ -130,6 +131,9 @@ export const authService = {
           photoUrl: photoUrl || null,
           isAdmin: true,
           role: 'admin',
+          // Empresa nueva: el administrador es el primer empleado
+          employeeId: formatEmployeeId(1),
+          cargo: cargo || 'Administrador',
           status: 'active',
           cellphone: cellphone || null,
           idNumber: idNumber || null,

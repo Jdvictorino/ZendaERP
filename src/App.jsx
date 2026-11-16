@@ -250,6 +250,11 @@ export default function App() {
                 phone: adminData.phone || companyData.phone || '',
                 photoUrl: adminData.photoURL || undefined,
                 companyLogo: companyData.logo || undefined,
+                cargo: adminData.cargo || undefined,
+                cellphone: adminData.cellphone || undefined,
+                idNumber: adminData.idNumber || undefined,
+                gender: adminData.gender || undefined,
+                address: adminData.address || undefined,
             });
 
             setProgressStep(2);

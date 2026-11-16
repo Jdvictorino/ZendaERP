@@ -79,6 +79,7 @@ export default function StepReview({
         <Field label="Apellidos" value={adminData.lastName} />
         <Field label="Correo" value={adminData.email} />
         <Field label="Cargo" value={adminData.cargo} />
+        <Field label="Permisos" value="Administrador (acceso total)" />
         <Field label="Género" value={adminData.gender} />
         <Field label="Identificación" value={adminData.idNumber} />
         <Field label="Teléfono" value={adminData.phone} />

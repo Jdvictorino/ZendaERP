@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { normalizeEmail } from '../services/authService.js';
+import { nextEmployeeId } from '../services/employeeNumber.js';
 
 const router = Router();
 router.use(authenticate);
@@ -19,8 +20,8 @@ const userSchema = z.object({
   password: z.preprocess(emptyToUndefined, z.string().min(6).optional()),
   firstName: z.preprocess(emptyToUndefined, z.string().optional()),
   lastName: z.preprocess(emptyToUndefined, z.string().optional()),
-  employeeId: z.preprocess(emptyToUndefined, z.string().optional()),
-  cargo: z.preprocess(emptyToUndefined, z.string().optional()),
+  // employeeId no se acepta del cliente: lo asigna el servidor al crear (EMP-00001)
+  cargo: z.preprocess(emptyToUndefined, z.string().trim().max(60).optional()),
   role: z.enum(ALLOWED_ROLES).default('cashier'),
   phone: z.preprocess(emptyToUndefined, z.string().optional()),
   cellphone: z.preprocess(emptyToUndefined, z.string().optional()),
@@ -148,8 +149,8 @@ router.post('/', async (req, res, next) => {
       companyId: req.companyId
     };
 
-    const user = await prisma.user.create({
-      data: createData,
+    const user = await prisma.$transaction(async (tx) => tx.user.create({
+      data: { ...createData, employeeId: await nextEmployeeId(tx, req.companyId) },
       select: {
         id: true,
         email: true,
@@ -160,7 +161,7 @@ router.post('/', async (req, res, next) => {
         role: true,
         status: true
       }
-    });
+    }));
 
     res.status(201).json({
       user,
@@ -202,7 +203,6 @@ router.put('/:id', async (req, res, next) => {
       cellphone: data.cellphone,
       cargo: data.cargo,
       role: data.role,
-      employeeId: data.employeeId,
       status: data.status,
       gender: data.gender,
       idNumber: data.idNumber,

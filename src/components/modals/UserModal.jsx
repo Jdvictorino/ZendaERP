@@ -6,7 +6,7 @@ import ProfilePicture from '../common/ProfilePicture.jsx';
 import AddressFields from '../common/AddressFields.jsx';
 import Button from '../ui/Button.jsx';
 import { hashPin } from '../../utils/crypto.js';
-import { ROLE_OPTIONS, getRoleLabel } from '../../utils/permissions.js';
+import { ROLE_OPTIONS, CARGO_OPTIONS } from '../../utils/permissions.js';
 import api from '../../api/client.js';
 
 const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfileUpdate, currentUserUid, fullPage = false }) => {
@@ -18,7 +18,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
     const isEditingSelf = isEditing && (String(userId) === String(currentUserId));
     const [formData, setFormData] = useState({
         photoURL: '', firstName: '', lastName: '', idNumber: '', gender: 'F',
-        cargo: getRoleLabel('cashier'), empresa: '', address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana' },
+        cargo: '', empresa: '', address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana' },
         phone: '', cellphone: '', email: '', password: '', confirmPassword: '', employeeId: '',
         role: 'cashier', pin: '', confirmPin: ''
     });
@@ -27,12 +27,12 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
 
     useEffect(() => {
         if (isEditing) {
-            const matchedRole = userToEdit.role || ROLE_OPTIONS.find(opt => opt.label === userToEdit.cargo)?.value || 'cashier';
+            const matchedRole = userToEdit.role || 'cashier';
             const initialData = {
                 ...formData,
                 ...userToEdit,
                 role: matchedRole,
-                cargo: userToEdit.cargo || getRoleLabel(matchedRole),
+                cargo: userToEdit.cargo || '',
                 address: {
                     ...(formData.address),
                     ...(userToEdit.address || {})
@@ -48,22 +48,16 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
 
             if (isAdminProfile) {
                 initialData.role = 'admin';
-                initialData.cargo = getRoleLabel('admin');
             }
             setFormData(initialData);
 
         } else if (companyProfile && companyProfile.name) {
-            setFormData(prev => ({ ...prev, empresa: companyProfile.name, cargo: getRoleLabel(prev.role || 'cashier') }));
+            setFormData(prev => ({ ...prev, empresa: companyProfile.name }));
         }
     }, [userToEdit, isEditing, companyProfile, isAdminProfile]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        if (name === 'role') {
-            const roleLabel = getRoleLabel(value);
-            setFormData(prev => ({ ...prev, role: value, cargo: roleLabel }));
-            return;
-        }
         setFormData(prev => ({ ...prev, [name]: value }));
     };
     const handleAddressChange = (e) => setFormData(prev => ({ ...prev, address: { ...prev.address, [e.target.name]: e.target.value } }));
@@ -93,8 +87,8 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                     address: formData.address,
                     gender: formData.gender || 'F',
                     idNumber: (formData.idNumber || '').trim(),
+                    cargo: (formData.cargo || '').trim(),
                     role: isAdminProfile ? 'admin' : (formData.role || 'cashier'),
-                    employeeId: formData.employeeId || userToEdit.employeeId,
                 };
 
                 // Si hay foto nueva en base64, incluirla
@@ -126,8 +120,6 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                     throw new Error('La contraseña debe tener al menos 6 caracteres.');
                 }
 
-                const employeeId = `NE${String(Math.floor(10000 + Math.random() * 90000))}`;
-                
                 const newUserData = {
                     email: formData.email,
                     password: formData.password,
@@ -138,8 +130,8 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                     address: formData.address,
                     gender: formData.gender || 'F',
                     idNumber: (formData.idNumber || '').trim(),
+                    cargo: (formData.cargo || '').trim(),
                     role: formData.role || 'cashier',
-                    employeeId: employeeId,
                 };
 
                 // Agregar PIN si se proporcionó
@@ -217,7 +209,19 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                                                 <option value="M">Masculino</option>
                                             </select>
                                             <div className="flex flex-col">
-                                                <label htmlFor="role" className="text-sm font-medium text-ink-soft mb-1">Cargo y permisos</label>
+                                                <label htmlFor="cargo" className="text-sm font-medium text-ink-soft mb-1">Cargo</label>
+                                                <input id="cargo" name="cargo" list="cargo-options" value={formData.cargo} onChange={handleChange}
+                                                    className="input-base" placeholder="Ej.: Cajero, Vendedor" maxLength={60} required />
+                                                <datalist id="cargo-options">{CARGO_OPTIONS.map(c => <option key={c} value={c} />)}</datalist>
+                                                <span className="text-xs text-ink-muted mt-1">El puesto del empleado. No cambia lo que puede hacer en el sistema.</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium text-ink-soft mb-1">N.º de empleado</span>
+                                                <span className="input-base bg-surface-muted text-ink-muted font-mono">{formData.employeeId || 'Se asigna al guardar'}</span>
+                                                <span className="text-xs text-ink-muted mt-1">Lo asigna el sistema y no se puede cambiar.</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <label htmlFor="role" className="text-sm font-medium text-ink-soft mb-1">Permisos</label>
                                                 <select
                                                     id="role"
                                                     name="role"
@@ -235,7 +239,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                                                 </select>
                                                 <span className="text-xs text-ink-muted mt-1">
                                                     {isAdminProfile
-                                                        ? 'Este perfil es el administrador principal. Debes asignar otro administrador antes de cambiar su cargo.'
+                                                        ? 'Este perfil es el administrador principal: tiene acceso total y sus permisos no se pueden cambiar.'
                                                         : (isEditingSelf ? 'No puedes cambiar tu propio rol desde aquí.' : 'Selecciona el nivel de acceso que tendrá este usuario en la aplicación.')}
                                                 </span>
                                             </div>

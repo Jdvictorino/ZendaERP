@@ -118,6 +118,7 @@ model User {
   cashMovements        CashMovement[]
   passwordResetTokens  PasswordResetToken[]
 
+  @@unique([companyId, employeeId])
   @@index([companyId])
   @@index([email])
   @@map("users")

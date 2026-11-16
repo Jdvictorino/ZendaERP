@@ -8,6 +8,13 @@ export const ROLE_OPTIONS = [
   { value: 'viewer', label: 'Solo Lectura' }
 ];
 
+// Cargo: el puesto del empleado (solo informativo, sale en el perfil y en documentos).
+// Los permisos de acceso los da el rol (ROLE_OPTIONS); un cargo no da acceso a nada.
+export const CARGO_OPTIONS = [
+  'Propietario', 'Administrador', 'Gerente general', 'Gerente de tienda', 'Supervisor',
+  'Cajero', 'Vendedor', 'Repartidor', 'Encargado de almacén', 'Contador', 'Asistente administrativo'
+];
+
 const VIEW_PERMISSIONS = {
   dashboard: ['admin', 'manager', 'supervisor', 'cashier', 'accountant', 'viewer'],
   orders: ['admin', 'manager', 'supervisor', 'cashier'],
