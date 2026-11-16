@@ -397,7 +397,15 @@ router.put('/:id', authorize('admin', 'manager', 'cashier'), async (req, res, ne
     // Desglose de cobros (efectivo, tarjeta, transferencia) que usa el cierre de caja: solo se agregan, no se reescriben
     const previous = Array.isArray(invoice.payments) ? invoice.payments : [];
     const added = body.paymentBreakdown ? [body.paymentBreakdown] : Array.isArray(body.payments) ? body.payments.slice(previous.length) : [];
-    if (added.length) updateData.payments = [...previous, ...added];
+    if (added.length) {
+      // Cada cobro queda en el turno abierto de quien cobra: con varias cajas abiertas, cada cierre suma solo lo suyo
+      const openShift = await prisma.cashShift.findFirst({
+        where: { companyId: req.companyId, userId: req.user.id, status: 'open' },
+        orderBy: { openedAt: 'desc' },
+        select: { id: true }
+      });
+      updateData.payments = [...previous, ...added.map((p) => ({ ...p, shiftId: openShift?.id || null }))];
+    }
 
     // De las líneas solo se editan las notas de personalización: cantidades y precios no cambian tras crear el pedido
     // (moverían el stock y el ITBIS ya calculados)

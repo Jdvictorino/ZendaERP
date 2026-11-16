@@ -38,7 +38,7 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
 
   const { totals, efectivoEsperado, ingresos, egresos, opening } = useMemo(() => {
     if (!openShift) return { totals: { efectivo: 0, tarjeta: 0, chequeTransferencia: 0, credito: 0 }, efectivoEsperado: 0, ingresos: 0, egresos: 0, opening: 0 };
-    const { efectivo, tarjeta, chequeTransferencia, credito } = shiftPayments(invoices, getTimestamp(openShift.openedAt));
+    const { efectivo, tarjeta, chequeTransferencia, credito } = shiftPayments(invoices, getTimestamp(openShift.openedAt), openShift.id);
     // El backend guarda 'entrada'/'salida' y el monto como decimal en texto
     const movTotal = (types) => (movements || []).filter(m => m.shiftId === openShift.id && types.includes(m.type)).reduce((s, m) => s + (Number(m.amount) || 0), 0);
     const ingresos = movTotal(['entrada', 'ingreso']);
