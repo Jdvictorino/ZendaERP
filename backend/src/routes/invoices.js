@@ -1,4 +1,5 @@
 import { assertSameCompany } from '../services/ownership.js';
+import { appendPayments } from '../services/payments.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
@@ -450,7 +451,7 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
         orderBy: { openedAt: 'desc' },
         select: { id: true }
       });
-      updateData.payments = [...previous, ...added.map((p) => ({ ...p, shiftId: openShift?.id || null }))];
+      updateData.payments = appendPayments(previous, added.map((p) => ({ ...p, shiftId: openShift?.id || null })));
     }
 
     // De las líneas solo se editan las notas de personalización: cantidades y precios no cambian tras crear el pedido
