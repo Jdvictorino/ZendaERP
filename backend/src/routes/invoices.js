@@ -10,7 +10,7 @@ import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } 
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 import { requireApproval } from '../services/approvals.js';
 import { priceInvoiceLines } from '../services/invoiceAmounts.js';
-import { isTaxExempt, todayRD } from '../services/tax.js';
+import { isTaxExempt, todayRD, voucherError } from '../services/tax.js';
 import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
@@ -494,6 +494,17 @@ router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next
       return res.status(400).json({ error: 'La factura ya está facturada' });
     }
 
+    // Comprobante según la venta: exenta -> E44/B14; gobierno -> E45/B15. Sin tipo en una venta exenta cuenta como NoFiscal
+    const customer = invoice.customerId
+      ? await prisma.customer.findFirst({ where: { id: invoice.customerId, companyId: req.companyId }, select: { taxpayerType: true } })
+      : null;
+    const exemptApplied = !!invoice.exemptionNumber;
+    const voucherCheck = ncfType || (exemptApplied ? 'NoFiscal' : null);
+    if (voucherCheck) {
+      const voucherProblem = voucherError(voucherCheck, { exemptApplied, taxpayerType: customer?.taxpayerType });
+      if (voucherProblem) return res.status(400).json({ error: voucherProblem });
+    }
+
     // ── e-CF: Tipos electrónicos (E31, E32, E33, E34, etc.) ──
     if (ncfType && ncfType.startsWith('E')) {
       const company = await prisma.company.findUnique({ where: { id: req.companyId } });
@@ -530,8 +541,8 @@ router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next
       return res.json({ ...updatedInvoice, ecfResult });
     }
 
-    // ── NCF Tradicional (B01, B02, NoFiscal) ──
-    if (ncfType && !['B01', 'B02', 'NoFiscal'].includes(ncfType)) {
+    // ── NCF Tradicional (B01, B02, B14, B15, NoFiscal) ──
+    if (ncfType && !['B01', 'B02', 'B14', 'B15', 'NoFiscal'].includes(ncfType)) {
       return res.status(400).json({ error: 'Tipo de comprobante no válido.' });
     }
     const updatedInvoice = await prisma.$transaction(async (tx) => {
@@ -542,7 +553,7 @@ router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next
       });
       if (claimed.count === 0) throw httpError(400, 'La factura ya está facturada');
 
-      const ncf = ncfType === 'B01' || ncfType === 'B02' ? await takeNcf(tx, req.companyId, ncfType) : { number: 'NoFiscal', expiresAt: null };
+      const ncf = ['B01', 'B02', 'B14', 'B15'].includes(ncfType) ? await takeNcf(tx, req.companyId, ncfType) : { number: 'NoFiscal', expiresAt: null };
       return tx.invoice.update({
         where: { id: invoice.id },
         data: { invoiceNumber: invoice.orderNumber, ncfNumber: ncf.number, ncfExpiresAt: ncf.expiresAt ? new Date(ncf.expiresAt) : null, ncfType: ncfType || 'NoFiscal', customerRnc }
