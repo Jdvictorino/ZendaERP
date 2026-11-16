@@ -58,6 +58,19 @@ export async function restoreStock(tx, invoice, userId, reason, referenceType, r
   }
 }
 
+// Cuánto de cada línea devolvieron ya las notas de crédito: { itemId: cantidad }
+const returnedByNotes = (creditNotes = []) => {
+  const done = {};
+  creditNotes.forEach((n) => (Array.isArray(n.items) ? n.items : []).forEach((r) => { done[r.itemId] = (done[r.itemId] || 0) + r.quantity; }));
+  return done;
+};
+
+// Líneas con lo que aún no volvió a inventario (al anular, las notas parciales ya devolvieron su parte)
+export function unreturnedLines(items, creditNotes) {
+  const done = returnedByNotes(creditNotes);
+  return items.map((i) => ({ ...i, quantity: i.quantity - (done[i.id] || 0) })).filter((i) => i.quantity > 0);
+}
+
 const invoiceItemSchema = z.object({
   productId: z.string().uuid().optional(),
   variantId: z.string().uuid().optional().nullable(),
@@ -564,7 +577,7 @@ router.post('/:id/cancel', authorize('admin', 'manager'), async (req, res, next)
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true }
+      include: { items: true, creditNotes: { select: { items: true } } }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
@@ -577,7 +590,7 @@ router.post('/:id/cancel', authorize('admin', 'manager'), async (req, res, next)
         data: { status: 'Anulado' }
       });
       if (count === 0) throw httpError(400, 'La factura ya está anulada.');
-      await restoreStock(tx, invoice, req.user.id, `Anulación de factura - ${invoice.orderNumber}: ${reason || 'Sin motivo'}`, 'invoice_cancel');
+      await restoreStock(tx, { ...invoice, items: unreturnedLines(invoice.items, invoice.creditNotes) }, req.user.id, `Anulación de factura - ${invoice.orderNumber}: ${reason || 'Sin motivo'}`, 'invoice_cancel');
     });
 
     res.json({ message: 'Factura anulada' });
@@ -617,8 +630,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
     }
 
     // Cuánto de cada línea devolvieron ya las notas anteriores; no se devuelve más de lo vendido
-    const before = {};
-    invoice.creditNotes.forEach((n) => (Array.isArray(n.items) ? n.items : []).forEach((r) => { before[r.itemId] = (before[r.itemId] || 0) + r.quantity; }));
+    const before = returnedByNotes(invoice.creditNotes);
     const returned = { ...before };
     let lines = [];
     for (const r of Array.isArray(returnItems) ? returnItems : []) {
@@ -633,7 +645,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
     const full = credited >= total - 0.01;
     if (full) {
       // La nota que completa el total devuelve todo lo que no se había devuelto
-      lines = invoice.items.map((i) => ({ ...i, quantity: i.quantity - (before[i.id] || 0) })).filter((i) => i.quantity > 0);
+      lines = unreturnedLines(invoice.items, invoice.creditNotes);
     }
 
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });
