@@ -18,7 +18,6 @@ import OpenShiftModal from '../components/modals/OpenShiftModal.jsx';
 import CloseShiftModal from '../components/modals/CloseShiftModal.jsx';
 import CierreCajaModal from '../components/modals/CierreCajaModal.jsx';
 import CierreCajaReportModal from '../components/modals/CierreCajaReportModal.jsx';
-import AdminPinAuthModal from '../components/modals/AdminPinAuthModal.jsx';
 import { useScanner } from '../context/ScannerContext.jsx';
 import { generatePDF } from '../utils/pdfGenerator.js';
 import { generateThermalReceiptHTML } from '../utils/escposGenerator.js';
@@ -441,9 +440,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const [showCloseShift, setShowCloseShift] = useState(false);
   const [showCierreCajaModal, setShowCierreCajaModal] = useState(false);
   const [showCierreReports, setShowCierreReports] = useState(false);
-  const [adminPinAction, setAdminPinAction] = useState(null); // 'openShift' | 'closeShift'
   const [showScannerModal, setShowScannerModal] = useState(false);
-  const [showAdminPinModal, setShowAdminPinModal] = useState(false);
 
 
   // Settings modes
@@ -506,27 +503,13 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     return openShift.movements || [];
   }, [openShift]);
 
-  // onClose(true) = PIN correcto; onClose(false) = cancelado. Solo se abre/cierra el turno con PIN válido.
-  const handleAdminPinSuccess = useCallback(async (authorized) => {
-    setShowAdminPinModal(false);
-    if (authorized !== true) { setAdminPinAction(null); return; }
-    if (adminPinAction === 'openShift') {
-        setShowOpenShift(true);
-    } else if (adminPinAction === 'closeTurno') {
-        setShowCloseShift(true);
-    }
-    setAdminPinAction(null);
-  }, [adminPinAction]);
-
   // Global keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       const isModalOpen = !!(
         paymentForOrder ||
         showAddCustomerModal ||
-        adminPinAction ||
         showScannerModal ||
-        showAdminPinModal ||
         showOpenShift ||
         showCloseShift ||
         showCierreCajaModal ||
@@ -538,7 +521,6 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         else if (showAddCustomerModal) setShowAddCustomerModal(false);
         else if (showScannerModal) setShowScannerModal(false);
         else if (showCierreReports) setShowCierreReports(false);
-        else if (adminPinAction) setAdminPinAction(null);
         // sin modales y sin estar escribiendo en un campo: Esc limpia la venta (pide confirmación si hay artículos)
         else if (!document.querySelector('[role=dialog]') && !e.target.closest?.('input, select, textarea')) actionsRef.current.cancel();
         return;
@@ -565,7 +547,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [paymentForOrder, showAddCustomerModal, adminPinAction, showScannerModal, showAdminPinModal, showOpenShift, showCloseShift, showCierreCajaModal, showCierreReports, condicion]);
+  }, [paymentForOrder, showAddCustomerModal, showScannerModal, showOpenShift, showCloseShift, showCierreCajaModal, showCierreReports, condicion]);
 
   // Focus product search on mount
   useEffect(() => {
@@ -811,7 +793,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
             {isDistributor && (
                 <>
                     <span className={badgeClass(openShift ? 'success' : 'neutral', 'sm')}>{openShift ? 'Turno abierto' : 'Sin turno abierto'}</span>
-                    <Button size="sm" variant="secondary" onClick={() => setAdminPinAction(openShift ? 'closeTurno' : 'openShift')}>{openShift ? 'Cerrar turno' : 'Abrir turno'}</Button>
+                    <Button size="sm" variant="secondary" onClick={() => (openShift ? setShowCloseShift(true) : setShowOpenShift(true))}>{openShift ? 'Cerrar turno' : 'Abrir turno'}</Button>
                     <Button size="sm" variant="ghost" onClick={() => setShowCierreReports(true)}>Reportes de caja</Button>
                 </>
             )}
@@ -873,7 +855,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         {/* Mobile TopBar */}
         <TopBar>
           {isDistributor && (
-            <Button size="sm" variant="secondary" onClick={() => setAdminPinAction(openShift ? 'closeTurno' : 'openShift')}>{openShift ? 'Cerrar turno' : 'Abrir turno'}</Button>
+            <Button size="sm" variant="secondary" onClick={() => (openShift ? setShowCloseShift(true) : setShowOpenShift(true))}>{openShift ? 'Cerrar turno' : 'Abrir turno'}</Button>
           )}
         </TopBar>
 
@@ -989,14 +971,6 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
               }}
               companyProfile={companyProfile}
           />
-      )}
-
-      {adminPinAction && (
-        <AdminPinAuthModal
-          adminUser={adminUser}
-          currentUserProfile={currentUserProfile}
-          onClose={handleAdminPinSuccess}
-        />
       )}
 
       {showOpenShift && (

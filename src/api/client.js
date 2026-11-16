@@ -129,17 +129,19 @@ export async function get(endpoint, params = {}) {
   return handleResponse(response);
 }
 
-export async function post(endpoint, body) {
+export async function post(endpoint, body, options = {}) {
   const response = await fetchWithAuth(`${API_URL}${endpoint}`, {
     method: 'POST',
+    headers: options.headers,
     body: JSON.stringify(body)
   });
   return handleResponse(response);
 }
 
-export async function put(endpoint, body) {
+export async function put(endpoint, body, options = {}) {
   const response = await fetchWithAuth(`${API_URL}${endpoint}`, {
     method: 'PUT',
+    headers: options.headers,
     body: JSON.stringify(body)
   });
   return handleResponse(response);
@@ -202,6 +204,8 @@ export const auth = {
     }
     clearTokens();
   },
+
+  approve: (pin, action) => post('/auth/approve', { pin, action }),
 
   async getProfile() {
     return get('/auth/me');
@@ -285,8 +289,10 @@ export const users = {
 export const shifts = {
   list: (params) => get('/shifts', params),
   getCurrent: (registerId) => get('/shifts/current', { registerId }),
-  open: (openingAmount, registerId, notes) => post('/shifts/open', { openingAmount, registerId, notes }),
-  close: (id, closingAmount, notes) => post(`/shifts/${id}/close`, { closingAmount, notes }),
+  open: (openingAmount, registerId, notes, approvalToken) =>
+    post('/shifts/open', { openingAmount, registerId, notes }, approvalToken ? { headers: { 'X-Approval-Token': approvalToken } } : {}),
+  close: (id, closingAmount, notes, approvalToken) =>
+    post(`/shifts/${id}/close`, { closingAmount, notes }, approvalToken ? { headers: { 'X-Approval-Token': approvalToken } } : {}),
   addMovement: (shiftId, type, amount, reason) => 
     post(`/shifts/${shiftId}/movement`, { type, amount, reason }),
   delete: (id) => del(`/shifts/${id}`),

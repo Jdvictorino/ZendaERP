@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { requireApproval } from '../services/approvals.js';
 
 const router = Router();
 router.use(authenticate);
@@ -90,6 +91,14 @@ router.get('/current', async (req, res, next) => {
   }
 });
 
+// Deja en las notas quién autorizó con su PIN
+async function withApprover(notes, approverId) {
+  if (!approverId) return notes;
+  const u = await prisma.user.findUnique({ where: { id: approverId }, select: { firstName: true, lastName: true } });
+  return `${notes || ''}
+Autorizado por: ${`${u?.firstName || ''} ${u?.lastName || ''}`.trim()}`.trim();
+}
+
 /**
  * POST /api/shifts/open
  * Abrir nuevo turno
@@ -97,6 +106,9 @@ router.get('/current', async (req, res, next) => {
 router.post('/open', authorize(...rolesFor('orders', 'finance-cash-shifts')), async (req, res, next) => {
   try {
     const { openingAmount, registerId, notes } = req.body;
+
+    const approverId = await requireApproval(req, res, 'shift_open');
+    if (approverId === false) return;
 
     // Verificar que no haya turno abierto en esa caja
     const existingOpen = await prisma.cashShift.findFirst({
@@ -117,7 +129,7 @@ router.post('/open', authorize(...rolesFor('orders', 'finance-cash-shifts')), as
         userId: req.user.id,
         registerId,
         openingAmount: openingAmount || 0,
-        notes,
+        notes: await withApprover(notes, approverId),
         status: 'open'
       },
       include: {
@@ -165,6 +177,14 @@ router.post('/:id/close', authorize(...rolesFor('orders', 'finance-cash-shifts')
     const counted = Number(closingAmount) || 0;
     const expectedAmount = round2(Number(shift.openingAmount) + efectivo + movementTotal);
     const difference = round2(counted - expectedAmount);
+
+    let approverId = null;
+    const { cash } = (await prisma.company.findUnique({ where: { id: req.companyId }, select: { settings: true } }))?.settings || {};
+    const tolerance = Number(cash?.tolerance) || 0;
+    if (cash?.requireSupervisorBeyondTolerance && tolerance > 0 && Math.abs(difference) > tolerance) {
+      approverId = await requireApproval(req, res, 'shift_close_tolerance');
+      if (approverId === false) return;
+    }
 
     const updatedShift = await prisma.cashShift.update({
       where: { id: req.params.id },
