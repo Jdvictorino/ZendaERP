@@ -220,7 +220,7 @@ router.post('/approve', authenticate, approveLimiter, async (req, res, next) => 
         approver: { id: u.id, name: `${u.firstName} ${u.lastName}`.trim() }
       });
     }
-    res.status(401).json({ error: 'PIN incorrecto' });
+    res.status(400).json({ error: 'PIN incorrecto' });
   } catch (error) {
     next(error);
   }
