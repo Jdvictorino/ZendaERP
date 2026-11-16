@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Edit } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 
@@ -497,9 +496,7 @@ export default function App() {
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-100 dark:from-night-950 dark:via-night-900 dark:to-night-950">
                 <div className="animate-slideUp flex flex-col items-center">
-                    <div className="w-20 h-20 rounded-3xl bg-brand-500 shadow-2xl shadow-brand-500/30 flex items-center justify-center mb-6">
-                        <Edit className="h-9 w-9 text-white animate-pulse" />
-                    </div>
+                    <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="w-20 h-20 rounded-3xl shadow-2xl shadow-brand-500/30 mb-6" />
                     <h1 className="text-2xl font-extrabold text-ink dark:text-white tracking-tight">Zenda ERP</h1>
                     <div className="mt-6 w-8 h-1 rounded-full bg-brand-500/30 overflow-hidden">
                         <div className="h-full w-1/2 bg-brand-500 rounded-full animate-pulse" />

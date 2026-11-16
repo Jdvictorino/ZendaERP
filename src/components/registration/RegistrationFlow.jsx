@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit, CheckCircle, ChevronRight, X, ArrowLeft } from 'lucide-react';
+import { CheckCircle, ChevronRight, X, ArrowLeft } from 'lucide-react';
 import './RegistrationFlow.css';
 import StepAdminForm from './StepAdminForm.jsx';
 import StepCompanyForm from './StepCompanyForm.jsx';
@@ -54,7 +54,7 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
         <div>
           {/* Logo */}
             <div className="flex items-center gap-3 text-2xl font-bold mb-12">
-            <Edit size={28} />
+            <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-8 w-8 rounded-lg" />
             <span>Zenda ERP</span>
           </div>
           <p className="text-brand-200 text-sm mb-10 leading-relaxed">
@@ -96,7 +96,7 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-surface">
           <div className="flex items-center gap-2 lg:hidden text-brand-700 font-bold whitespace-nowrap">
-            <Edit size={20} /><span>Zenda ERP</span>
+            <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-6 w-6 rounded-md" /><span>Zenda ERP</span>
           </div>
           <div className="hidden lg:block" />
           {/* En móvil el paso ya se muestra como "Paso X de 3" en el contenido */}
