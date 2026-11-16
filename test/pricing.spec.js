@@ -13,9 +13,17 @@ describe('checkLinePrice', () => {
     expect(checkLinePrice(line({ unitPrice: 0 }), { ...prod, wholesalePrice: null }, null, 5).needsApproval).toBe(true);
     expect(checkLinePrice(line({ unitPrice: 0 }), { ...prod, salePrice: 0, wholesalePrice: null }, null, 5).needsApproval).toBe(false);
   });
-  it('precio de variante, con precio propio o con ajuste', () => {
-    expect(checkLinePrice(line({ unitPrice: 200 }), prod, { salePrice: '200.00' }, 5).needsApproval).toBe(false);
-    expect(checkLinePrice(line({ unitPrice: 175 }), prod, { salePrice: 0, priceAdjustment: '25.00' }, 5).needsApproval).toBe(false);
+  it('variante sin precio propio: producto + ajuste', () => {
+    const v = { salePrice: 0, priceAdjustment: '25.00' };
+    expect(checkLinePrice(line({ unitPrice: 175 }), prod, v, 5).needsApproval).toBe(false);
+    expect(checkLinePrice(line({ unitPrice: 0 }), prod, v, 5).needsApproval).toBe(true);
+    expect(checkLinePrice(line({ unitPrice: 150 }), prod, v, 5).needsApproval).toBe(true);
+  });
+  it('variante con precio propio', () => {
+    const v = { salePrice: '200.00' };
+    expect(checkLinePrice(line({ unitPrice: 200 }), prod, v, 5).needsApproval).toBe(false);
+    expect(checkLinePrice(line({ unitPrice: 150 }), prod, v, 5).needsApproval).toBe(true);
+    expect(checkLinePrice(line({ unitPrice: 130 }), prod, v, 5).needsApproval).toBe(false);
   });
   it('ITBIS sale del producto', () => {
     expect(checkLinePrice(line({}), { ...prod, isTaxable: false }, null, 5).taxRate).toBe(0);

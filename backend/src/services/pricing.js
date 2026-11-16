@@ -9,11 +9,11 @@ export function checkLinePrice(item, product, variant, maxDiscount) {
     if (![0, 16, 18].includes(taxRate)) return { needsApproval: true, taxRate, error: 'Tasa de ITBIS no válida' };
     return { needsApproval: true, taxRate, error: null };
   }
-  const lists = [product.salePrice, product.wholesalePrice, variant?.salePrice]
-    .filter((p) => p != null)
-    .map(Number);
-  // el ajuste de la variante se suma al precio del producto (así lo muestra el POS)
-  if (variant && variant.priceAdjustment != null) lists.push(Number(product.salePrice) + Number(variant.priceAdjustment));
+  // con variante solo valen su precio efectivo (el mismo del POS) y el mayorista; el precio suelto del producto no
+  const wholesale = product.wholesalePrice != null ? Number(product.wholesalePrice) : null;
+  const lists = variant
+    ? [Number(variant.salePrice) > 0 ? Number(variant.salePrice) : Number(product.salePrice) + Number(variant.priceAdjustment || 0), ...(wholesale > 0 ? [wholesale] : [])]
+    : [Number(product.salePrice), ...(wholesale != null ? [wholesale] : [])];
   if (!lists.some((p) => near(p, item.unitPrice))) needsApproval = true;
   return { needsApproval, taxRate: product.isTaxable ? Number(product.taxRate) : 0, error: null };
 }
