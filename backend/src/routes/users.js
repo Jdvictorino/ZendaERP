@@ -5,6 +5,7 @@ import prisma from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { normalizeEmail } from '../services/authService.js';
 import { nextEmployeeId } from '../services/employeeNumber.js';
+import { PASSWORD_MIN } from '../services/security.js';
 
 const router = Router();
 router.use(authenticate);
@@ -21,7 +22,7 @@ const emptyToUndefined = (val) => (val === '' || val === null) ? undefined : val
 
 const userSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.preprocess(emptyToUndefined, z.string().min(6).optional()),
+  password: z.preprocess(emptyToUndefined, z.string().min(PASSWORD_MIN, 'La contraseña debe tener al menos 8 caracteres').optional()),
   firstName: z.preprocess(emptyToUndefined, z.string().optional()),
   lastName: z.preprocess(emptyToUndefined, z.string().optional()),
   // employeeId no se acepta del cliente: lo asigna el servidor al crear (EMP-00001)

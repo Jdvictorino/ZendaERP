@@ -32,13 +32,10 @@ import updatesRoutes from './routes/updates.js';
 import { observabilityMiddleware, observabilityErrorCapture, log } from './middleware/observability.js';
 import { runBillingEnforcement } from './services/billingEnforcementService.js';
 
+import { requireJwtSecret } from './services/security.js';
+
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// En producción no se arranca con la clave JWT de ejemplo: cualquiera podría firmar sesiones
-if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'default-secret-change-in-production')) {
-  throw new Error('JWT_SECRET no está configurado para producción');
-}
 
 // Middlewares de seguridad
 app.use(helmet({
@@ -194,6 +191,13 @@ process.on('uncaughtException', (error) => {
   log('error', `Uncaught Exception: ${error.message}`, { source: 'process', stack: error.stack });
   console.error('Uncaught Exception:', error);
 });
+
+try {
+  requireJwtSecret(process.env);
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 
 app.listen(PORT, () => {
   console.log(`🚀 Zenda ERP API corriendo en http://localhost:${PORT}`);

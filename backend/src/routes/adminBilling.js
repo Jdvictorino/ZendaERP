@@ -10,7 +10,7 @@ const router = Router();
 
 const STATUS_VALUES = ['active', 'trial', 'past_due', 'suspended', 'blocked', 'cancelled'];
 const BLOCK_MODE_VALUES = ['auto', 'write', 'hard'];
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production';
+import { requireJwtSecret } from '../services/security.js';
 const ADMIN_TTL = process.env.PLATFORM_ADMIN_SESSION_TTL || '12h';
 const PLATFORM_INVOICE_EVENT = 'platform_invoice_issued';
 const PLATFORM_RECEIPT_EVENT = 'platform_receipt_issued';
@@ -144,7 +144,7 @@ function requirePlatformAdmin(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, requireJwtSecret(process.env));
     if (decoded.scope !== 'platform_admin') {
       return res.status(403).json({ error: 'Token sin permisos de administrador de plataforma' });
     }
@@ -192,7 +192,7 @@ router.post('/login', async (req, res, next) => {
 
     const token = jwt.sign(
       { email: ownerEmail, scope: 'platform_admin' },
-      JWT_SECRET,
+      requireJwtSecret(process.env),
       { expiresIn: ADMIN_TTL }
     );
 

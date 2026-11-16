@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import authService from '../services/authService.js';
 import { authenticate } from '../middleware/auth.js';
+import { PASSWORD_MIN } from '../services/security.js';
 
 const router = Router();
 
 // Schemas de validación
 const registerSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  password: z.string().min(PASSWORD_MIN, 'La contraseña debe tener al menos 8 caracteres'),
   firstName: z.string().min(1, 'Nombre requerido'),
   lastName: z.string().min(1, 'Apellido requerido'),
   companyName: z.string().optional(),
@@ -39,7 +40,7 @@ const loginSchema = z.object({
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Contraseña actual requerida'),
-  newPassword: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres')
+  newPassword: z.string().min(PASSWORD_MIN, 'La contraseña debe tener al menos 8 caracteres')
 });
 
 /**

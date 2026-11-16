@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production';
+import { requireJwtSecret, isAccessPayload } from '../services/security.js';
 const BILLING_ENFORCEMENT_ENABLED = process.env.BILLING_ENFORCEMENT_ENABLED !== 'false';
 const BILLING_BLOCK_MODE = process.env.BILLING_BLOCK_MODE || 'auto'; // auto | write | hard
 const VALID_BLOCK_MODES = new Set(['auto', 'write', 'hard']);
@@ -79,7 +79,7 @@ export const authenticate = async (req, res, next) => {
     
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, requireJwtSecret(process.env));
     } catch (jwtError) {
       if (jwtError.name === 'TokenExpiredError') {
         return res.status(401).json({ error: 'Token expirado' });
@@ -87,6 +87,8 @@ export const authenticate = async (req, res, next) => {
       return res.status(401).json({ error: 'Token inválido' });
     }
     
+    if (!isAccessPayload(decoded)) return res.status(401).json({ error: 'Token inválido' });
+
     // Buscar usuario en la base de datos
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -192,7 +194,7 @@ export const optionalAuth = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, requireJwtSecret(process.env));
       
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
