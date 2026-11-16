@@ -4,6 +4,10 @@ export function createWindowCounter(limit, windowMs, now = Date.now) {
   return {
     hit(key) {
       const t = now();
+      // shortcut: barrido completo solo al pasar de 1000 claves; así las claves inactivas no crecen sin límite
+      if (hits.size > 1000) {
+        for (const [k, arr] of hits) if (!arr.some(x => t - x < windowMs)) hits.delete(k);
+      }
       const recent = (hits.get(key) || []).filter(x => t - x < windowMs);
       if (recent.length >= limit) {
         hits.set(key, recent);
