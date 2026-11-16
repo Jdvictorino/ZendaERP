@@ -24,7 +24,10 @@ const CustomizeItemModal = ({ productData, onClose, onSave, companyProfile }) =>
     const currency = companyProfile?.currency || 'USD';
 
     const displayImage = selectedVariant ? selectedVariant.imageUrl : product.imageUrl;
-    const displayPrice = selectedVariant ? selectedVariant.salePrice : product.salePrice;
+    // Precio efectivo de la variante (misma regla que el POS y el servidor)
+    const displayPrice = selectedVariant
+        ? (Number(selectedVariant.salePrice) > 0 ? Number(selectedVariant.salePrice) : Number(product.salePrice) + Number(selectedVariant.priceAdjustment || 0))
+        : product.salePrice;
     const maxStock = selectedVariant ? selectedVariant.stock : product.stock;
 
     const fileToDataUrl = (file) => new Promise((resolve, reject) => {

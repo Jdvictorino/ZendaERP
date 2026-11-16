@@ -110,6 +110,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                 updates.paidAmount = newPaidAmount;
                 updates.paymentStatus = 'Pagado';
                 updates.payments = [...(invoice.payments || []), {
+                    id: crypto.randomUUID(),
                     date: now,
                     efectivo: 0,
                     chequeTransferencia: 0,

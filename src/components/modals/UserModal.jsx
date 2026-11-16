@@ -98,7 +98,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                 }
 
                 // Actualizar PIN si se proporcionó
-                if (formData.pin && formData.confirmPin) {
+                if (formData.pin) {
                     if (formData.pin !== formData.confirmPin) {
                         throw new Error('El PIN no coincide.');
                     }
