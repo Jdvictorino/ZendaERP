@@ -64,7 +64,7 @@ const InvoicesViewSQL = ({ companyProfile, isMasterUser, currentUserProfile }) =
         }
 
         const smtpSettings = companyProfile?.settings?.smtp || {};
-        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.pass);
+        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.hasPassword);
 
         const emitterInfoForPDF = docObject.emitterInfo || (currentUserProfile ? {
             fullName: `${currentUserProfile.firstName} ${currentUserProfile.lastName}`,

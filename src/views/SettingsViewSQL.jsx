@@ -1035,7 +1035,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                         <input aria-label="Contraseña SMTP" 
                                             type="password" 
                                             className="input-base font-mono" 
-                                            placeholder="••••••••••••••••"
+                                            placeholder={formData.smtp?.hasPassword ? 'Guardada (escribe para cambiarla)' : '••••••••••••••••'}
                                             value={formData.smtp?.pass || ''}
                                             onChange={(e) => isMasterUser && setFormData({ 
                                                 ...formData, 

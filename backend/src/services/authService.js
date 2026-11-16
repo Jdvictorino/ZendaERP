@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import prisma from '../db.js';
 import { sendMail } from './emailService.js';
 
-import { requireJwtSecret } from './security.js';
+import { requireJwtSecret, publicCompany } from './security.js';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 const BILLING_BLOCK_MODE = process.env.BILLING_BLOCK_MODE || 'auto';
@@ -153,7 +153,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(result.user),
-      company: result.company,
+      company: publicCompany(result.company),
       ...tokens
     };
   },
@@ -208,7 +208,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(user),
-      company: user.company,
+      company: publicCompany(user.company),
       ...tokens
     };
   },
@@ -252,7 +252,7 @@ export const authService = {
 
       return {
         user: this.sanitizeUser(user),
-        company: user.company,
+        company: publicCompany(user.company),
         ...tokens
       };
     } catch (error) {
@@ -321,7 +321,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(user),
-      company: user.company,
+      company: publicCompany(user.company),
       billing: {
         status: user.company?.billingStatus || 'active',
         dueDate: user.company?.billingDueDate || null,
@@ -353,7 +353,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(user),
-      company: user.company
+      company: publicCompany(user.company)
     };
   },
 
