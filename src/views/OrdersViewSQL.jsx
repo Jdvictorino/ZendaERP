@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Button from '../components/ui/Button.jsx';
 import Segmented from '../components/ui/Segmented.jsx';
 import api from '../api/client.js';
+import useApproval from '../hooks/useApproval.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import { useScanner } from '../context/ScannerContext.jsx';
 import { PLACEHOLDER_IMG } from '../utils/placeholderImage.js';
@@ -62,6 +63,7 @@ const formatCustomerLabel = (customer) => {
 };
 
 const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
+    const { withApproval, approvalModal } = useApproval();
     const [cart, setCart] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -437,7 +439,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 status: 'Pendiente',
             };
 
-            const result = await api.invoices.create(orderData);
+            const result = await withApproval('price_override', (token) => api.invoices.create(orderData, token));
             playSuccessSound();
             toast.success('¡Pedido creado con éxito!');
 
@@ -961,6 +963,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                     onClose={() => setShowScannerModal(false)}
                 />
             )}
+            {approvalModal}
         </>
     );
 };

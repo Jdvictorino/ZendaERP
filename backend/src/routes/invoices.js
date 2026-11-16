@@ -6,6 +6,8 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
 import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
+import { requireApproval } from '../services/approvals.js';
+import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
 
@@ -180,7 +182,28 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
   try {
     const data = invoiceSchema.parse(req.body);
-    
+
+    // El servidor valida precio, ITBIS y descuento de cada línea contra el catálogo de la empresa
+    const [company, customer] = await Promise.all([
+      prisma.company.findUnique({ where: { id: req.companyId }, select: { settings: true } }),
+      data.customerId ? prisma.customer.findFirst({ where: { id: data.customerId, companyId: req.companyId } }) : null
+    ]);
+    const maxDiscount = allowedDiscountPercent(company?.settings?.pricing, customer);
+    const productIds = [...new Set(data.items.map((i) => i.productId).filter(Boolean))];
+    const products = await prisma.product.findMany({ where: { id: { in: productIds }, companyId: req.companyId }, include: { variants: true } });
+    const byId = new Map(products.map((p) => [p.id, p]));
+    let needsApproval = false;
+    for (const item of data.items) {
+      const product = item.productId ? byId.get(item.productId) : null;
+      if (item.productId && !product) return res.status(400).json({ error: 'Uno de los productos del pedido no existe.' });
+      const variant = item.variantId ? product?.variants.find((v) => v.id === item.variantId) : null;
+      const check = checkLinePrice(item, product, variant, maxDiscount);
+      if (check.error) return res.status(400).json({ error: check.error });
+      item.taxRate = check.taxRate;
+      needsApproval ||= check.needsApproval;
+    }
+    if (needsApproval && (await requireApproval(req, res, 'price_override')) === false) return;
+
     // Calcular totales
     // unitPrice viene del frontend ya con ITBIS incluido (precio final).
     // subtotal = suma de precios base (sin ITBIS)
@@ -210,6 +233,18 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
 
     const total = subtotal + taxAmount; // = sum of (unitPrice * qty) after discounts
     const changeAmount = data.amountPaid > total ? data.amountPaid - total : 0;
+
+    // Venta a crédito: no puede pasar el límite del cliente (límite 0 = sin límite)
+    if (customer && /cr[eé]dito/i.test(data.paymentMethod || '')) {
+      const open = await prisma.invoice.aggregate({
+        where: { companyId: req.companyId, customerId: customer.id, status: { notIn: VOID_STATUSES } },
+        _sum: { total: true, amountPaid: true }
+      });
+      const pendingBalance = Number(open._sum.total || 0) - Number(open._sum.amountPaid || 0);
+      if (creditExceeded({ creditLimit: customer.creditLimit, pendingBalance, newTotal: total })) {
+        return res.status(400).json({ error: 'La venta pasa el límite de crédito del cliente' });
+      }
+    }
 
     // Crear factura con items en transacción
     const invoice = await prisma.$transaction(async (tx) => {
@@ -364,6 +399,14 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
       if (discount < 0 || discount > grossTotal + 0.01) {
         return res.status(400).json({ error: 'El descuento no puede ser mayor que el total.' });
       }
+      // Sobre el tope sin PIN solo pasa un cupón vigente de la empresa que cubra el monto
+      const [company, customer, offer] = await Promise.all([
+        prisma.company.findUnique({ where: { id: req.companyId }, select: { settings: true } }),
+        invoice.customerId ? prisma.customer.findFirst({ where: { id: invoice.customerId, companyId: req.companyId } }) : null,
+        body.appliedCoupon?.id ? prisma.offer.findFirst({ where: { id: String(body.appliedCoupon.id), companyId: req.companyId } }) : null
+      ]);
+      const cap = Math.max(grossTotal * allowedDiscountPercent(company?.settings?.pricing, customer) / 100, couponCap(offer, grossTotal));
+      if (discount > cap + 0.01 && (await requireApproval(req, res, 'price_override')) === false) return;
       updateData.discountAmount = discount;
       updateData.total = grossTotal - discount;
     }

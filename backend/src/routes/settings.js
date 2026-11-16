@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
       // Campos guardados en settings JSON
       allowCustomization: settings.allowCustomization ?? true,
       customerCategories: settings.customerCategories || ['General', 'VIP', 'Mayorista'],
-      pricing: settings.pricing || { categoryDiscounts: {} },
+      pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
         bankName: '',

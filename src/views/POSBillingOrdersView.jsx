@@ -25,6 +25,7 @@ import { withEcfPrintData } from '../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../utils/printer.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { confirmDialog } from '../utils/confirmDialog.jsx';
+import useApproval from '../hooks/useApproval.js';
 
 const TAX_RATE = 0.18;
 // Tasa de ITBIS de la línea: la del producto (0 si es exento); 18 % para líneas escritas a mano
@@ -383,6 +384,7 @@ function StatusBar({ rows, payMethod, condicion, comprobanteLabel, userLabel }) 
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function POSBillingOrdersView({ companyProfile, currentUserProfile, setView, adminUser }) {
+  const { withApproval, approvalModal } = useApproval();
   // Escritorio y móvil se renderizan a la vez (uno oculto por CSS): cada uno tiene su ref y los atajos eligen el visible
   const productRefDesktop = useRef(null);
   const productRefMobile = useRef(null);
@@ -720,7 +722,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     };
 
     try {
-      const created = await api.invoices.create(orderData);
+      const created = await withApproval('price_override', (token) => api.invoices.create(orderData, token));
       let finalOrder = { ...created, customerName: orderData.customerName };
       try {
         const billed = await api.invoices.bill(created.id, option.value, buyerDoc);
@@ -1026,6 +1028,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
           ))}
         </div>
       )}
+      {approvalModal}
     </div>
   );
 }

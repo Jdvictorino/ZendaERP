@@ -270,6 +270,7 @@ export const categories = createResourceApi('categories');
 
 export const invoices = {
   ...createResourceApi('invoices'),
+  create: (data, approvalToken) => post('/invoices', data, approvalToken ? { headers: { 'X-Approval-Token': approvalToken } } : {}),
   bill: (id, ncfType, customerRnc) => post(`/invoices/${id}/bill`, { ncfType, customerRnc }),
   cancel: (id, reason) => post(`/invoices/${id}/cancel`, { reason }),
   createCreditNote: (id, data) => post(`/invoices/${id}/credit-note`, data),
