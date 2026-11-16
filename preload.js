@@ -9,9 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       try {
         // Pide la ruta de datos del usuario, que es una carpeta escribible.
         const userDataPath = ipcRenderer.sendSync('get-user-data-path');
-        // Construye la ruta dentro de 'Client-images' y rechaza cualquier salida de la carpeta de datos.
+        // Construye la ruta dentro de 'Client-images' y rechaza cualquier salida de esa carpeta.
         const rel = path.join('Client-images', String(orderNumber), String(imageName));
-        const destPath = safeUserPath(userDataPath, rel);
+        const imagesDir = path.join(userDataPath, 'Client-images');
+        const destPath = safeUserPath(imagesDir, path.join(String(orderNumber), String(imageName)));
         if (!destPath) return reject(new Error('Ruta no permitida'));
 
         fs.mkdirSync(path.dirname(destPath), { recursive: true });
