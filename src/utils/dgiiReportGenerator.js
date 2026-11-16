@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { isVoidInvoice } from './invoiceStatus.js';
+import { filterByDateRange } from './reportFilters.js';
 
 // Función para determinar el Tipo de ID según la longitud del RNC/Cédula
 const getTypeId = (rnc) => {
@@ -42,6 +43,13 @@ const formatDateToDGII = (dateValue) => {
 // Las facturas llegan de la API con ncfNumber / customerRnc / taxAmount; "ncf" es el formato anterior
 const ncfOf = (inv) => inv.ncf?.number || inv.ncfNumber || '';
 const rncOf = (inv) => inv.ncf?.customerRnc || inv.customerRnc || '';
+
+// Fecha del comprobante: un e-CF lleva la de la venta (FechaEmision); un NCF en papel, la de facturación
+export const voucherDateOf = (inv) => (ncfOf(inv).startsWith('E') ? inv.date || inv.billedDate : inv.billedDate || inv.date);
+
+// Facturas cuyo comprobante cae en el período (607/608); filterByDateRange queda igual para los demás reportes
+export const filterByVoucherDate = (invoices = [], from, to) =>
+    filterByDateRange(invoices.map(inv => ({ inv, d: voucherDateOf(inv) })), 'd', from, to).map(x => x.inv);
 
 // Factura con comprobante fiscal (B01, B02, E31, ...); las "Sin Valor Fiscal" no van al 607/608
 export const isFiscalInvoice = (inv) => {
@@ -143,7 +151,7 @@ export const generate607Data = (invoices = []) => {
                 "NCF": ncfOf(inv),
                 "NCF ó Documento Modificado": inv.ncfModificado || '',
                 "Tipo de Ingreso": '01', // Ingresos por Operaciones (No Financieros)
-                "Fecha Comprobante": formatDateToDGII(inv.billedDate || inv.date),
+                "Fecha Comprobante": formatDateToDGII(voucherDateOf(inv)),
                 "Fecha de Retención": '', // No manejado actualmente
                 "Monto Facturado": inv.subtotal || 0,
                 "ITBIS Facturado": Number(inv.itbis ?? inv.taxAmount ?? 0),
@@ -177,7 +185,7 @@ export const generate608Data = (invoices = []) => {
             "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
             "Tipo Id": getTypeId(rncOf(inv)),
             "NCF": ncfOf(inv),
-            "Fecha Comprobante": formatDateToDGII(inv.billedDate || inv.date),
+            "Fecha Comprobante": formatDateToDGII(voucherDateOf(inv)),
             "Fecha Anulación": formatDateToDGII(inv.cancelDate || inv.updatedAt || inv.date) || '',
             "Tipo de Anulación": inv.cancelReasonCode || '09', // 09: Otros (por defecto)
         }));

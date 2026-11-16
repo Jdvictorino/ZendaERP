@@ -110,6 +110,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                 updates.paidAmount = newPaidAmount;
                 updates.paymentStatus = 'Pagado';
                 updates.payments = [...(invoice.payments || []), {
+                    id: crypto.randomUUID(),
                     date: now,
                     efectivo: 0,
                     chequeTransferencia: 0,
@@ -172,6 +173,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
 
         // Guardamos el desglose del pago en la factura
         const paymentBreakdown = {
+            id: crypto.randomUUID(), // el mismo cobro reenviado no se suma dos veces
             date: new Date().toISOString(),
             efectivo: parseFloat(payments.efectivo) || 0,
             chequeTransferencia: parseFloat(payments.chequeTransferencia) || 0,

@@ -65,7 +65,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
         phone: '', email: '', logo: '', currency: 'USD',
         allowCustomization: true,
         customerCategories: ['General', 'VIP', 'Mayorista'],
-        pricing: { categoryDiscounts: {} },
+        pricing: { categoryDiscounts: {}, maxDiscountPercent: 5 },
         bankDetails: { entityType: 'Persona', bankName: '', beneficiaryName: '', beneficiaryId: '', accountType: 'Ahorro en Pesos RD$', accountNumber: '', bankEmail: '' },
         cash: { tolerance: 0, requireSupervisorBeyondTolerance: true, registers: [], printing: { mode: 'html', printerName: '' } },
         notifications: { sound: { enabled: true, volume: 0.7 } },
@@ -792,6 +792,26 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                     </div>
                                 </div>
 
+                                <div className="max-w-xs space-y-1">
+                                    <label htmlFor="maxDiscountPercent" className="block text-slate-700 text-sm font-semibold dark:text-slate-300">Descuento máximo sin PIN (%)</label>
+                                    <input
+                                        id="maxDiscountPercent"
+                                        type="number"
+                                        className="input-base text-right"
+                                        min={0}
+                                        max={100}
+                                        step={0.5}
+                                        value={formData.pricing?.maxDiscountPercent ?? 5}
+                                        onChange={(e) => {
+                                            if (!isMasterUser) return;
+                                            const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                                            setFormData({ ...formData, pricing: { ...(formData.pricing || {}), maxDiscountPercent: v } });
+                                        }}
+                                        readOnly={!isMasterUser}
+                                    />
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Un descuento mayor en una línea necesita el PIN de un gerente.</p>
+                                </div>
+
                                 {isMasterUser && (
                                     <div className="mt-4 border-t pt-4 border-slate-100 dark:border-slate-800 space-y-4">
                                         <div className="flex items-center gap-2">
@@ -1015,7 +1035,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                         <input aria-label="Contraseña SMTP" 
                                             type="password" 
                                             className="input-base font-mono" 
-                                            placeholder="••••••••••••••••"
+                                            placeholder={formData.smtp?.hasPassword ? 'Guardada (escribe para cambiarla)' : '••••••••••••••••'}
                                             value={formData.smtp?.pass || ''}
                                             onChange={(e) => isMasterUser && setFormData({ 
                                                 ...formData, 

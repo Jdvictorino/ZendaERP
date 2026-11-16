@@ -11,7 +11,7 @@ import observability from '../services/observabilityService.js';
 import prisma from '../db.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production';
+import { requireJwtSecret } from '../services/security.js';
 
 // =============================================
 // AUTH MIDDLEWARE (reutiliza patrón de adminBilling)
@@ -31,7 +31,7 @@ function requirePlatformAdmin(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, requireJwtSecret(process.env));
     if (decoded.scope !== 'platform_admin') {
       return res.status(403).json({ error: 'Token sin permisos de administrador de plataforma' });
     }

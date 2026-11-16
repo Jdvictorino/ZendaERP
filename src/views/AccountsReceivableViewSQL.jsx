@@ -101,7 +101,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
         const defaultBody = `Estimado cliente,\n\nAdjunto a este correo encontrará su factura correspondiente.\n\nSaludos cordiales,\nEl equipo de Zenda ERP`;
 
         const smtpSettings = companyProfile?.settings?.smtp || {};
-        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.pass);
+        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.hasPassword);
 
         if (hasSmtpConfig) {
             try {
@@ -179,7 +179,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
         const defaultBody = `Estimado cliente,\n\nAdjunto a este correo encontrará su estado de cuenta correspondiente.\n\nSaludos cordiales,\nEl equipo de Zenda ERP`;
 
         const smtpSettings = companyProfile?.settings?.smtp || {};
-        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.pass);
+        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.hasPassword);
 
         if (hasSmtpConfig) {
             try {

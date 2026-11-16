@@ -3,6 +3,7 @@ import { shifts } from '../../api/client.js';
 import Button from '../ui/Button.jsx';
 import toast from 'react-hot-toast';
 import { logAction } from '../../utils/audit.js';
+import useApproval from '../../hooks/useApproval.js';
 import ShiftDialog, { CashCount, countTotal, emptyCount } from './ShiftDialog.jsx';
 
 export default function OpenShiftModal({ onClose, currentUserProfile, companyProfile, registerId, existingShifts = [] }) {
@@ -11,6 +12,7 @@ export default function OpenShiftModal({ onClose, currentUserProfile, companyPro
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const total = countTotal(denoms);
+  const { withApproval, approvalModal } = useApproval();
 
   const handleOpen = async () => {
     // Una sola caja abierta por registro
@@ -23,8 +25,8 @@ export default function OpenShiftModal({ onClose, currentUserProfile, companyPro
     setSaving(true);
     try {
       await toast.promise(
-        shifts.open(total, registerId || '', notes || ''),
-        { loading: 'Abriendo turno...', success: 'Turno abierto.', error: 'No se pudo abrir el turno.' }
+        withApproval('shift_open', (token) => shifts.open(total, registerId || '', notes || '', token)),
+        { loading: 'Abriendo turno...', success: 'Turno abierto.', error: (e) => e.message || 'No se pudo abrir el turno.' }
       );
       try {
         await logAction('shift_open', { registerId: registerId || '', amount: total, by: currentUserProfile?.uid || currentUserProfile?.id });
@@ -51,6 +53,7 @@ export default function OpenShiftModal({ onClose, currentUserProfile, companyPro
         <span className="block text-sm text-ink-soft mb-1">Notas</span>
         <textarea className="input-base" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
       </label>
+      {approvalModal}
     </ShiftDialog>
   );
 }

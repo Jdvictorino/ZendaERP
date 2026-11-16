@@ -5,7 +5,7 @@ import { AlertTriangle, BookOpen, Download, Zap, FileText, TrendingUp, ShoppingC
 import { formatCurrency } from '../utils/formatCurrency.js';
 import reportFilters from '../utils/reportFilters.js';
 import { loadScript } from '../utils/loadScript.js';
-import { generate606Data, generate607Data, generate608Data, generate609Data, isFiscalInvoice, exportToTxt } from '../utils/dgiiReportGenerator.js';
+import { generate606Data, generate607Data, generate608Data, generate609Data, isFiscalInvoice, filterByVoucherDate, exportToTxt } from '../utils/dgiiReportGenerator.js';
 import ReportDataTable from '../components/ReportDataTable.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
@@ -56,10 +56,10 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
         const filteredInvoices = reportFilters.filterInvoices(invoices || [], criteria);
         const filteredExpenses = reportFilters.filterExpenses(expenses || [], criteria);
         const filteredCreditNotes = reportFilters.filterByDateRange(creditNotes || [], 'date', criteria.from, criteria.to);
-        return { filteredInvoices, filteredExpenses, filteredCreditNotes };
+        return { filteredInvoices, filteredExpenses, filteredCreditNotes, criteria };
     }, [invoices, expenses, creditNotes, reportMonth, reportYear, fromDate, toDate]);
 
-    const fiscalInvoices = useMemo(() => filteredData.filteredInvoices.filter(isFiscalInvoice), [filteredData]);
+    const fiscalInvoices = useMemo(() => filterByVoucherDate((invoices || []).filter(isFiscalInvoice), filteredData.criteria.from, filteredData.criteria.to), [invoices, filteredData]);
     const fiscalExpenses = useMemo(() => filteredData.filteredExpenses.filter(exp => exp.ncf && exp.ncf.trim() !== ''), [filteredData]);
     const cancelledInvoices = useMemo(() => fiscalInvoices.filter(inv => isVoidInvoice(inv)), [fiscalInvoices]);
     const fiscalCreditNotes = useMemo(() => (filteredData.filteredCreditNotes || []).filter(note => note.ncf?.number || note.ncfNumber), [filteredData]);

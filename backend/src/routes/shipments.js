@@ -1,3 +1,6 @@
+import crypto from 'node:crypto';
+import { canConfirmDelivery } from '../services/delivery.js';
+import { assertSameCompany } from '../services/ownership.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
@@ -80,6 +83,29 @@ router.get('/', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/shipments/public/:token
+ * Datos mínimos para la pantalla de confirmación del QR (sin sesión)
+ */
+router.get('/public/:token', async (req, res, next) => {
+  try {
+    const shipment = await prisma.shipment.findUnique({
+      where: { deliveryToken: req.params.token }
+    });
+    if (!shipment) {
+      return res.status(404).json({ error: 'Envío no encontrado' });
+    }
+    res.json({
+      orderNumber: shipment.orderNumber,
+      customerName: shipment.recipientName,
+      deliveryAddress: shipment.deliveryAddress,
+      status: shipment.status
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/shipments/:id
  */
 router.get('/:id', authenticate, async (req, res, next) => {
@@ -112,6 +138,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
 router.post('/', authenticate, authorize(...rolesFor('shipments')), async (req, res, next) => {
   try {
     const data = shipmentSchema.parse(req.body);
+    await assertSameCompany(prisma, req.companyId, { driverId: data.assignedDriverId });
 
     let invoice = null;
     let invoiceId = data.invoiceId || null;
@@ -141,8 +168,8 @@ router.post('/', authenticate, authorize(...rolesFor('shipments')), async (req, 
       [toAddr.street, toAddr.city, toAddr.postalCode].filter(Boolean).join(', ') || '';
 
     // Generar QR code
-    const qrId = invoiceId || data.orderId || Date.now().toString();
-    const qrCode = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/delivery/confirm?id=${qrId}`;
+    const deliveryToken = crypto.randomUUID();
+    const qrCode = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/delivery/confirm?token=${encodeURIComponent(deliveryToken)}`;
 
     const shipment = await prisma.shipment.create({
       data: {
@@ -165,6 +192,7 @@ router.post('/', authenticate, authorize(...rolesFor('shipments')), async (req, 
         estimatedDelivery: data.estimatedDelivery ? new Date(data.estimatedDelivery) : null,
         assignedDriverId: data.assignedDriverId || null,
         qrCode,
+        deliveryToken,
         status: 'created'
       }
     });
@@ -216,17 +244,20 @@ router.patch('/:id/status', authenticate, authorize(...rolesFor('shipments')), a
  */
 router.post('/confirm-delivery', optionalAuth, async (req, res, next) => {
   try {
-    const { invoiceId, signature, recipientName } = req.body;
+    const { token, invoiceId, signature, recipientName } = req.body;
 
-    if (!invoiceId) {
-      return res.status(400).json({ error: 'invoiceId requerido' });
+    if (!token && !invoiceId) {
+      return res.status(400).json({ error: 'Llave del QR requerida' });
+    }
+    if ((token && typeof token !== 'string') || (invoiceId && typeof invoiceId !== 'string')) {
+      return res.status(400).json({ error: 'Datos inválidos' });
     }
 
     const shipment = await prisma.shipment.findUnique({
-      where: { invoiceId }
+      where: token ? { deliveryToken: String(token) } : { invoiceId }
     });
 
-    if (!shipment) {
+    if (!canConfirmDelivery({ shipment, token, user: req.user })) {
       return res.status(404).json({ error: 'Envío no encontrado' });
     }
 
@@ -245,10 +276,12 @@ router.post('/confirm-delivery', optionalAuth, async (req, res, next) => {
     });
 
     // Actualizar estado de la factura
-    await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: { status: 'Completado' }
-    });
+    if (shipment.invoiceId) {
+      await prisma.invoice.update({
+        where: { id: shipment.invoiceId },
+        data: { status: 'Completado' }
+      });
+    }
 
     res.json({ 
       message: 'Entrega confirmada exitosamente',
@@ -321,6 +354,8 @@ router.put('/:id', authenticate, authorize(...rolesFor('shipments')), async (req
       }
     }
 
+    await assertSameCompany(prisma, req.companyId, { driverId: updateData.assignedDriverId });
+
     const updated = await prisma.shipment.update({
       where: { id: req.params.id },
       data: updateData,
@@ -357,6 +392,8 @@ router.patch('/:id/assign', authenticate, authorize('admin', 'manager'), async (
     if (!shipment) {
       return res.status(404).json({ error: 'Envío no encontrado' });
     }
+
+    await assertSameCompany(prisma, req.companyId, { driverId });
 
     const updated = await prisma.shipment.update({
       where: { id: req.params.id },

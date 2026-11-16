@@ -129,17 +129,19 @@ export async function get(endpoint, params = {}) {
   return handleResponse(response);
 }
 
-export async function post(endpoint, body) {
+export async function post(endpoint, body, options = {}) {
   const response = await fetchWithAuth(`${API_URL}${endpoint}`, {
     method: 'POST',
+    headers: options.headers,
     body: JSON.stringify(body)
   });
   return handleResponse(response);
 }
 
-export async function put(endpoint, body) {
+export async function put(endpoint, body, options = {}) {
   const response = await fetchWithAuth(`${API_URL}${endpoint}`, {
     method: 'PUT',
+    headers: options.headers,
     body: JSON.stringify(body)
   });
   return handleResponse(response);
@@ -202,6 +204,8 @@ export const auth = {
     }
     clearTokens();
   },
+
+  approve: (pin, action) => post('/auth/approve', { pin, action }),
 
   async getProfile() {
     return get('/auth/me');
@@ -266,6 +270,7 @@ export const categories = createResourceApi('categories');
 
 export const invoices = {
   ...createResourceApi('invoices'),
+  create: (data, approvalToken) => post('/invoices', data, approvalToken ? { headers: { 'X-Approval-Token': approvalToken } } : {}),
   bill: (id, ncfType, customerRnc) => post(`/invoices/${id}/bill`, { ncfType, customerRnc }),
   cancel: (id, reason) => post(`/invoices/${id}/cancel`, { reason }),
   createCreditNote: (id, data) => post(`/invoices/${id}/credit-note`, data),
@@ -285,8 +290,10 @@ export const users = {
 export const shifts = {
   list: (params) => get('/shifts', params),
   getCurrent: (registerId) => get('/shifts/current', { registerId }),
-  open: (openingAmount, registerId, notes) => post('/shifts/open', { openingAmount, registerId, notes }),
-  close: (id, closingAmount, notes) => post(`/shifts/${id}/close`, { closingAmount, notes }),
+  open: (openingAmount, registerId, notes, approvalToken) =>
+    post('/shifts/open', { openingAmount, registerId, notes }, approvalToken ? { headers: { 'X-Approval-Token': approvalToken } } : {}),
+  close: (id, closingAmount, notes, approvalToken) =>
+    post(`/shifts/${id}/close`, { closingAmount, notes }, approvalToken ? { headers: { 'X-Approval-Token': approvalToken } } : {}),
   addMovement: (shiftId, type, amount, reason) => 
     post(`/shifts/${shiftId}/movement`, { type, amount, reason }),
   delete: (id) => del(`/shifts/${id}`),
@@ -302,8 +309,10 @@ export const shipments = {
   confirmDelivery: (id, code, notes, signatureUrl) => 
     post(`/shipments/${id}/confirm`, { confirmationCode: code, notes, signatureUrl }),
   assignDriver: (id, driverId) => patch(`/shipments/${id}/assign`, { driverId }),
-  confirmDeliveryPublic: (invoiceId, signature, recipientName) =>
-    post('/shipments/confirm-delivery', { invoiceId, signature, recipientName })
+  getPublic: (token) => get(`/shipments/public/${encodeURIComponent(token)}`),
+  // Con `token` (QR) no hace falta sesión; con `invoiceId` solo vale para un usuario de la misma empresa
+  confirmDeliveryPublic: ({ token, invoiceId, signature, recipientName }) =>
+    post('/shipments/confirm-delivery', { token, invoiceId, signature, recipientName })
 };
 
 export const backup = {

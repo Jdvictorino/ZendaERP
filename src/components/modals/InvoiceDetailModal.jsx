@@ -70,7 +70,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
         }
 
         const smtpSettings = companyProfile?.settings?.smtp || {};
-        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.pass);
+        const hasSmtpConfig = !!(smtpSettings.host && smtpSettings.user && smtpSettings.hasPassword);
 
         if (hasSmtpConfig) {
             try {

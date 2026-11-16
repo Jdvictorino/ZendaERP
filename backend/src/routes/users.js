@@ -5,6 +5,8 @@ import prisma from '../db.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { normalizeEmail } from '../services/authService.js';
 import { nextEmployeeId } from '../services/employeeNumber.js';
+import { PASSWORD_MIN } from '../services/security.js';
+import { hashPin } from '../services/pin.js';
 
 const router = Router();
 router.use(authenticate);
@@ -21,7 +23,7 @@ const emptyToUndefined = (val) => (val === '' || val === null) ? undefined : val
 
 const userSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.preprocess(emptyToUndefined, z.string().min(6).optional()),
+  password: z.preprocess(emptyToUndefined, z.string().min(PASSWORD_MIN, 'La contraseña debe tener al menos 8 caracteres').optional()),
   firstName: z.preprocess(emptyToUndefined, z.string().optional()),
   lastName: z.preprocess(emptyToUndefined, z.string().optional()),
   // employeeId no se acepta del cliente: lo asigna el servidor al crear (EMP-00001)
@@ -32,7 +34,7 @@ const userSchema = z.object({
   photoURL: z.preprocess(emptyToUndefined, z.string().optional()),
   gender: z.preprocess(emptyToUndefined, z.string().optional()),
   idNumber: z.preprocess(emptyToUndefined, z.string().optional()),
-  pinHash: z.preprocess(emptyToUndefined, z.string().optional()),
+  pin: z.preprocess(emptyToUndefined, z.string().regex(/^\d{4,8}$/, 'El PIN debe tener de 4 a 8 dígitos').optional()),
   address: z.any().optional(),
   status: z.enum(['active', 'inactive']).default('active')
 });
@@ -144,12 +146,13 @@ router.post('/', async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Preparar datos para Prisma (mapear photoURL -> photoUrl)
-    const { password: _, photoURL, ...rest } = data;
+    const { password: _, pin, photoURL, ...rest } = data;
     const createData = {
       ...rest,
       email: normalizedEmail,
       photoUrl: photoURL, // DB usa photoUrl (lowercase)
       passwordHash: hashedPassword,
+      ...(pin ? { pinHash: await hashPin(pin) } : {}),
       companyId: req.companyId
     };
 
@@ -219,9 +222,8 @@ router.put('/:id', async (req, res, next) => {
       updateData.photoUrl = data.photoURL;
     }
 
-    // Si hay pinHash, guardarlo
-    if (data.pinHash !== undefined) {
-      updateData.pinHash = data.pinHash;
+    if (data.pin !== undefined) {
+      updateData.pinHash = await hashPin(data.pin);
     }
 
     // Eliminar campos undefined

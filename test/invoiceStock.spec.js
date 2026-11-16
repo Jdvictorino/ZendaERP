@@ -7,7 +7,7 @@ vi.mock('../backend/src/middleware/auth.js', () => ({ authenticate: (q, s, n) =>
 vi.mock('../backend/src/routes/alerts.js', () => ({ createAlert: vi.fn() }));
 vi.mock('../backend/src/services/ecfService.js', () => ({ ECF_RECEIVED: ['enviado', 'aceptado'] }));
 
-const { takeStock, restoreStock, takeNcf, noteVoucher } = await import('../backend/src/routes/invoices.js');
+const { takeStock, restoreStock, unreturnedLines, takeNcf, noteVoucher } = await import('../backend/src/routes/invoices.js');
 
 // Base de datos en memoria con la misma condición que el UPDATE real: solo descuenta si stock >= cantidad
 function fakeTx() {
@@ -132,4 +132,16 @@ describe('noteVoucher: comprobante de la nota según la factura', () => {
     expect(noteVoucher({ ncfType: 'B02' }, company(true), 'B04')).toBe('ecf');
   });
   it('venta sin comprobante fiscal: sin NCF', () => expect(noteVoucher({ ncfType: 'NoFiscal' }, company(true), 'B04')).toBe(null));
+});
+
+describe('unreturnedLines: lo que queda por devolver al anular', () => {
+  it('descuenta lo que ya devolvieron las notas de crédito parciales (no se devuelve dos veces)', () => {
+    const items = [{ id: 'a', productId: 'p1', quantity: 5 }, { id: 'b', productId: 'p1', variantId: 'v1', quantity: 2 }];
+    const notes = [{ items: [{ itemId: 'a', quantity: 2 }] }, { items: [{ itemId: 'a', quantity: 1 }, { itemId: 'b', quantity: 2 }] }];
+    expect(unreturnedLines(items, notes)).toEqual([{ id: 'a', productId: 'p1', quantity: 2 }]);
+  });
+  it('sin notas devuelve todas las líneas', () => {
+    const items = [{ id: 'a', quantity: 3 }];
+    expect(unreturnedLines(items, [])).toEqual(items);
+  });
 });

@@ -1,3 +1,5 @@
+import { assertSameCompany } from '../services/ownership.js';
+import { appendPayments } from '../services/payments.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
@@ -6,6 +8,8 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
 import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
+import { requireApproval } from '../services/approvals.js';
+import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
 
@@ -52,6 +56,19 @@ export async function restoreStock(tx, invoice, userId, reason, referenceType, r
     else await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
     await tx.inventoryLog.create({ data: { productId: item.productId, userId, type: 'entrada', quantity: item.quantity, reason, referenceId, referenceType } });
   }
+}
+
+// Cuánto de cada línea devolvieron ya las notas de crédito: { itemId: cantidad }
+const returnedByNotes = (creditNotes = []) => {
+  const done = {};
+  creditNotes.forEach((n) => (Array.isArray(n.items) ? n.items : []).forEach((r) => { done[r.itemId] = (done[r.itemId] || 0) + r.quantity; }));
+  return done;
+};
+
+// Líneas con lo que aún no volvió a inventario (al anular, las notas parciales ya devolvieron su parte)
+export function unreturnedLines(items, creditNotes) {
+  const done = returnedByNotes(creditNotes);
+  return items.map((i) => ({ ...i, quantity: i.quantity - (done[i.id] || 0) })).filter((i) => i.quantity > 0);
 }
 
 const invoiceItemSchema = z.object({
@@ -180,7 +197,28 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
   try {
     const data = invoiceSchema.parse(req.body);
-    
+    await assertSameCompany(prisma, req.companyId, data);
+
+    // El servidor valida precio, ITBIS y descuento de cada línea contra el catálogo de la empresa
+    const [company, customer] = await Promise.all([
+      prisma.company.findUnique({ where: { id: req.companyId }, select: { settings: true } }),
+      data.customerId ? prisma.customer.findFirst({ where: { id: data.customerId, companyId: req.companyId } }) : null
+    ]);
+    const maxDiscount = allowedDiscountPercent(company?.settings?.pricing, customer);
+    const productIds = [...new Set(data.items.map((i) => i.productId).filter(Boolean))];
+    const products = await prisma.product.findMany({ where: { id: { in: productIds }, companyId: req.companyId }, include: { variants: true } });
+    const byId = new Map(products.map((p) => [p.id, p]));
+    let needsApproval = false;
+    for (const item of data.items) {
+      const product = item.productId ? byId.get(item.productId) : null;
+      if (item.productId && !product) return res.status(400).json({ error: 'Uno de los productos del pedido no existe.' });
+      const variant = item.variantId ? product?.variants.find((v) => v.id === item.variantId) : null;
+      const check = checkLinePrice(item, product, variant, maxDiscount);
+      if (check.error) return res.status(400).json({ error: check.error });
+      item.taxRate = check.taxRate;
+      needsApproval ||= check.needsApproval;
+    }
+
     // Calcular totales
     // unitPrice viene del frontend ya con ITBIS incluido (precio final).
     // subtotal = suma de precios base (sin ITBIS)
@@ -210,6 +248,21 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
 
     const total = subtotal + taxAmount; // = sum of (unitPrice * qty) after discounts
     const changeAmount = data.amountPaid > total ? data.amountPaid - total : 0;
+
+    // Venta a crédito: no puede pasar el límite del cliente (límite 0 = sin límite)
+    if (customer && /cr[eé]dito/i.test(data.paymentMethod || '')) {
+      const open = await prisma.invoice.aggregate({
+        where: { companyId: req.companyId, customerId: customer.id, status: { notIn: VOID_STATUSES } },
+        _sum: { total: true, amountPaid: true }
+      });
+      const pendingBalance = Number(open._sum.total || 0) - Number(open._sum.amountPaid || 0);
+      if (creditExceeded({ creditLimit: customer.creditLimit, pendingBalance, newTotal: total })) {
+        return res.status(400).json({ error: 'La venta pasa el límite de crédito del cliente' });
+      }
+    }
+
+    // El permiso se gasta al final: una venta rechazada por crédito no consume el PIN
+    if (needsApproval && (await requireApproval(req, res, 'price_override')) === false) return;
 
     // Crear factura con items en transacción
     const invoice = await prisma.$transaction(async (tx) => {
@@ -364,6 +417,14 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
       if (discount < 0 || discount > grossTotal + 0.01) {
         return res.status(400).json({ error: 'El descuento no puede ser mayor que el total.' });
       }
+      // Sobre el tope sin PIN solo pasa un cupón vigente de la empresa que cubra el monto
+      const [company, customer, offer] = await Promise.all([
+        prisma.company.findUnique({ where: { id: req.companyId }, select: { settings: true } }),
+        invoice.customerId ? prisma.customer.findFirst({ where: { id: invoice.customerId, companyId: req.companyId } }) : null,
+        body.appliedCoupon?.id ? prisma.offer.findFirst({ where: { id: String(body.appliedCoupon.id), companyId: req.companyId } }) : null
+      ]);
+      const cap = Math.max(grossTotal * allowedDiscountPercent(company?.settings?.pricing, customer) / 100, couponCap(offer, grossTotal));
+      if (discount > cap + 0.01 && (await requireApproval(req, res, 'price_override')) === false) return;
       updateData.discountAmount = discount;
       updateData.total = grossTotal - discount;
     }
@@ -405,7 +466,7 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
         orderBy: { openedAt: 'desc' },
         select: { id: true }
       });
-      updateData.payments = [...previous, ...added.map((p) => ({ ...p, shiftId: openShift?.id || null }))];
+      updateData.payments = appendPayments(previous, added.map((p) => ({ ...p, shiftId: openShift?.id || null })));
     }
 
     // De las líneas solo se editan las notas de personalización: cantidades y precios no cambian tras crear el pedido
@@ -518,7 +579,7 @@ router.post('/:id/cancel', authorize('admin', 'manager'), async (req, res, next)
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true }
+      include: { items: true, creditNotes: { select: { items: true } } }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
@@ -531,7 +592,7 @@ router.post('/:id/cancel', authorize('admin', 'manager'), async (req, res, next)
         data: { status: 'Anulado' }
       });
       if (count === 0) throw httpError(400, 'La factura ya está anulada.');
-      await restoreStock(tx, invoice, req.user.id, `Anulación de factura - ${invoice.orderNumber}: ${reason || 'Sin motivo'}`, 'invoice_cancel');
+      await restoreStock(tx, { ...invoice, items: unreturnedLines(invoice.items, invoice.creditNotes) }, req.user.id, `Anulación de factura - ${invoice.orderNumber}: ${reason || 'Sin motivo'}`, 'invoice_cancel');
     });
 
     res.json({ message: 'Factura anulada' });
@@ -571,8 +632,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
     }
 
     // Cuánto de cada línea devolvieron ya las notas anteriores; no se devuelve más de lo vendido
-    const before = {};
-    invoice.creditNotes.forEach((n) => (Array.isArray(n.items) ? n.items : []).forEach((r) => { before[r.itemId] = (before[r.itemId] || 0) + r.quantity; }));
+    const before = returnedByNotes(invoice.creditNotes);
     const returned = { ...before };
     let lines = [];
     for (const r of Array.isArray(returnItems) ? returnItems : []) {
@@ -587,7 +647,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
     const full = credited >= total - 0.01;
     if (full) {
       // La nota que completa el total devuelve todo lo que no se había devuelto
-      lines = invoice.items.map((i) => ({ ...i, quantity: i.quantity - (before[i.id] || 0) })).filter((i) => i.quantity > 0);
+      lines = unreturnedLines(invoice.items, invoice.creditNotes);
     }
 
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });

@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { safeUserPath } = require('./safePath');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   saveImage: (buffer, orderNumber, imageName) => {
@@ -8,18 +9,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       try {
         // Pide la ruta de datos del usuario, que es una carpeta escribible.
         const userDataPath = ipcRenderer.sendSync('get-user-data-path');
-        // Construye la ruta de destino dentro de la carpeta 'Client-images'.
-        const destDir = path.join(userDataPath, 'Client-images', orderNumber);
-        
-        if (!fs.existsSync(destDir)) {
-          fs.mkdirSync(destDir, { recursive: true });
-        }
+        // Construye la ruta dentro de 'Client-images' y rechaza cualquier salida de esa carpeta.
+        const rel = path.join('Client-images', String(orderNumber), String(imageName));
+        const imagesDir = path.join(userDataPath, 'Client-images');
+        const destPath = safeUserPath(imagesDir, path.join(String(orderNumber), String(imageName)));
+        if (!destPath) return reject(new Error('Ruta no permitida'));
 
-        const destPath = path.join(destDir, imageName);
+        fs.mkdirSync(path.dirname(destPath), { recursive: true });
         fs.writeFileSync(destPath, buffer);
 
         // Devuelve la ruta relativa para guardarla en Firestore.
-        resolve(path.join('Client-images', orderNumber, imageName).replace(/\\/g, '/'));
+        resolve(rel.replace(/\\/g, '/'));
       } catch (error) {
         console.error('Error in preload saveImage:', error);
         reject(error);

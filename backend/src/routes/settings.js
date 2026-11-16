@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { publicSettings, mergeSmtp } from '../services/security.js';
 
 const router = express.Router();
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -61,7 +62,7 @@ router.get('/', async (req, res) => {
       // Campos guardados en settings JSON
       allowCustomization: settings.allowCustomization ?? true,
       customerCategories: settings.customerCategories || ['General', 'VIP', 'Mayorista'],
-      pricing: settings.pricing || { categoryDiscounts: {} },
+      pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
         bankName: '',
@@ -100,7 +101,7 @@ router.get('/', async (req, res) => {
       businessType: settings.businessType || 'otro',
 
       // Configuración de Email (SMTP Propio)
-      smtp: settings.smtp || {
+      smtp: publicSettings({ smtp: settings.smtp }).smtp || {
         host: '',
         port: 587,
         secure: false,
@@ -184,7 +185,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       newSettings.businessType = businessType;
     }
     if (smtp !== undefined) {
-      newSettings.smtp = smtp;
+      newSettings.smtp = mergeSmtp(currentSettings.smtp, smtp);
     }
 
     // Actualizar notifications si se proporcionan
@@ -241,7 +242,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       pricing: settings.pricing || {},
       allowCustomization: settings.allowCustomization !== undefined ? settings.allowCustomization : true,
       customerCategories: settings.customerCategories || [],
-      smtp: newSettings.smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },
+      smtp: publicSettings({ smtp: newSettings.smtp }).smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },
       ncfSequences: liveSequences(updated),
       ncf: settings.ncf || {
         b01_prefix: '',

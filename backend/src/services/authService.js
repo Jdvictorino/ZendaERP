@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import prisma from '../db.js';
 import { sendMail } from './emailService.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production';
+import { requireJwtSecret, publicCompany } from './security.js';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 const BILLING_BLOCK_MODE = process.env.BILLING_BLOCK_MODE || 'auto';
@@ -153,7 +153,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(result.user),
-      company: result.company,
+      company: publicCompany(result.company),
       ...tokens
     };
   },
@@ -208,7 +208,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(user),
-      company: user.company,
+      company: publicCompany(user.company),
       ...tokens
     };
   },
@@ -218,7 +218,7 @@ export const authService = {
    */
   async refreshToken(refreshToken) {
     try {
-      const decoded = jwt.verify(refreshToken, JWT_SECRET);
+      const decoded = jwt.verify(refreshToken, requireJwtSecret(process.env));
       
       // Verificar que el refresh token existe en la base de datos
       const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
@@ -252,7 +252,7 @@ export const authService = {
 
       return {
         user: this.sanitizeUser(user),
-        company: user.company,
+        company: publicCompany(user.company),
         ...tokens
       };
     } catch (error) {
@@ -321,7 +321,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(user),
-      company: user.company,
+      company: publicCompany(user.company),
       billing: {
         status: user.company?.billingStatus || 'active',
         dueDate: user.company?.billingDueDate || null,
@@ -353,7 +353,7 @@ export const authService = {
 
     return {
       user: this.sanitizeUser(user),
-      company: user.company
+      company: publicCompany(user.company)
     };
   },
 
@@ -370,13 +370,13 @@ export const authService = {
         role: user.role,
         isAdmin: user.isAdmin
       },
-      JWT_SECRET,
+      requireJwtSecret(process.env),
       { expiresIn: JWT_EXPIRES_IN }
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
-      JWT_SECRET,
+      requireJwtSecret(process.env),
       { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
     );
 
@@ -416,7 +416,7 @@ export const authService = {
    * Sanitizar datos del usuario (remover campos sensibles)
    */
   sanitizeUser(user) {
-    const { passwordHash, photoUrl, ...safeUser } = user;
+    const { passwordHash, pinHash, photoUrl, ...safeUser } = user;
     // Mapear photoUrl -> photoURL para el frontend
     return {
       ...safeUser,

@@ -69,7 +69,8 @@
       "dist/**/*",
       "electron.js",
       "preload.js",
-      "menu.js"
+      "menu.js",
+      "safePath.js"
     ],
     "directories": {
       "buildResources": "build",

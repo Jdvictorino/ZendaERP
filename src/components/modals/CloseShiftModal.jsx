@@ -4,20 +4,20 @@ import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import toast from 'react-hot-toast';
 import { printHTML, printEscPosReceipt } from '../../utils/printer.js';
-import SupervisorAuthModal from './SupervisorAuthModal.jsx';
+import useApproval from '../../hooks/useApproval.js';
 import { logAction } from '../../utils/audit.js';
 import { shiftPayments } from '../../utils/shiftCash.js';
 import Alert from '../ui/Alert.jsx';
 import ShiftDialog, { CashCount, countTotal, emptyCount } from './ShiftDialog.jsx';
 
-export default function CloseShiftModal({ onClose, currentUserProfile, companyProfile, invoices, openShift, movements = [], registerId, supervisors = [] }) {
+export default function CloseShiftModal({ onClose, currentUserProfile, companyProfile, invoices, openShift, movements = [], registerId }) {
   const currency = companyProfile?.currency || 'DOP';
   const [denoms, setDenoms] = useState(emptyCount);
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
   const tolerance = Number(companyProfile?.cash?.tolerance || 0);
   const [authorizedBy, setAuthorizedBy] = useState('');
-  const [showAuth, setShowAuth] = useState(false);
+  const { withApproval, approvalModal } = useApproval();
   const [cardCounted, setCardCounted] = useState('');
   const [transferCounted, setTransferCounted] = useState('');
 
@@ -91,15 +91,10 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
   };
 
   const handleCloseShift = async () => {
-    if (tolerance > 0 && Math.abs(diferencia) > tolerance && !authorizedBy.trim()) {
-      // If configuration requires supervisor, open modal
-      if (companyProfile?.cash?.requireSupervisorBeyondTolerance) {
-        setShowAuth(true);
-        return;
-      } else {
-        toast.error('Diferencia fuera de tolerancia. Requiere autorización.');
-        return;
-      }
+    // Con la opción de supervisor activa, el servidor pide el PIN (withApproval); sin ella basta el nombre.
+    if (tolerance > 0 && Math.abs(diferencia) > tolerance && !authorizedBy.trim() && !companyProfile?.cash?.requireSupervisorBeyondTolerance) {
+      toast.error('Diferencia fuera de tolerancia. Requiere autorización.');
+      return;
     }
 
     setSaving(true);
@@ -109,11 +104,11 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
         : notes;
 
       await toast.promise(
-        shifts.close(openShift.id, counted, notesWithAuth),
+        withApproval('shift_close_tolerance', (token) => shifts.close(openShift.id, counted, notesWithAuth, token)),
         {
           loading: 'Cerrando turno...',
           success: 'Turno cerrado.',
-          error: 'No se pudo cerrar el turno.'
+          error: (e) => e.message || 'No se pudo cerrar el turno.'
         }
       );
 
@@ -258,24 +253,7 @@ export default function CloseShiftModal({ onClose, currentUserProfile, companyPr
           </label>
         </div>
       </div>
-      {showAuth && (
-        <SupervisorAuthModal
-          supervisors={[
-            ...(supervisors || []),
-            ...(companyProfile?.adminProfile?.pinHash ? [{ id: companyProfile?.owner || 'admin', uid: companyProfile?.owner || 'admin', firstName: 'Admin', lastName: '', role: 'admin', adminPinHash: companyProfile?.adminProfile?.pinHash }] : [])
-          ]}
-          onClose={(res) => {
-            if (res && res.authorized) {
-              setAuthorizedBy(res.user?.uid || res.user?.id || '');
-              setShowAuth(false);
-              // Continue closing now that we have authorization
-              setTimeout(() => handleCloseShift(), 0);
-            } else {
-              setShowAuth(false);
-            }
-          }}
-        />
-      )}
+      {approvalModal}
     </ShiftDialog>
   );
 }

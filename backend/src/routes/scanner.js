@@ -1,17 +1,36 @@
 import express from 'express';
+import { createWindowCounter } from '../services/mailGuard.js';
 
 const router = express.Router();
 
 // Almacenar las conexiones de los clientes SSE
 // Estructura: { [sessionId]: res }
 const clients = {};
+const heartbeats = {};
+
+export const MAX_CONNECTIONS = 500;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isValidSessionId = (id) => typeof id === 'string' && UUID_RE.test(id);
+
+// /scan y /connect comparten el límite por sesión
+const scanLimiter = createWindowCounter(120, 60000);
 
 // Endpoint para que la PC (caja) escuche eventos
 router.get('/events', (req, res) => {
     const sessionId = req.query.sessionId;
 
-    if (!sessionId) {
-        return res.status(400).json({ error: 'sessionId es requerido' });
+    if (!isValidSessionId(sessionId)) {
+        return res.status(400).json({ error: 'sessionId inválido' });
+    }
+
+    // Una conexión por sesión: la nueva reemplaza a la anterior (no cuenta como conexión adicional)
+    const previous = clients[sessionId];
+    if (!previous && Object.keys(clients).length >= MAX_CONNECTIONS) {
+        return res.status(503).json({ error: 'Demasiadas conexiones' });
+    }
+    if (previous) {
+        clearInterval(heartbeats[sessionId]);
+        previous.end();
     }
 
     // Configurar encabezados para SSE
@@ -30,11 +49,15 @@ router.get('/events', (req, res) => {
 
     // Comentario SSE periódico: Cloudflare corta conexiones inactivas a los ~100 s
     const heartbeat = setInterval(() => res.write(': ping\n\n'), 25000);
+    heartbeats[sessionId] = heartbeat;
 
     // Manejar el cierre de la conexión por parte del cliente
     req.on('close', () => {
         clearInterval(heartbeat);
-        if (clients[sessionId] === res) delete clients[sessionId];
+        if (clients[sessionId] === res) {
+            delete clients[sessionId];
+            if (heartbeats[sessionId] === heartbeat) delete heartbeats[sessionId];
+        }
     });
 });
 
@@ -42,7 +65,13 @@ router.get('/events', (req, res) => {
 router.post('/scan', (req, res) => {
     const { sessionId, barcode } = req.body;
 
-    if (!sessionId || !barcode) {
+    if (!isValidSessionId(sessionId)) {
+        return res.status(400).json({ error: 'sessionId inválido' });
+    }
+    if (!scanLimiter.hit(sessionId)) {
+        return res.status(429).json({ error: 'Demasiadas lecturas, espera un momento.' });
+    }
+    if (!barcode) {
         return res.status(400).json({ error: 'sessionId y barcode son requeridos' });
     }
 
@@ -62,8 +91,11 @@ router.post('/scan', (req, res) => {
 router.post('/connect', (req, res) => {
     const { sessionId, deviceName } = req.body;
 
-    if (!sessionId) {
-        return res.status(400).json({ error: 'sessionId es requerido' });
+    if (!isValidSessionId(sessionId)) {
+        return res.status(400).json({ error: 'sessionId inválido' });
+    }
+    if (!scanLimiter.hit(sessionId)) {
+        return res.status(429).json({ error: 'Demasiadas lecturas, espera un momento.' });
     }
 
     const client = clients[sessionId];
