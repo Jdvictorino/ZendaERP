@@ -10,13 +10,14 @@ router.use(authenticate);
 // amountPaid 0 y el cobro llega luego en payments). Misma regla que src/utils/shiftCash.js.
 const VOID_STATUSES = ['Anulado', 'Cancelado'];
 const round2 = (n) => Math.round(n * 100) / 100;
-function shiftPayments(invoices, from, to = new Date()) {
+// Un cobro con shiftId cuenta solo en ese turno; los anteriores a ese dato, por fecha.
+function shiftPayments(invoices, from, shiftId, to = new Date()) {
   const totals = { efectivo: 0, tarjeta: 0, chequeTransferencia: 0, credito: 0 };
   for (const inv of invoices) {
     if (VOID_STATUSES.includes(inv.status)) continue;
     for (const p of Array.isArray(inv.payments) ? inv.payments : []) {
       const t = new Date(p?.date || inv.billedDate || inv.date);
-      if (!(t >= from && t <= to)) continue;
+      if (p?.shiftId ? p.shiftId !== shiftId : !(t >= from && t <= to)) continue;
       for (const k in totals) totals[k] += Number(p[k]) || 0;
     }
   }
@@ -159,7 +160,7 @@ router.post('/:id/close', authorize('admin', 'manager', 'cashier'), async (req, 
     }, 0);
 
     // Efectivo cobrado durante el turno (Prisma devuelve Decimal: todo pasa por Number para no concatenar texto)
-    const { efectivo } = shiftPayments(await shiftInvoices(req.companyId, shift.openedAt), shift.openedAt);
+    const { efectivo } = shiftPayments(await shiftInvoices(req.companyId, shift.openedAt), shift.openedAt, shift.id);
     const counted = Number(closingAmount) || 0;
     const expectedAmount = round2(Number(shift.openingAmount) + efectivo + movementTotal);
     const difference = round2(counted - expectedAmount);
@@ -288,7 +289,7 @@ router.get('/closings', async (req, res, next) => {
       // Obtener facturas del período del turno
       const end = shift.closedAt || new Date();
       const touched = await shiftInvoices(req.companyId, shift.openedAt);
-      const { efectivo: totalEfectivo, tarjeta: totalTarjeta } = shiftPayments(touched, shift.openedAt, end);
+      const { efectivo: totalEfectivo, tarjeta: totalTarjeta } = shiftPayments(touched, shift.openedAt, shift.id, end);
       const invoices = touched.filter(i => i.date >= shift.openedAt && i.date <= end);
 
       const totalMovimientos = shift.movements.reduce((sum, m) => {
