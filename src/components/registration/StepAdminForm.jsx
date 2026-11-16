@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CARGO_OPTIONS } from '../../utils/permissions.js';
 import { Eye, EyeOff, User, Check, X } from 'lucide-react';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import AddressFields from '../common/AddressFields.jsx';
@@ -131,9 +132,14 @@ export default function StepAdminForm({ initialData = {}, companyName = '', onNe
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-ink-soft mb-1">Cargo</label>
-                <input name="cargo" value={form.cargo} onChange={handleChange}
-                  className="input-base" placeholder="Administrador" />
+                <label htmlFor="admin-cargo" className="block text-xs font-semibold text-ink-soft mb-1">Cargo</label>
+                <input id="admin-cargo" name="cargo" list="admin-cargo-options" value={form.cargo} onChange={handleChange}
+                  className="input-base" placeholder="Propietario, Administrador..." maxLength={60} />
+                <datalist id="admin-cargo-options">{CARGO_OPTIONS.map(c => <option key={c} value={c} />)}</datalist>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold text-ink-soft mb-1">Permisos</span>
+                <span className="input-base block bg-surface-muted text-ink-muted">Administrador (acceso total)</span>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-ink-soft mb-1">Empresa</label>

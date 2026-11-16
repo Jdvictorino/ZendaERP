@@ -18,6 +18,7 @@ const registerSchema = z.object({
   cellphone: z.string().optional(),
   idNumber: z.string().optional(),
   gender: z.string().optional(),
+  cargo: z.string().trim().max(60).optional(),
   businessType: z.string().optional(),
   address: z.union([
     z.object({
