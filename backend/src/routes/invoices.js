@@ -9,6 +9,8 @@ import { createAlert } from './alerts.js';
 import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 import { requireApproval } from '../services/approvals.js';
+import { priceInvoiceLines } from '../services/invoiceAmounts.js';
+import { isTaxExempt, todayRD } from '../services/tax.js';
 import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
@@ -94,7 +96,8 @@ const invoiceSchema = z.object({
   deliveryType: z.string().optional(),
   notes: z.string().optional(),
   status: z.string().default('Pendiente'),
-  paymentTermDays: z.number().int().min(0).max(365).optional()
+  paymentTermDays: z.number().int().min(0).max(365).optional(),
+  pricesExcludeTax: z.boolean().optional()
 });
 
 /**
@@ -219,34 +222,10 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
       needsApproval ||= check.needsApproval;
     }
 
-    // Calcular totales
-    // unitPrice viene del frontend ya con ITBIS incluido (precio final).
-    // subtotal = suma de precios base (sin ITBIS)
-    // taxAmount = ITBIS extraído de los precios
-    // total = unitPrice * quantity (lo que el cliente paga)
-    let subtotal = 0;
-    let taxAmount = 0;
-
-    const itemsWithTotals = data.items.map(item => {
-      const discountFactor = 1 - item.discountPercent / 100;
-      const itemTotalWithTax = item.quantity * item.unitPrice * discountFactor;
-      // Extraer base e ITBIS desde el precio final inclusivo
-      const divisor = item.taxRate > 0 ? (1 + item.taxRate / 100) : 1;
-      const itemBase = itemTotalWithTax / divisor;
-      const itemTax = itemTotalWithTax - itemBase;
-      subtotal += itemBase;
-      taxAmount += itemTax;
-
-      return {
-        ...item,
-        subtotal: itemBase,
-        customizationNotes: item.customizationNotes || null,
-        customImageUrls: item.customImageUrls || [],
-        variantInfo: item.variantInfo || null,
-      };
-    });
-
-    const total = subtotal + taxAmount; // = sum of (unitPrice * qty) after discounts
+    // Apps nuevas mandan precios sin ITBIS; las 1.1.x no mandan la marca y siguen con ITBIS incluido
+    const pricesExcludeTax = data.pricesExcludeTax === true;
+    const exempt = pricesExcludeTax && isTaxExempt(customer, todayRD());
+    const { items: itemsWithTotals, subtotal, taxAmount, total } = priceInvoiceLines(data.items, { pricesExcludeTax, exempt });
     const changeAmount = data.amountPaid > total ? data.amountPaid - total : 0;
 
     // Venta a crédito: no puede pasar el límite del cliente (límite 0 = sin límite)
@@ -287,6 +266,8 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
           subtotal,
           taxAmount,
           total,
+          pricesIncludeTax: !pricesExcludeTax,
+          exemptionNumber: exempt ? customer.exemptionNumber : null,
           paymentMethod: data.paymentMethod,
           // venta a crédito: vence en la fecha de la venta + plazo; de contado no lleva vencimiento propio
           paymentTermDays: data.paymentTermDays || null,
@@ -297,7 +278,12 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
           notes: data.notes,
           status: data.status,
           items: {
-            create: itemsWithTotals
+            create: itemsWithTotals.map((i) => ({
+              ...i,
+              customizationNotes: i.customizationNotes || null,
+              customImageUrls: i.customImageUrls || [],
+              variantInfo: i.variantInfo || null
+            }))
           }
         },
         include: {
