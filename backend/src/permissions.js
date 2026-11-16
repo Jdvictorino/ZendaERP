@@ -5,7 +5,7 @@ export const VIEW_PERMISSIONS = {
   dashboard: ['admin', 'manager', 'supervisor', 'cashier', 'accountant', 'viewer'],
   orders: ['admin', 'manager', 'supervisor', 'cashier'],
   invoices: ['admin', 'manager', 'supervisor', 'cashier', 'accountant'],
-  products: ['admin', 'manager', 'supervisor', 'accountant'],
+  products: ['admin', 'manager', 'supervisor'],
   customers: ['admin', 'manager', 'supervisor', 'cashier', 'accountant'],
   suppliers: ['admin', 'manager', 'accountant'],
   'finance-sales-reports': ['admin', 'manager', 'accountant'],
