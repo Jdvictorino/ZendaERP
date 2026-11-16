@@ -200,6 +200,9 @@ model Customer {
   creditLimit  Decimal  @default(0) @db.Decimal(12, 2)
   balance      Decimal  @default(0) @db.Decimal(12, 2)
   status       String   @default("active")
+  taxpayerType        String    @default("consumidor_final")
+  exemptionNumber     String? // carnet de exención de ITBIS
+  exemptionExpiresAt  DateTime? @db.Date
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -320,6 +323,8 @@ model Invoice {
   ncfNumber String?
   ncfExpiresAt DateTime? @db.Date // vencimiento de la secuencia (se imprime "Válido hasta")
   ncfType   String?  // B01, B02, NoFiscal
+  pricesIncludeTax Boolean @default(false) // true: facturas antiguas con precio ya con ITBIS
+  exemptionNumber  String?  // carnet de exención usado en esta venta
   
   // Totales
   subtotal       Decimal @default(0) @db.Decimal(12, 2)

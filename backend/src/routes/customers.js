@@ -4,6 +4,7 @@ import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
+import { customerTaxFields } from '../services/customerTax.js';
 
 const router = Router();
 router.use(authenticate);
@@ -144,7 +145,7 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', authorize(...rolesFor('customers')), async (req, res, next) => {
   try {
     const parsed = customerSchema.parse(req.body);
-    const data = transformCustomerData(parsed);
+    const data = { ...transformCustomerData(parsed), ...customerTaxFields(req.body) };
     
     // Generar código si no viene
     if (!data.customerCode) {
@@ -184,6 +185,9 @@ router.put('/:id', authorize(...rolesFor('customers')), async (req, res, next) =
   try {
     const parsed = customerSchema.partial().parse(req.body);
     const data = transformCustomerData(parsed);
+    // Un PUT sin campos de impuesto no debe resetear el tipo a consumidor final
+    const b = req.body;
+    if (b.taxpayerType || b.type || 'exemptionNumber' in b || 'exemptionExpiresAt' in b) Object.assign(data, customerTaxFields(b));
     
     const existing = await prisma.customer.findFirst({
       where: { id: req.params.id, companyId: req.companyId }
