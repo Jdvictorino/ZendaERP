@@ -53,9 +53,9 @@ export const updateShipment = async (shipmentId, patch = {}) => {
 /**
  * Generar URL de confirmación de entrega
  */
-export const generateConfirmUrl = (shipmentId, token) => {
+export const generateConfirmUrl = (token) => {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-app-domain.example';
-  return `${origin}/delivery/confirm?shipmentId=${encodeURIComponent(shipmentId)}&token=${encodeURIComponent(token)}`;
+  return `${origin}/delivery/confirm?token=${encodeURIComponent(token)}`;
 };
 
 /**
@@ -65,7 +65,7 @@ export const buildLabelPayload = (shipmentData) => {
   const data = shipmentData;
   const id = data.id;
   const orderCode = data.orderId || data.orderNumber || id;
-  const confirmUrl = data.token ? generateConfirmUrl(id, data.token) : '';
+  const confirmUrl = data.deliveryToken ? generateConfirmUrl(data.deliveryToken) : '';
   
   return {
     id,

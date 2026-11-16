@@ -309,8 +309,10 @@ export const shipments = {
   confirmDelivery: (id, code, notes, signatureUrl) => 
     post(`/shipments/${id}/confirm`, { confirmationCode: code, notes, signatureUrl }),
   assignDriver: (id, driverId) => patch(`/shipments/${id}/assign`, { driverId }),
-  confirmDeliveryPublic: (invoiceId, signature, recipientName) =>
-    post('/shipments/confirm-delivery', { invoiceId, signature, recipientName })
+  getPublic: (token) => get(`/shipments/public/${encodeURIComponent(token)}`),
+  // Con `token` (QR) no hace falta sesión; con `invoiceId` solo vale para un usuario de la misma empresa
+  confirmDeliveryPublic: ({ token, invoiceId, signature, recipientName }) =>
+    post('/shipments/confirm-delivery', { token, invoiceId, signature, recipientName })
 };
 
 export const backup = {

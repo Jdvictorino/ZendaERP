@@ -8,17 +8,19 @@ const DeliveryConfirmViewSQL = () => {
   const [photo, setPhoto] = useState(null);
   const [message, setMessage] = useState('');
   const [recipientName, setRecipientName] = useState('');
+  const [qrToken, setQrToken] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const shipmentId = params.get('shipmentId') || params.get('id');
     const invoiceId = params.get('invoiceId');
     const token = params.get('token');
-    
-    // Para PostgreSQL usamos invoiceId para confirmar entrega
+    setQrToken(token);
+
+    // Con la llave del QR no hace falta sesión; sin ella hay que entrar con un usuario de la empresa
     const idToUse = invoiceId || shipmentId;
-    
-    if (!idToUse) {
+
+    if (!token && !idToUse) {
       setStatus('error');
       setMessage('Parámetros de QR inválidos.');
       return;
@@ -26,20 +28,13 @@ const DeliveryConfirmViewSQL = () => {
 
     const fetchShipment = async () => {
       try {
-        // Intentar obtener el envío por ID
-        const data = await shipmentsApi.get(idToUse);
+        const data = token ? await shipmentsApi.getPublic(token) : await shipmentsApi.get(idToUse);
         if (!data) {
           setStatus('error');
           setMessage('Envío no encontrado.');
           return;
         }
-        
-        // Token validation (si es necesario)
-        if (token && data.qrCode && !data.qrCode.includes(token)) {
-          // Simple validation - en producción podría ser más estricto
-          console.warn('Token validation skipped');
-        }
-        
+
         if (data.status === 'delivered') {
           setStatus('done');
           setMessage('Este envío ya fue entregado.');
@@ -47,7 +42,7 @@ const DeliveryConfirmViewSQL = () => {
         }
         
         setShipment(data);
-        setRecipientName(data.recipientName || '');
+        setRecipientName((token ? data.customerName : data.recipientName) || '');
         setStatus('ready');
       } catch (err) {
         console.error('Error fetching shipment:', err);
@@ -73,11 +68,12 @@ const DeliveryConfirmViewSQL = () => {
       // En producción, podrías usar un servicio alternativo
       
       // Usar el endpoint público de confirmación
-      await shipmentsApi.confirmDeliveryPublic(
-        shipment.invoiceId,
-        photo ? 'photo_attached' : null, // Simplificado sin upload
-        recipientName || null
-      );
+      await shipmentsApi.confirmDeliveryPublic({
+        token: qrToken,
+        invoiceId: shipment.invoiceId,
+        signature: photo ? 'photo_attached' : null, // Simplificado sin upload
+        recipientName: recipientName || null
+      });
       
       setStatus('done');
       setMessage('Entrega confirmada. ¡Gracias!');
@@ -145,11 +141,11 @@ const DeliveryConfirmViewSQL = () => {
               <div className="space-y-2">
                 <p className="text-sm">
                   <span className="font-medium text-ink-soft">Orden:</span>{' '}
-                  <span className="text-ink-soft">{shipment.invoice?.orderNumber || shipment.invoiceId}</span>
+                  <span className="text-ink-soft">{shipment.orderNumber || shipment.invoice?.orderNumber || shipment.invoiceId}</span>
                 </p>
                 <p className="text-sm">
                   <span className="font-medium text-ink-soft">Destinatario:</span>{' '}
-                  <span className="text-ink-soft">{shipment.recipientName || shipment.invoice?.customerName || 'Sin nombre'}</span>
+                  <span className="text-ink-soft">{shipment.customerName || shipment.recipientName || shipment.invoice?.customerName || 'Sin nombre'}</span>
                 </p>
                 <p className="text-sm">
                   <span className="font-medium text-ink-soft">Dirección:</span>{' '}

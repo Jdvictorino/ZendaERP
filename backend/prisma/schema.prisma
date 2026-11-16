@@ -556,6 +556,7 @@ model Shipment {
   qrCode            String?
   assignedDriverId  String?
   proofImageUrl     String?
+  deliveryToken     String   @unique @default(uuid())
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

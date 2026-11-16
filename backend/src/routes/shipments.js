@@ -1,3 +1,4 @@
+import { canConfirmDelivery } from '../services/delivery.js';
 import { assertSameCompany } from '../services/ownership.js';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -75,6 +76,29 @@ router.get('/', authenticate, async (req, res, next) => {
     });
 
     res.json({ data: shipments });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/shipments/public/:token
+ * Datos mínimos para la pantalla de confirmación del QR (sin sesión)
+ */
+router.get('/public/:token', async (req, res, next) => {
+  try {
+    const shipment = await prisma.shipment.findUnique({
+      where: { deliveryToken: req.params.token }
+    });
+    if (!shipment) {
+      return res.status(404).json({ error: 'Envío no encontrado' });
+    }
+    res.json({
+      orderNumber: shipment.orderNumber,
+      customerName: shipment.recipientName,
+      deliveryAddress: shipment.deliveryAddress,
+      status: shipment.status
+    });
   } catch (error) {
     next(error);
   }
@@ -218,17 +242,17 @@ router.patch('/:id/status', authenticate, authorize(...rolesFor('shipments')), a
  */
 router.post('/confirm-delivery', optionalAuth, async (req, res, next) => {
   try {
-    const { invoiceId, signature, recipientName } = req.body;
+    const { token, invoiceId, signature, recipientName } = req.body;
 
-    if (!invoiceId) {
-      return res.status(400).json({ error: 'invoiceId requerido' });
+    if (!token && !invoiceId) {
+      return res.status(400).json({ error: 'Llave del QR requerida' });
     }
 
     const shipment = await prisma.shipment.findUnique({
-      where: { invoiceId }
+      where: token ? { deliveryToken: String(token) } : { invoiceId }
     });
 
-    if (!shipment) {
+    if (!canConfirmDelivery({ shipment, token, user: req.user })) {
       return res.status(404).json({ error: 'Envío no encontrado' });
     }
 
@@ -247,10 +271,12 @@ router.post('/confirm-delivery', optionalAuth, async (req, res, next) => {
     });
 
     // Actualizar estado de la factura
-    await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: { status: 'Completado' }
-    });
+    if (shipment.invoiceId) {
+      await prisma.invoice.update({
+        where: { id: shipment.invoiceId },
+        data: { status: 'Completado' }
+      });
+    }
 
     res.json({ 
       message: 'Entrega confirmada exitosamente',
