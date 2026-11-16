@@ -65,7 +65,10 @@ export const buildLabelPayload = (shipmentData) => {
   const data = shipmentData;
   const id = data.id;
   const orderCode = data.orderId || data.orderNumber || id;
-  const confirmUrl = data.deliveryToken ? generateConfirmUrl(data.deliveryToken) : '';
+  // El servidor arma el QR; los envíos viejos traen ?id= y no sirven para confirmar
+  const confirmUrl = String(data.qrCode || '').includes('token=')
+    ? data.qrCode
+    : (data.deliveryToken ? generateConfirmUrl(data.deliveryToken) : '');
   
   return {
     id,

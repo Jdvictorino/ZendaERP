@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { canConfirmDelivery } from '../services/delivery.js';
 import { assertSameCompany } from '../services/ownership.js';
 import { Router } from 'express';
@@ -167,8 +168,8 @@ router.post('/', authenticate, authorize(...rolesFor('shipments')), async (req, 
       [toAddr.street, toAddr.city, toAddr.postalCode].filter(Boolean).join(', ') || '';
 
     // Generar QR code
-    const qrId = invoiceId || data.orderId || Date.now().toString();
-    const qrCode = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/delivery/confirm?id=${qrId}`;
+    const deliveryToken = crypto.randomUUID();
+    const qrCode = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/delivery/confirm?token=${encodeURIComponent(deliveryToken)}`;
 
     const shipment = await prisma.shipment.create({
       data: {
@@ -191,6 +192,7 @@ router.post('/', authenticate, authorize(...rolesFor('shipments')), async (req, 
         estimatedDelivery: data.estimatedDelivery ? new Date(data.estimatedDelivery) : null,
         assignedDriverId: data.assignedDriverId || null,
         qrCode,
+        deliveryToken,
         status: 'created'
       }
     });
@@ -246,6 +248,9 @@ router.post('/confirm-delivery', optionalAuth, async (req, res, next) => {
 
     if (!token && !invoiceId) {
       return res.status(400).json({ error: 'Llave del QR requerida' });
+    }
+    if ((token && typeof token !== 'string') || (invoiceId && typeof invoiceId !== 'string')) {
+      return res.status(400).json({ error: 'Datos inválidos' });
     }
 
     const shipment = await prisma.shipment.findUnique({
