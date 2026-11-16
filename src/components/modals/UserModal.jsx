@@ -9,13 +9,15 @@ import { hashPin } from '../../utils/crypto.js';
 import { ROLE_OPTIONS, CARGO_OPTIONS } from '../../utils/permissions.js';
 import api from '../../api/client.js';
 
-const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfileUpdate, currentUserUid, fullPage = false }) => {
+const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfileUpdate, currentUserUid, otherAdminCount = 0, fullPage = false }) => {
     // Usar id en lugar de uid para compatibilidad con PostgreSQL
     const currentUserId = currentUserUid || adminUser?.id || adminUser?.uid;
     const isEditing = userToEdit && (userToEdit.id || userToEdit.uid);
     const isAdminProfile = isEditing && userToEdit.role === 'admin';
     const userId = userToEdit?.id || userToEdit?.uid;
     const isEditingSelf = isEditing && (String(userId) === String(currentUserId));
+    // El único administrador no puede cambiar de rol: la empresa se quedaría sin quien la administre
+    const isOnlyAdmin = isAdminProfile && otherAdminCount === 0;
     const [formData, setFormData] = useState({
         photoURL: '', firstName: '', lastName: '', idNumber: '', gender: 'F',
         cargo: '', empresa: '', address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana' },
@@ -88,7 +90,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                     gender: formData.gender || 'F',
                     idNumber: (formData.idNumber || '').trim(),
                     cargo: (formData.cargo || '').trim(),
-                    role: isAdminProfile ? 'admin' : (formData.role || 'cashier'),
+                    role: isOnlyAdmin ? 'admin' : (formData.role || 'cashier'),
                 };
 
                 // Si hay foto nueva en base64, incluirla
@@ -228,7 +230,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                                                     value={formData.role}
                                                     onChange={handleChange}
                                                         className="input-base"
-                                                        disabled={isAdminProfile || isEditingSelf}
+                                                        disabled={isOnlyAdmin}
                                                         required
                                                 >
                                                     {ROLE_OPTIONS.map(option => (
@@ -238,9 +240,9 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                                                     ))}
                                                 </select>
                                                 <span className="text-xs text-ink-muted mt-1">
-                                                    {isAdminProfile
-                                                        ? 'Este perfil es el administrador principal: tiene acceso total y sus permisos no se pueden cambiar.'
-                                                        : (isEditingSelf ? 'No puedes cambiar tu propio rol desde aquí.' : 'Selecciona el nivel de acceso que tendrá este usuario en la aplicación.')}
+                                                    {isOnlyAdmin
+                                                        ? 'Es el único administrador. Para cambiar su rol, primero asigna el rol Administrador a otro usuario.'
+                                                        : (isEditingSelf && isAdminProfile ? 'Si dejas de ser administrador, perderás el acceso a esta pantalla.' : 'Selecciona el nivel de acceso que tendrá este usuario en la aplicación.')}
                                                 </span>
                                             </div>
                                             <div className="flex flex-col">

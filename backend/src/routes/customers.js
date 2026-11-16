@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
 
@@ -140,7 +141,7 @@ router.get('/:id', async (req, res, next) => {
 /**
  * POST /api/customers
  */
-router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.post('/', authorize(...rolesFor('customers')), async (req, res, next) => {
   try {
     const parsed = customerSchema.parse(req.body);
     const data = transformCustomerData(parsed);
@@ -179,7 +180,7 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
 /**
  * PUT /api/customers/:id
  */
-router.put('/:id', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.put('/:id', authorize(...rolesFor('customers')), async (req, res, next) => {
   try {
     const parsed = customerSchema.partial().parse(req.body);
     const data = transformCustomerData(parsed);

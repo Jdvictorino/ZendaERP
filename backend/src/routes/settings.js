@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -264,7 +265,7 @@ const liveSequences = (company) => (Array.isArray(company.settings?.ncfSequences
   .map((s) => (['B01', 'B02'].includes(s.code) ? { ...s, next: company[`ncf${s.code}SequenceNext`] ?? s.next } : s));
 
 // PUT /settings/ncf - Guardar las secuencias de talonarios (inicio, fin, siguiente y si está activa)
-router.put('/ncf', authorize('admin', 'manager'), async (req, res) => {
+router.put('/ncf', authorize(...rolesFor('finance-fiscal-management')), async (req, res) => {
   try {
     if (!Array.isArray(req.body)) {
       return res.status(400).json({ error: 'Envía la lista de secuencias NCF.' });
