@@ -195,6 +195,7 @@ export const optionalAuth = async (req, res, next) => {
     
     try {
       const decoded = jwt.verify(token, requireJwtSecret(process.env));
+      if (!isAccessPayload(decoded)) return next();
       
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
