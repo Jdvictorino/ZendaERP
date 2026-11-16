@@ -2,7 +2,11 @@ import { Router } from 'express';
 import { z } from 'zod';
 import authService from '../services/authService.js';
 import { authenticate } from '../middleware/auth.js';
+import rateLimit from 'express-rate-limit';
+import prisma from '../db.js';
 import { PASSWORD_MIN } from '../services/security.js';
+import { verifyPin } from '../services/pin.js';
+import { APPROVERS, issueApproval } from '../services/approvals.js';
 
 const router = Router();
 
@@ -181,6 +185,43 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     if (error.message === 'La contraseña actual es incorrecta') {
       return res.status(400).json({ error: error.message });
     }
+    next(error);
+  }
+});
+
+// 5 PIN fallidos cada 15 min por usuario; va después de authenticate para tener req.user
+const approveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => req.user.id,
+  message: { error: 'Demasiados intentos de PIN, intenta en 15 minutos.' }
+});
+
+/**
+ * POST /api/auth/approve
+ * Un gerente/administrador teclea su PIN y recibe un permiso de un solo uso para una acción
+ */
+router.post('/approve', authenticate, approveLimiter, async (req, res, next) => {
+  try {
+    const { pin, action } = req.body || {};
+    if (!Object.hasOwn(APPROVERS, action)) return res.status(400).json({ error: 'Acción no válida' });
+    if (typeof pin !== 'string') return res.status(400).json({ error: 'PIN requerido' });
+    const candidates = await prisma.user.findMany({
+      where: { companyId: req.companyId, status: 'active', role: { in: APPROVERS[action] }, pinHash: { not: null } },
+      select: { id: true, firstName: true, lastName: true, pinHash: true }
+    });
+    for (const u of candidates) {
+      const { ok, rehash } = await verifyPin(pin, u.pinHash);
+      if (!ok) continue;
+      if (rehash) await prisma.user.update({ where: { id: u.id }, data: { pinHash: rehash } });
+      return res.json({
+        approvalToken: issueApproval({ action, companyId: req.companyId, approverId: u.id }),
+        approver: { id: u.id, name: `${u.firstName} ${u.lastName}`.trim() }
+      });
+    }
+    res.status(401).json({ error: 'PIN incorrecto' });
+  } catch (error) {
     next(error);
   }
 });
