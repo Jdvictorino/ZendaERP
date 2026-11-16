@@ -49,13 +49,14 @@ router.get('/events', (req, res) => {
 
     // Comentario SSE periódico: Cloudflare corta conexiones inactivas a los ~100 s
     const heartbeat = setInterval(() => res.write(': ping\n\n'), 25000);
+    heartbeats[sessionId] = heartbeat;
 
     // Manejar el cierre de la conexión por parte del cliente
     req.on('close', () => {
         clearInterval(heartbeat);
         if (clients[sessionId] === res) {
             delete clients[sessionId];
-            delete heartbeats[sessionId];
+            if (heartbeats[sessionId] === heartbeat) delete heartbeats[sessionId];
         }
     });
 });
