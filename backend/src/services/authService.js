@@ -416,7 +416,7 @@ export const authService = {
    * Sanitizar datos del usuario (remover campos sensibles)
    */
   sanitizeUser(user) {
-    const { passwordHash, photoUrl, ...safeUser } = user;
+    const { passwordHash, pinHash, photoUrl, ...safeUser } = user;
     // Mapear photoUrl -> photoURL para el frontend
     return {
       ...safeUser,

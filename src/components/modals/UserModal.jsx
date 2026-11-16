@@ -5,7 +5,6 @@ import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import AddressFields from '../common/AddressFields.jsx';
 import Button from '../ui/Button.jsx';
-import { hashPin } from '../../utils/crypto.js';
 import { ROLE_OPTIONS, CARGO_OPTIONS } from '../../utils/permissions.js';
 import api from '../../api/client.js';
 
@@ -103,7 +102,7 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                     if (formData.pin !== formData.confirmPin) {
                         throw new Error('El PIN no coincide.');
                     }
-                    dataToUpdate.pinHash = await hashPin(formData.pin);
+                    dataToUpdate.pin = formData.pin;
                 }
 
                 // Llamar a la API para actualizar el usuario
@@ -137,8 +136,9 @@ const UserModal = ({ db, adminUser, onClose, companyProfile, userToEdit, onProfi
                 };
 
                 // Agregar PIN si se proporcionó
-                if (formData.pin && formData.pin === formData.confirmPin) {
-                    newUserData.pinHash = await hashPin(formData.pin);
+                if (formData.pin) {
+                    if (formData.pin !== formData.confirmPin) throw new Error('El PIN no coincide.');
+                    newUserData.pin = formData.pin;
                 }
 
                 // Si hay foto, incluirla
