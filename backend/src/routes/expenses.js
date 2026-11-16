@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { emitExpenseEcf } from '../services/ecfService.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
@@ -141,7 +142,7 @@ router.get('/:id', async (req, res, next) => {
 /**
  * POST /api/expenses
  */
-router.post('/', authorize('admin', 'manager'), async (req, res, next) => {
+router.post('/', authorize(...rolesFor('finance-expenses')), async (req, res, next) => {
   try {
     const data = expenseSchema.parse(req.body);
     const { issueVoucher } = req.body;
@@ -188,7 +189,7 @@ router.post('/', authorize('admin', 'manager'), async (req, res, next) => {
 /**
  * PUT /api/expenses/:id
  */
-router.put('/:id', authorize('admin', 'manager'), async (req, res, next) => {
+router.put('/:id', authorize(...rolesFor('finance-expenses')), async (req, res, next) => {
   try {
     const data = expenseSchema.partial().parse(req.body);
 

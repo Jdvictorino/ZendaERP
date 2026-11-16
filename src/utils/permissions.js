@@ -15,7 +15,8 @@ export const CARGO_OPTIONS = [
   'Cajero', 'Vendedor', 'Repartidor', 'Encargado de almacén', 'Contador', 'Asistente administrativo'
 ];
 
-const VIEW_PERMISSIONS = {
+// Qué pantallas ve cada rol. El backend usa la misma tabla (backend/src/permissions.js) para autorizar.
+export const VIEW_PERMISSIONS = {
   dashboard: ['admin', 'manager', 'supervisor', 'cashier', 'accountant', 'viewer'],
   orders: ['admin', 'manager', 'supervisor', 'cashier'],
   invoices: ['admin', 'manager', 'supervisor', 'cashier', 'accountant'],

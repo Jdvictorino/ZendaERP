@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
@@ -177,7 +178,7 @@ router.get('/:id', async (req, res, next) => {
  * POST /api/products
  * Crear nuevo producto
  */
-router.post('/', authorize('admin', 'manager', 'warehouse'), async (req, res, next) => {
+router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const data = productSchema.parse(req.body);
     
@@ -217,7 +218,7 @@ router.post('/', authorize('admin', 'manager', 'warehouse'), async (req, res, ne
  * PUT /api/products/:id
  * Actualizar producto
  */
-router.put('/:id', authorize('admin', 'manager', 'warehouse'), async (req, res, next) => {
+router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const data = updateProductSchema.parse(req.body);
     
@@ -286,7 +287,7 @@ router.delete('/:id', authorize('admin', 'manager'), async (req, res, next) => {
  * PATCH /api/products/:id/stock
  * Ajustar stock de un producto
  */
-router.patch('/:id/stock', authorize('admin', 'manager', 'warehouse'), async (req, res, next) => {
+router.patch('/:id/stock', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const { quantity, type, reason } = req.body;
 
@@ -382,7 +383,7 @@ const bulkProductSchema = z.object({
  * POST /api/products/bulk-import
  * Importar múltiples productos desde Excel
  */
-router.post('/bulk-import', authorize('admin', 'manager'), async (req, res, next) => {
+router.post('/bulk-import', authorize(...rolesFor('import-products')), async (req, res, next) => {
   try {
     const { products: productsData } = req.body;
     
@@ -563,7 +564,7 @@ router.get('/:id/variants', async (req, res, next) => {
  * POST /api/products/:id/variants
  * Crear variante de producto
  */
-router.post('/:id/variants', authorize('admin', 'manager', 'warehouse'), async (req, res, next) => {
+router.post('/:id/variants', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const product = await prisma.product.findFirst({
       where: { id: req.params.id, companyId: req.companyId }
@@ -592,7 +593,7 @@ router.post('/:id/variants', authorize('admin', 'manager', 'warehouse'), async (
  * PUT /api/products/:productId/variants/:variantId
  * Actualizar variante
  */
-router.put('/:productId/variants/:variantId', authorize('admin', 'manager', 'warehouse'), async (req, res, next) => {
+router.put('/:productId/variants/:variantId', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const product = await prisma.product.findFirst({
       where: { id: req.params.productId, companyId: req.companyId }
