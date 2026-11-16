@@ -218,7 +218,6 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
       item.taxRate = check.taxRate;
       needsApproval ||= check.needsApproval;
     }
-    if (needsApproval && (await requireApproval(req, res, 'price_override')) === false) return;
 
     // Calcular totales
     // unitPrice viene del frontend ya con ITBIS incluido (precio final).
@@ -261,6 +260,9 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
         return res.status(400).json({ error: 'La venta pasa el límite de crédito del cliente' });
       }
     }
+
+    // El permiso se gasta al final: una venta rechazada por crédito no consume el PIN
+    if (needsApproval && (await requireApproval(req, res, 'price_override')) === false) return;
 
     // Crear factura con items en transacción
     const invoice = await prisma.$transaction(async (tx) => {
