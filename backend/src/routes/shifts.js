@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
@@ -93,7 +94,7 @@ router.get('/current', async (req, res, next) => {
  * POST /api/shifts/open
  * Abrir nuevo turno
  */
-router.post('/open', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.post('/open', authorize(...rolesFor('orders', 'finance-cash-shifts')), async (req, res, next) => {
   try {
     const { openingAmount, registerId, notes } = req.body;
 
@@ -134,7 +135,7 @@ router.post('/open', authorize('admin', 'manager', 'cashier'), async (req, res, 
  * POST /api/shifts/:id/close
  * Cerrar turno
  */
-router.post('/:id/close', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.post('/:id/close', authorize(...rolesFor('orders', 'finance-cash-shifts')), async (req, res, next) => {
   try {
     const { closingAmount, notes } = req.body;
 
@@ -191,7 +192,7 @@ router.post('/:id/close', authorize('admin', 'manager', 'cashier'), async (req, 
  * POST /api/shifts/:id/movement
  * Registrar movimiento de caja (entrada/salida)
  */
-router.post('/:id/movement', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.post('/:id/movement', authorize(...rolesFor('orders', 'finance-cash-shifts')), async (req, res, next) => {
   try {
     const { type, amount, reason } = req.body;
 
@@ -376,7 +377,7 @@ router.post('/:id/sign', authorize('admin', 'manager'), async (req, res, next) =
  * POST /api/shifts/daily-close
  * Crear cierre diario de caja (marca facturas y gastos)
  */
-router.post('/daily-close', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.post('/daily-close', authorize(...rolesFor('orders', 'finance-cash-shifts')), async (req, res, next) => {
   try {
     const { totals, invoiceIds, movementData, manualCashCount, lastMinuteExpenses } = req.body;
 

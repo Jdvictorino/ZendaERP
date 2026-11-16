@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
 import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
@@ -176,7 +177,7 @@ router.get('/:id', async (req, res, next) => {
  * POST /api/invoices
  * Crear nuevo pedido/factura
  */
-router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
   try {
     const data = invoiceSchema.parse(req.body);
     
@@ -306,7 +307,7 @@ router.post('/', authorize('admin', 'manager', 'cashier'), async (req, res, next
  * PATCH /api/invoices/:id/status
  * Actualizar estado de la factura
  */
-router.patch('/:id/status', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.patch('/:id/status', authorize(...rolesFor('orders', 'invoices')), async (req, res, next) => {
   try {
     const { status } = req.body;
 
@@ -335,7 +336,7 @@ router.patch('/:id/status', authorize('admin', 'manager', 'cashier'), async (req
  * PUT /api/invoices/:id
  * Actualizar datos de una factura (cupones, notas, descuentos, items)
  */
-router.put('/:id', authorize('admin', 'manager', 'cashier'), async (req, res, next) => {
+router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res, next) => {
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
@@ -430,7 +431,7 @@ router.put('/:id', authorize('admin', 'manager', 'cashier'), async (req, res, ne
  * Facturar un pedido (asignar NCF)
  */
 // Facturar asigna el comprobante automáticamente (NCF o e-CF); el cajero no elige ni edita la secuencia.
-router.post('/:id/bill', authorize('admin', 'manager', 'supervisor', 'cashier'), async (req, res, next) => {
+router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next) => {
   try {
     const { ncfType, customerRnc } = req.body;
     

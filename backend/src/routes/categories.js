@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
@@ -39,7 +40,7 @@ router.get('/', async (req, res, next) => {
 /**
  * POST /api/categories
  */
-router.post('/', authorize('admin', 'manager'), async (req, res, next) => {
+router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const data = categorySchema.parse(req.body);
     
@@ -56,7 +57,7 @@ router.post('/', authorize('admin', 'manager'), async (req, res, next) => {
 /**
  * PUT /api/categories/:id
  */
-router.put('/:id', authorize('admin', 'manager'), async (req, res, next) => {
+router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const data = categorySchema.partial().parse(req.body);
     

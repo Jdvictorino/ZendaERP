@@ -2,6 +2,7 @@
  * ecf.js — Rutas API para Facturación Electrónica (e-CF) DGII
  */
 import { Router } from 'express';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import prisma from '../db.js';
 import ecfService, { xmlTag } from '../services/ecfService.js';
@@ -13,7 +14,7 @@ router.use(authenticate);
 
 // Configurar e-CF (certificado, secuencias, ambiente) y emitir/reintentar a mano es tarea de gerencia.
 // La emisión normal ocurre al facturar (POST /api/invoices/:id/bill), disponible también para cajeros.
-const manageEcf = authorize('admin', 'manager');
+const manageEcf = authorize(...rolesFor('finance-fiscal-management'));
 
 // =============================================
 // CONFIGURACIÓN e-CF

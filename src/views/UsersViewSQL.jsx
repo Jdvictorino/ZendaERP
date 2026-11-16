@@ -103,6 +103,7 @@ const UsersViewSQL = ({ companyProfile, isMasterUser, adminUser, onCurrentUserUp
                     companyProfile={companyProfile}
                     adminUser={adminUser}
                     userToEdit={selectedUserToEdit}
+                    otherAdminCount={safeUsers.filter(u => u.role === 'admin' && u.status !== 'inactive' && String(u.id) !== String(selectedUserToEdit?.id)).length}
                     currentUserUid={currentUserId}
                     fullPage
                     onProfileUpdate={(updatedUser) => {

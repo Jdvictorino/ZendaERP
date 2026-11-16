@@ -10,7 +10,11 @@ const router = Router();
 router.use(authenticate);
 router.use(authorize('admin')); // Solo admin puede gestionar usuarios
 
-const ALLOWED_ROLES = ['admin', 'manager', 'supervisor', 'cashier', 'driver', 'accountant', 'warehouse', 'viewer'];
+// Los mismos roles que ofrece la app (ROLE_OPTIONS en src/utils/permissions.js)
+const ALLOWED_ROLES = ['admin', 'manager', 'supervisor', 'cashier', 'driver', 'accountant', 'viewer'];
+
+const hasOtherActiveAdmin = async (companyId, userId) =>
+  (await prisma.user.count({ where: { companyId, role: 'admin', status: 'active', id: { not: userId } } })) > 0;
 
 // Helper para convertir strings vacíos a undefined
 const emptyToUndefined = (val) => (val === '' || val === null) ? undefined : val;
@@ -190,9 +194,10 @@ router.put('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    // No permitir cambiar rol del admin principal
-    if (existing.isAdmin && data.role && data.role !== 'admin') {
-      return res.status(400).json({ error: 'No se puede cambiar el rol del administrador principal' });
+    // Un administrador solo deja de serlo (o se desactiva) si queda otro administrador activo
+    const losesAdmin = existing.role === 'admin' && ((data.role && data.role !== 'admin') || data.status === 'inactive');
+    if (losesAdmin && !(await hasOtherActiveAdmin(req.companyId, existing.id))) {
+      return res.status(400).json({ error: 'Es el único administrador. Asigna otro administrador antes de cambiar su rol.' });
     }
 
     // Mapear campos del frontend a la base de datos
@@ -225,6 +230,9 @@ router.put('/:id', async (req, res, next) => {
         delete updateData[key];
       }
     });
+
+    // Sin esto conservaría el acceso total del administrador principal aunque cambie de rol
+    if (existing.isAdmin && data.role && data.role !== 'admin') updateData.isAdmin = false;
 
     // Si hay nueva contraseña, hashearla
     if (data.password) {
@@ -279,6 +287,9 @@ router.delete('/:id', async (req, res, next) => {
     if (user.isAdmin) {
       return res.status(400).json({ error: 'No se puede eliminar al administrador principal' });
     }
+    if (user.role === 'admin' && !(await hasOtherActiveAdmin(req.companyId, user.id))) {
+      return res.status(400).json({ error: 'Es el único administrador. Asigna otro administrador antes de eliminarlo.' });
+    }
 
     if (user.id === req.user.id) {
       return res.status(400).json({ error: 'No puedes eliminarte a ti mismo' });
@@ -308,6 +319,9 @@ router.patch('/:id/status', async (req, res, next) => {
 
     if (user.isAdmin) {
       return res.status(400).json({ error: 'No se puede desactivar al administrador principal' });
+    }
+    if (user.role === 'admin' && status === 'inactive' && !(await hasOtherActiveAdmin(req.companyId, user.id))) {
+      return res.status(400).json({ error: 'Es el único administrador. Asigna otro administrador antes de desactivarlo.' });
     }
 
     const updated = await prisma.user.update({

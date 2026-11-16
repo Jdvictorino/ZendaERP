@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
+import { rolesFor } from '../permissions.js';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -108,7 +109,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
 /**
  * POST /api/shipments
  */
-router.post('/', authenticate, authorize('admin', 'manager', 'warehouse', 'cashier'), async (req, res, next) => {
+router.post('/', authenticate, authorize(...rolesFor('shipments')), async (req, res, next) => {
   try {
     const data = shipmentSchema.parse(req.body);
 
@@ -188,7 +189,7 @@ router.post('/', authenticate, authorize('admin', 'manager', 'warehouse', 'cashi
 /**
  * PATCH /api/shipments/:id/status
  */
-router.patch('/:id/status', authenticate, authorize('admin', 'manager', 'warehouse'), async (req, res, next) => {
+router.patch('/:id/status', authenticate, authorize(...rolesFor('shipments')), async (req, res, next) => {
   try {
     const { status } = req.body;
     
@@ -294,7 +295,7 @@ router.delete('/:id', authenticate, authorize('admin', 'manager'), async (req, r
  * PUT /api/shipments/:id
  * Actualizar un envío
  */
-router.put('/:id', authenticate, authorize('admin', 'manager', 'warehouse'), async (req, res, next) => {
+router.put('/:id', authenticate, authorize(...rolesFor('shipments')), async (req, res, next) => {
   try {
     const shipment = await prisma.shipment.findFirst({
       where: { id: req.params.id, companyId: req.companyId }
