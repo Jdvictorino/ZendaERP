@@ -5,6 +5,9 @@ import SupplierModal from './SupplierModal.jsx';
 import toast from 'react-hot-toast';
 import ConfirmationModal from './ConfirmationModal.jsx';
 import api from '../../api/client.js';
+import { formatCurrency } from '../../utils/formatCurrency.js';
+import { productRate } from '../../utils/productRate.js';
+import { round2 } from '../../utils/tax.js';
 
 // --- Componente: Modal para Gestionar Categorías ---
 const ManageCategoriesModal = ({ onClose, categories, handleDeleteCategory, isMasterUser }) => (
@@ -29,7 +32,7 @@ const ManageCategoriesModal = ({ onClose, categories, handleDeleteCategory, isMa
 );
 
 
-const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMasterUser, onCategoryAdded, onSupplierAdded, fullPage = false }) => {
+const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMasterUser, onCategoryAdded, onSupplierAdded, currency = 'DOP', fullPage = false }) => {
     const [formData, setFormData] = useState({ 
         name: '', salePrice: 0, purchasePrice: 0, stock: 0, stockThreshold: 5,
         code: '', imageUrl: '', supplierId: '', supplierName: '',
@@ -162,9 +165,9 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="block text-ink-soft mb-1">Precio Compra</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
                             <div>
-                                <label className="block text-ink-soft mb-1">Precio Venta</label>
+                                <label className="block text-ink-soft mb-1">Precio de venta (sin ITBIS)</label>
                                 <input type="number" name="salePrice" value={formData.salePrice} onChange={handleChange} className="input-base" required min="0" step="0.01" />
-                                <p className="text-xs text-ink-muted mt-1">Precio final (ITBIS incluido).</p>
+                                <p className="text-xs text-ink-muted mt-1">{(() => { const rate = productRate(formData); return rate > 0 ? `Con ITBIS: ${formatCurrency(round2((Number(formData.salePrice) || 0) * (1 + rate / 100)), currency)}` : 'Exento'; })()}</p>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">

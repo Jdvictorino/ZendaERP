@@ -3,6 +3,11 @@ import { ArrowLeft, X } from 'lucide-react';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import Button from '../ui/Button.jsx';
 import toast from 'react-hot-toast';
+import { TAXPAYER_TYPES } from '../../utils/tax.js';
+
+// Valores del selector viejo (mismo mapa que backend/src/services/customerTax.js)
+const LEGACY_TYPES = { Persona: 'consumidor_final', Empresa: 'empresa', 'Zona Franca': 'zona_franca', Gubernamental: 'gubernamental', ONG: 'ong' };
+const CEDULA_TYPES = ['consumidor_final', 'persona_fisica'];
 
 // Validación RD: Cédula (11 dígitos) y RNC (9 dígitos)
 function onlyDigits(v = '') { return (v || '').replace(/\D/g, ''); }
@@ -25,7 +30,7 @@ function validateRNC(rnc) {
 
 const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = false }) => {
         const [formData, setFormData] = useState({ 
-                name: '', email: '', phone: '', type: 'Persona', identificationNumber: '',
+                name: '', email: '', phone: '', taxpayerType: 'consumidor_final', exemptionNumber: '', exemptionExpiresAt: '', identificationNumber: '',
                 address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana' },
                 defaultDiscount: 0, logo: '',
                 status: 'active', category: 'Retail', accountType: 'contado', creditLimit: 0, creditDays: 0, notes: '', customerCode: ''
@@ -35,7 +40,8 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
     useEffect(() => { 
                 if (customer && customer.id) {
             setFormData({ 
-                                name: customer.name || '', email: customer.email || '', phone: customer.phone || '', type: customer.type || 'Persona',
+                                name: customer.name || '', email: customer.email || '', phone: customer.phone || '', taxpayerType: customer.taxpayerType || LEGACY_TYPES[customer.type] || 'consumidor_final',
+                                exemptionNumber: customer.exemptionNumber || '', exemptionExpiresAt: (customer.exemptionExpiresAt || '').slice(0, 10),
                                 identificationNumber: customer.identificationNumber || '',
                                 address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana', ...(customer.address || {}) },
                                 defaultDiscount: customer.defaultDiscount || 0, logo: customer.logo || '',
@@ -66,16 +72,16 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
         }
     };
         const idTypeLabel = useMemo(() => {
-            if (formData.type === 'Persona') return 'Cédula / Pasaporte';
-            return 'RNC';
-        }, [formData.type]);
+            return CEDULA_TYPES.includes(formData.taxpayerType) ? 'Cédula / Pasaporte' : 'RNC';
+        }, [formData.taxpayerType]);
+        const exemptible = TAXPAYER_TYPES.find(t => t.value === formData.taxpayerType)?.exemptible;
 
         const validateForm = () => {
             const errs = {};
             if (!formData.name.trim()) errs.name = 'Requerido';
             if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = 'Email inválido';
             if (formData.defaultDiscount < 0 || formData.defaultDiscount > 100) errs.defaultDiscount = '0 a 100%';
-            if (formData.type === 'Persona') {
+            if (CEDULA_TYPES.includes(formData.taxpayerType)) {
                 const ced = onlyDigits(formData.identificationNumber);
                 if (ced && !validateCedula(ced)) errs.identificationNumber = 'Cédula inválida';
             } else {
@@ -92,6 +98,8 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
             if (!validateForm()) { toast.error('Revisa los campos marcados.'); return; }
             const payload = {
                 ...formData,
+                exemptionNumber: exemptible ? formData.exemptionNumber.trim() : '',
+                exemptionExpiresAt: exemptible ? formData.exemptionExpiresAt : '',
                 defaultDiscount: Number(formData.defaultDiscount || 0),
                 creditLimit: Number(formData.creditLimit || 0),
                 creditDays: parseInt(formData.creditDays || 0, 10),
@@ -112,7 +120,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 // Máscara de cédula (000-0000000-0) en vivo cuando es Persona
                 const onIdChange = (e) => {
                     let val = e.target.value || '';
-                    if (formData.type === 'Persona') {
+                    if (CEDULA_TYPES.includes(formData.taxpayerType)) {
                         // Cédula: 11 dígitos con máscara
                         const d = onlyDigits(val).slice(0, 11);
                         let masked = d;
@@ -151,18 +159,27 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                             <fieldset className="p-4 border rounded-lg">
                                 <legend className="font-semibold text-brand-600 px-2">Información del Cliente</legend>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label className="block text-ink-soft mb-1">Nombre Completo / Razón Social</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required /></div>
+                                    <div><label htmlFor="name" className="block text-ink-soft mb-1">Nombre Completo / Razón Social</label><input id="name" type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required /></div>
                                     <div>
-                                        <label className="block text-ink-soft mb-1">Tipo de Cliente</label>
-                                        <select name="type" value={formData.type} onChange={handleChange} className="input-base">
-                                            <option value="Persona">Persona</option>
-                                            <option value="Empresa">Empresa</option>
-                                            <option value="Zona Franca">Zona Franca / Régimen Especial</option>
-                                            <option value="Gubernamental">Gubernamental</option>
-                                            <option value="ONG">ONG</option>
+                                        <label htmlFor="taxpayerType" className="block text-ink-soft mb-1">Tipo de cliente</label>
+                                        <select id="taxpayerType" name="taxpayerType" value={formData.taxpayerType} onChange={handleChange} className="input-base">
+                                            {TAXPAYER_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                         </select>
                                     </div>
                                 </div>
+                                {exemptible && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                        <div>
+                                            <label htmlFor="exemptionNumber" className="block text-ink-soft mb-1">Número de carnet / autorización</label>
+                                            <input id="exemptionNumber" type="text" name="exemptionNumber" value={formData.exemptionNumber} onChange={handleChange} className="input-base" />
+                                            <p className="text-xs text-ink-muted mt-1">Verifique el carnet con la app DGII antes de guardar.</p>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="exemptionExpiresAt" className="block text-ink-soft mb-1">Vence</label>
+                                            <input id="exemptionExpiresAt" type="date" name="exemptionExpiresAt" value={formData.exemptionExpiresAt} onChange={handleChange} className="input-base" />
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                                                         <div>
                                                                             <label className="block text-ink-soft mb-1">{idTypeLabel}</label>
@@ -201,7 +218,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-ink-soft mb-1">Tipo de Cliente</label>
+                                        <label className="block text-ink-soft mb-1">Categoría</label>
                                         <select name="category" value={formData.category} onChange={handleChange} className="input-base">
                                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
