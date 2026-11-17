@@ -10,6 +10,7 @@ import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } 
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 import { requireApproval } from '../services/approvals.js';
 import { priceInvoiceLines } from '../services/invoiceAmounts.js';
+import { discountedAmounts } from '../services/ecfXmlBuilder.js';
 import { isTaxExempt, todayRD, voucherError } from '../services/tax.js';
 import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
@@ -379,7 +380,7 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: { select: { id: true } } }
+      include: { items: true }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
@@ -388,7 +389,8 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
     const body = req.body;
     const manager = canManageInvoices(req.user);
     const updateData = {};
-    const grossTotal = Number(invoice.subtotal) + Number(invoice.taxAmount); // total antes de descuentos (precios con ITBIS)
+    // Total antes del cupón (con ITBIS). No sale de subtotal + taxAmount: con cupón esos ya van rebajados
+    const grossTotal = Number(invoice.total) + Number(invoice.discountAmount || 0);
 
     if (body.notes !== undefined) updateData.notes = body.notes;
     if (body.paymentMethod !== undefined) updateData.paymentMethod = body.paymentMethod;
@@ -413,6 +415,8 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
       if (discount > cap + 0.01 && (await requireApproval(req, res, 'price_override')) === false) return;
       updateData.discountAmount = discount;
       updateData.total = grossTotal - discount;
+      // Base e ITBIS rebajados con el mismo reparto que declara el e-CF, así el 607 y el e-CF dicen lo mismo
+      Object.assign(updateData, discountedAmounts({ ...invoice, ...updateData }));
     }
     const total = updateData.total ?? Number(invoice.total);
 

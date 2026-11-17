@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { FileText, Download, FileSignature, XCircle, Trash2, Edit, Save, X, Printer, ArrowLeft, Mail } from 'lucide-react';
-import { getCouponByCode, validateCoupon, applyCouponToCart, redeemCouponTransaction } from '../../utils/offers.js';
+import { getCouponByCode, validateCoupon, applyCouponToCart, couponCart, redeemCouponTransaction } from '../../utils/offers.js';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
@@ -225,7 +225,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
             const userIdentifier = currentUserProfile?.id || null;
             const coupon = await getCouponByCode(couponCode.trim(), userIdentifier);
             if (!coupon) return toast.error('Cupón no encontrado');
-            const cart = (invoice.items || []).map(i => ({ cartId: i.cartId || i.id, productId: i.productId, categoryId: i.categoryId, price: i.unitPrice || i.price, quantity: i.quantity }));
+            const cart = couponCart(invoice);
             const valid = await validateCoupon(coupon, { cart, userId: userIdentifier, ownerId: userIdentifier });
             if (!valid.valid) return toast.error(valid.reason || 'Cupón no válido');
             const res = applyCouponToCart(coupon, cart);
