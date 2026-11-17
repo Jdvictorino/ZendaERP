@@ -6,7 +6,8 @@ const LEGACY_TYPES = { Persona: 'consumidor_final', Empresa: 'empresa', 'Zona Fr
 
 // existing: cliente guardado (PUT). Las llaves ausentes en body conservan lo guardado.
 export function customerTaxFields(body = {}, existing = null) {
-  const taxpayerType = body.taxpayerType || LEGACY_TYPES[body.type] || existing?.taxpayerType || 'consumidor_final';
+  // El type viejo solo se mapea al crear: las apps viejas mandan 'Persona' en cada PUT y borrarían tipo y carnet
+  const taxpayerType = body.taxpayerType || (!existing && LEGACY_TYPES[body.type]) || existing?.taxpayerType || 'consumidor_final';
   const def = TAXPAYER_TYPES.find((t) => t.value === taxpayerType);
   if (!def) throw httpError(400, 'Tipo de contribuyente no válido');
   if (!def.exemptible) return { taxpayerType, exemptionNumber: null, exemptionExpiresAt: null };
@@ -23,4 +24,14 @@ export function customerTaxFields(body = {}, existing = null) {
     }
   }
   return { taxpayerType, exemptionNumber, exemptionExpiresAt };
+}
+
+const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
+
+// fields: salida de customerTaxFields. Registrar o cambiar el carnet (no quitarlo) es de gerencia.
+export function exemptionChangeError(fields, existing, user) {
+  if (user?.isAdmin || ['admin', 'manager'].includes(user?.role)) return null;
+  const changed = (fields.exemptionNumber && fields.exemptionNumber !== existing?.exemptionNumber)
+    || (fields.exemptionExpiresAt && day(fields.exemptionExpiresAt) !== day(existing?.exemptionExpiresAt));
+  return changed ? 'Solo un gerente o administrador puede registrar el carnet de exención.' : null;
 }
