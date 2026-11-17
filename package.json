@@ -22,6 +22,8 @@
   },
   "dependencies": {
     "@mui/x-charts": "^8.20.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "electron-updater": "^6.3.9",
     "escpos": "^3.0.0-alpha.6",
     "escpos-usb": "^3.0.0-alpha.4",

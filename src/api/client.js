@@ -366,6 +366,55 @@ async function adminFetch(endpoint, sessionToken, options = {}) {
   return handleResponse(response);
 }
 
+// Consola del servidor: el token de consola vive solo en memoria y se renueva con cada respuesta.
+let consoleToken = '';
+async function consoleFetch(endpoint, sessionToken, options = {}) {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+      ...(consoleToken ? { 'X-Console-Token': consoleToken } : {}),
+    },
+  });
+  const renewed = response.headers?.get?.('X-Console-Token');
+  if (renewed) consoleToken = renewed;
+  try {
+    const data = await handleResponse(response);
+    if (data?.consoleToken) consoleToken = data.consoleToken;
+    return data;
+  } catch (error) {
+    if (error.status === 401 && error.data?.code === 'CONSOLE_LOCKED') consoleToken = '';
+    throw error;
+  }
+}
+const consoleJson = (body) => ({ method: 'POST', body: JSON.stringify(body) });
+const qs = (params) => {
+  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+  return q ? `?${q}` : '';
+};
+
+export const consoleApi = {
+  isUnlocked: () => !!consoleToken,
+  lock: () => { consoleToken = ''; },
+  totpStatus: (t) => consoleFetch('/admin/console/totp/status', t),
+  totpSetup: (t) => consoleFetch('/admin/console/totp/setup', t, { method: 'POST' }),
+  totpConfirm: (t, code) => consoleFetch('/admin/console/totp/confirm', t, consoleJson({ code })),
+  unlock: (t, code) => consoleFetch('/admin/console/unlock', t, consoleJson({ code })),
+  ticket: (t) => consoleFetch('/admin/console/ticket', t, { method: 'POST' }),
+  audit: (t, { kind, page } = {}) => consoleFetch(`/admin/console/audit${qs({ kind, page })}`, t),
+  tables: (t) => consoleFetch('/admin/console/db/tables', t),
+  table: (t, name, { search, page } = {}) =>
+    consoleFetch(`/admin/console/db/tables/${encodeURIComponent(name)}${qs({ search, page })}`, t),
+  query: (t, sql, confirm = false) => consoleFetch('/admin/console/db/query', t, consoleJson({ sql, confirm })),
+  // API_URL puede ser relativo ('/api') o absoluto
+  terminalUrl: (ticket) => {
+    const base = new URL(API_URL, window.location.origin);
+    base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${base.toString().replace(/\/$/, '')}/admin/console/terminal?ticket=${encodeURIComponent(ticket)}`;
+  },
+};
+
 export const platformBilling = {
   login: (email, password) =>
     adminFetch('/admin/billing/login', null, {

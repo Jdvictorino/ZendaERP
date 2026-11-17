@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import { Activity, Building2, DownloadCloud, Layers, LayoutDashboard, Loader2, LogOut, Moon, RefreshCw, ShieldCheck, Sun } from 'lucide-react';
+import { Activity, Building2, DownloadCloud, Layers, LayoutDashboard, Loader2, LogOut, Moon, RefreshCw, ShieldCheck, Sun, Terminal } from 'lucide-react';
 import { platformBilling } from '../api/client.js';
 import Button from '../components/ui/Button.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
@@ -11,6 +11,7 @@ import TenantsSection from './platform/TenantsSection.jsx';
 import TenantDetail from './platform/TenantDetail.jsx';
 import PlansSection from './platform/PlansSection.jsx';
 import UpdatesSection from './platform/UpdatesSection.jsx';
+import ServerSection from './platform/ServerSection.jsx';
 import { Field } from './platform/shared.jsx';
 
 const SESSION_STORAGE_KEY = 'platformBillingSession';
@@ -28,6 +29,7 @@ const SECTIONS = [
   { id: 'tenants', label: 'Empresas', icon: Building2, subtitle: 'Suscripción, facturas, pagos y módulos de cada empresa.' },
   { id: 'plans', label: 'Planes', icon: Layers, subtitle: 'Precios y ciclos que se asignan a las empresas.' },
   { id: 'updates', label: 'Actualizaciones', icon: DownloadCloud, subtitle: 'Qué empresas reciben la nueva versión de la app de escritorio.' },
+  { id: 'server', label: 'Servidor', icon: Terminal, subtitle: 'Terminal, base de datos y registro del servidor.' },
   { id: 'observability', label: 'Observabilidad', icon: Activity, subtitle: 'Tráfico, errores y rendimiento del servidor.' },
 ];
 
@@ -244,6 +246,8 @@ export default function PlatformBillingControlView() {
                 setPlanAssignments((cur) => Object.fromEntries(Object.entries(cur).filter(([, id]) => id !== planId)));
               }}
             />
+          ) : section === 'server' ? (
+            <ServerSection sessionToken={sessionToken} />
           ) : (
             <UpdatesSection tenants={tenants} sessionToken={sessionToken} onTenantPatched={patchTenant} onOpenTenant={showTenant} />
           )}
