@@ -1,17 +1,23 @@
 import { isVoidInvoice } from './invoiceStatus.js';
 
 // Utilidades de filtrado para reportes (ventas/compras)
+// 'YYYY-MM-DD' (de un <input type="date">) es un día local; new Date() lo leería en UTC (un día antes en RD)
+const toLocal = (value) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+  return m ? new Date(+m[1], m[2] - 1, +m[3]) : new Date(value);
+};
+
 export function parseDateInput(value) {
   if (!value) return null;
-  const d = new Date(value);
+  const d = toLocal(value);
   if (isNaN(d)) return null;
   d.setHours(0,0,0,0);
   return d;
 }
 
 export function filterByDateRange(items = [], dateField = 'date', from = null, to = null) {
-  const fromDate = from ? new Date(from) : null;
-  const toDate = to ? new Date(to) : null;
+  const fromDate = from ? toLocal(from) : null;
+  const toDate = to ? toLocal(to) : null;
   if (fromDate) fromDate.setHours(0,0,0,0);
   if (toDate) { toDate.setHours(23,59,59,999); }
 

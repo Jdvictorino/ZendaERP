@@ -1,4 +1,6 @@
 import React from 'react';
+import { Download } from 'lucide-react';
+import Button from './ui/Button.jsx';
 
 function toCSVContent(headers, data) {
     const escape = (val) => {
@@ -18,7 +20,7 @@ function toCSVContent(headers, data) {
     return '\uFEFF' + lines.join('\n');
 }
 
-const ReportDataTable = ({ title, headers, data, fileName }) => {
+const ReportDataTable = ({ title, headers, data = [], fileName, numeric = [], className = 'mt-10' }) => {
     const handleExportCsv = () => {
         try {
             const csv = toCSVContent(headers, data);
@@ -26,68 +28,52 @@ const ReportDataTable = ({ title, headers, data, fileName }) => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${fileName || (title || 'reporte').replace(/\s+/g,'_')}_${Date.now()}.csv`;
+            a.download = `${fileName || (title || 'reporte').replace(/\s+/g, '_')}_${Date.now()}.csv`;
             a.click();
             URL.revokeObjectURL(url);
         } catch (e) {
             console.error('CSV export error', e);
         }
     };
+    const align = (h) => (numeric.includes(h) ? 'text-right tabular-nums' : 'text-left');
 
     return (
-        <div className="card p-6 sm:p-8 mt-10">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+        <div className={`card ${className}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-line">
                 <div>
-                    <h3 className="font-bold text-2xl text-ink dark:text-gray-100 tracking-tight">{title}</h3>
-                    <p className="text-sm font-medium text-ink-muted dark:text-gray-400 mt-1">
-                        {data?.length || 0} registros encontrados
-                    </p>
+                    <h3 className="text-base font-semibold text-ink">{title}</h3>
+                    <p className="text-sm text-ink-muted">{data.length} {data.length === 1 ? 'registro' : 'registros'}</p>
                 </div>
-                {data?.length > 0 && (
-                    <button 
-                        className="bg-brand-600 hover:bg-brand-700 text-white px-4 h-10 rounded-lg text-sm font-semibold transition-colors shadow-sm active:scale-95 flex items-center gap-2" 
-                        onClick={handleExportCsv}
-                    >
-                        Exportar Datos
-                    </button>
+                {data.length > 0 && (
+                    <Button variant="secondary" size="sm" onClick={handleExportCsv}><Download size={14} className="mr-1.5" /> Exportar CSV</Button>
                 )}
             </div>
-            <div className="overflow-x-auto -mx-6 sm:mx-0 custom-scrollbar">
-                <div className="inline-block min-w-full align-middle">
-                    <table className="min-w-full">
-                        <thead>
-                            <tr className="border-b border-line dark:border-gray-800">
-                                {headers.map(h => (
-                                    <th key={h} className="px-5 py-4 text-left text-xs font-bold text-ink-muted uppercase tracking-[0.1em]">
-                                        {h}
-                                    </th>
+            <div className="overflow-x-auto custom-scrollbar">
+                <table className="min-w-full text-sm">
+                    <thead className="bg-surface-muted dark:bg-gray-800/60">
+                        <tr>
+                            {headers.map(h => (
+                                <th key={h} scope="col" className={`px-5 py-2.5 text-xs font-semibold text-ink-muted whitespace-nowrap ${align(h)}`}>{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                        {data.map((row, index) => (
+                            <tr key={index} className="hover:bg-surface-muted dark:hover:bg-gray-800/40 transition-colors">
+                                {headers.map((h, i) => (
+                                    <td key={h} className={`px-5 py-3 whitespace-nowrap ${i === 0 ? 'text-ink font-medium' : 'text-ink-soft'} ${align(h)}`}>{row[h]}</td>
                                 ))}
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                            {data.map((row, index) => (
-                                <tr key={index} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
-                                    {headers.map(h => (
-                                        <td key={h} className="px-5 py-4 text-sm font-medium text-ink-soft dark:text-gray-300 whitespace-nowrap">
-                                            {row[h]}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                            {data.length === 0 && (
-                                <tr>
-                                    <td colSpan={headers.length} className="px-5 py-16 text-center">
-                                        <div className="flex flex-col items-center">
-                                            <p className="text-sm font-bold text-ink-muted uppercase tracking-widest italic">
-                                                Sin datos disponibles
-                                            </p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                        {data.length === 0 && (
+                            <tr>
+                                <td colSpan={headers.length} className="px-5 py-12 text-center text-sm text-ink-muted">
+                                    No hay registros en el período y filtros elegidos.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
