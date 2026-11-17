@@ -65,6 +65,10 @@ docker exec zenda-backend node scripts/reset-totp.js
 
 Después vuelve a **Servidor** y configura un autenticador nuevo.
 
+## Conexión WebSocket
+
+El WebSocket de la terminal pasa por Cloudflare → cloudflared → nginx (`/etc/nginx/sites-enabled/zenda` ya tiene las cabeceras `Upgrade`/`Connection` y `proxy_read_timeout 86400`). El backend envía un ping cada 30 s para que Cloudflare no corte una terminal inactiva.
+
 ## Límites conocidos
 
 - El registro de comandos es aproximado: el autocompletado, el historial y editores como vim no se registran fielmente. Una contraseña pegada antes de que aparezca el aviso de `sudo` sí quedaría registrada.

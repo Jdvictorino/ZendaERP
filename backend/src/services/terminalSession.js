@@ -8,7 +8,7 @@ const IDLE_MS = 10 * 60 * 1000;
 const MAX_MS = 8 * 60 * 60 * 1000;
 let active = null; // cierra la sesión vigente: una terminal a la vez
 
-export function attachTerminal({ ws, email, ip, connectSsh, audit, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
+export function attachTerminal({ ws, email, ip, connectSsh, audit, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout, setTicker = setInterval, clearTicker = clearInterval }) {
   active?.close('Sesión reemplazada por otra pestaña');
   const sessionId = crypto.randomUUID();
   const started = now();
@@ -17,32 +17,41 @@ export function attachTerminal({ ws, email, ip, connectSsh, audit, now = Date.no
   let ssh = null;
   let done = false;
   let idle;
+  let size = null; // último tamaño recibido, aunque SSH aún no esté listo
 
   const close = (reason) => {
     if (done) return;
     done = true;
     if (active === self) active = null;
-    clearTimer(idle); clearTimer(maxTimer);
+    clearTimer(idle); clearTimer(maxTimer); clearTicker(ping);
     try { ssh?.end(); } catch { /* ya cerrada */ }
     try { if (reason) ws.send(reason); ws.close(1000, reason && Buffer.from(reason).subarray(0, 120).toString().replace(/�$/, '')); } catch { /* ya cerrado */ }
-    log('terminal_close', { reason: reason || 'cerrada', seconds: Math.round((now() - started) / 1000) });
+    log('terminal_close', `${reason || 'cerrada'} (${Math.round((now() - started) / 1000)} s)`);
   };
   const self = { close };
   active = self;
   const resetIdle = () => { clearTimer(idle); idle = setTimer(() => close('Sesión cerrada por inactividad'), IDLE_MS); };
   const maxTimer = setTimer(() => close('Sesión cerrada por tiempo máximo'), MAX_MS);
+  // Cloudflare corta WebSockets inactivos (~100 s); el ping no cuenta como entrada del usuario
+  const ping = setTicker(() => { try { ws.ping(); } catch { /* ya cerrado */ } }, 30000);
   resetIdle();
-  log('terminal_open', {});
+  log('terminal_open', 'Terminal abierta');
 
   ws.on('message', (raw) => {
     let m;
     try { m = JSON.parse(raw.toString()); } catch { return; }
-    if (!ssh || done) return;
+    if (done) return;
+    if (m.t === 'resize') {
+      size = [Number(m.cols) || 80, Number(m.rows) || 24];
+      ssh?.resize(...size);
+      return;
+    }
+    if (!ssh) return;
     if (m.t === 'in' && typeof m.d === 'string') {
       resetIdle();
       ssh.write(m.d);
-      for (const l of rec.input(m.d)) log('terminal_command', { command: l });
-    } else if (m.t === 'resize') ssh.resize(Number(m.cols) || 80, Number(m.rows) || 24);
+      for (const l of rec.input(m.d)) log('terminal_command', l);
+    }
   });
   ws.on('close', () => close(null));
   ws.on('error', () => close(null));
@@ -50,6 +59,7 @@ export function attachTerminal({ ws, email, ip, connectSsh, audit, now = Date.no
   connectSsh(process.env).then((s) => {
     if (done) { s.end(); return; }
     ssh = s;
+    if (size) s.resize(...size);
     const dec = new StringDecoder('utf8');
     s.onData((d) => { rec.output(dec.write(d)); ws.send(d, { binary: true }); });
     s.onClose(() => close('Conexión SSH cerrada'));

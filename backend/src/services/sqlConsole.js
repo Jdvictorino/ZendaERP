@@ -24,8 +24,9 @@ export async function runSql(prisma, sql, { confirm } = {}) {
     if (!write) await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
     await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '15s'");
     return write ? tx.$executeRawUnsafe(s) : tx.$queryRawUnsafe(s);
-  });
+  }, { timeout: 20000 }); // mayor que el statement_timeout de 15 s
   try {
+    // shortcut: el tope de 500 filas se aplica tras recibir todo el resultado (un SELECT enorme se carga en memoria); mejorar envolviendo en SELECT * FROM (…) _q LIMIT 501
     const rows = await run(false);
     return { rows: rows.slice(0, 500), rowCount: rows.length, wrote: false };
   } catch (e) {

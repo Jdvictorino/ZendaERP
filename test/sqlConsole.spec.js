@@ -9,7 +9,7 @@ const fake = ({ rows = [], affected = 3, readFails = false } = {}) => {
     $executeRawUnsafe: async (q) => { calls.push(q); return affected; },
     $queryRawUnsafe: async (q) => { calls.push(q); if (readFails) throw roErr(); return rows; }
   };
-  return { calls, $transaction: (fn) => fn(tx) };
+  return { calls, $transaction: (fn, opts) => { calls.opts = opts; return fn(tx); } };
 };
 
 describe('checkSql', () => {

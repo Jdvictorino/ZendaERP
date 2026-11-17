@@ -57,7 +57,7 @@ router.get('/db/tables/:name', requireConsole, flow(async (req) => {
       await tx.$queryRawUnsafe(`SELECT * FROM ${q} ${where} ${order} LIMIT 50 OFFSET ${(page - 1) * 50}`, ...args),
       await tx.$queryRawUnsafe(`SELECT count(*) AS n FROM ${q} ${where}`, ...args)
     ];
-  });
+  }, { timeout: 20000 });
   return { status: 200, body: plain({ columns: cols.map((c) => c.column_name), rows, total: n }) };
 }));
 
