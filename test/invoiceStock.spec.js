@@ -7,7 +7,7 @@ vi.mock('../backend/src/middleware/auth.js', () => ({ authenticate: (q, s, n) =>
 vi.mock('../backend/src/routes/alerts.js', () => ({ createAlert: vi.fn() }));
 vi.mock('../backend/src/services/ecfService.js', () => ({ ECF_RECEIVED: ['enviado', 'aceptado'] }));
 
-const { takeStock, restoreStock, unreturnedLines, takeNcf, noteVoucher } = await import('../backend/src/routes/invoices.js');
+const { takeStock, restoreStock, unreturnedLines, takeNcf, noteVoucher, stockToRestoreOnDelete } = await import('../backend/src/routes/invoices.js');
 
 // Base de datos en memoria con la misma condición que el UPDATE real: solo descuenta si stock >= cantidad
 function fakeTx() {
@@ -144,4 +144,12 @@ describe('unreturnedLines: lo que queda por devolver al anular', () => {
     const items = [{ id: 'a', quantity: 3 }];
     expect(unreturnedLines(items, [])).toEqual(items);
   });
+});
+
+test('al eliminar una factura solo vuelve al inventario lo que no había vuelto', () => {
+  const items = [{ id: 'a', productId: 'p1', quantity: 3 }, { id: 'b', productId: 'p1', quantity: 1 }];
+  const notes = [{ items: [{ itemId: 'a', quantity: 2 }] }];
+  expect(stockToRestoreOnDelete({ status: 'Anulado', items, creditNotes: notes })).toEqual([]);
+  expect(stockToRestoreOnDelete({ status: 'Pagado', items, creditNotes: [] }).map((i) => i.quantity)).toEqual([3, 1]);
+  expect(stockToRestoreOnDelete({ status: 'Pagado', items, creditNotes: notes }).map((i) => [i.id, i.quantity])).toEqual([['a', 1], ['b', 1]]);
 });

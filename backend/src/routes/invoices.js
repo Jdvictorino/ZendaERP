@@ -719,31 +719,40 @@ router.post('/:id/debit-note', authorize('admin', 'manager'), async (req, res, n
   }
 });
 
+// Lo que aún no volvió al inventario: un anulado ya lo devolvió todo; si no, lo que no devolvieron sus notas de crédito
+export const stockToRestoreOnDelete = (invoice) =>
+  invoice.status === 'Anulado' ? [] : unreturnedLines(invoice.items, invoice.creditNotes || []);
+
 /**
  * DELETE /api/invoices/:id
- * Eliminar un pedido sin facturar (Pendiente o Anulado). Un pedido pendiente devuelve su inventario.
+ * Gerente: solo pedidos sin facturar (Pendiente o Anulado). Administrador: cualquier factura sin e-CF,
+ * con sus notas de crédito/débito; devuelve al inventario lo que no se había devuelto.
+ * shortcut: herramienta temporal de ajustes pedida por el dueño; quitarla cuando él lo indique.
  */
 router.delete('/:id', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true }
+      include: { items: true, creditNotes: { select: { items: true } }, _count: { select: { ecfDocuments: true } } }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
-    if (invoice.isBilled) {
+    if (invoice._count.ecfDocuments > 0) {
+      return res.status(400).json({ error: 'Esta factura tiene e-CF enviado a la DGII y no se puede eliminar: anúlala con una nota de crédito.' });
+    }
+    if (req.user.role !== 'admin' && invoice.isBilled) {
       return res.status(400).json({ error: 'Una factura emitida no se elimina: anúlala o haz una nota de crédito.' });
     }
-    if (!['Pendiente', 'Anulado'].includes(invoice.status)) {
+    if (req.user.role !== 'admin' && !['Pendiente', 'Anulado'].includes(invoice.status)) {
       return res.status(400).json({ error: 'Solo se pueden eliminar pedidos en estado Pendiente o Anulado' });
     }
 
     await prisma.$transaction(async (tx) => {
-      // Un pedido anulado ya devolvió su inventario al anularse
-      if (invoice.status === 'Pendiente') {
-        await restoreStock(tx, invoice, req.user.id, `Pedido eliminado - ${invoice.orderNumber}`, 'invoice_delete');
-      }
+      await restoreStock(tx, { ...invoice, items: stockToRestoreOnDelete(invoice) }, req.user.id, `Factura eliminada - ${invoice.orderNumber}`, 'invoice_delete');
+      await tx.creditNote.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.debitNote.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.shipment.updateMany({ where: { invoiceId: invoice.id }, data: { invoiceId: null } });
       await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
       await tx.invoice.delete({ where: { id: invoice.id } });
     });
