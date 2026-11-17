@@ -1,5 +1,11 @@
 import 'dotenv/config';
+import http from 'http';
 import express from 'express';
+import { WebSocketServer } from 'ws';
+import prisma from './db.js';
+import { ticketStore } from './services/consoleAuth.js';
+import { audit as auditLog } from './services/platformAudit.js';
+import { attachTerminal, connectSsh } from './services/terminalSession.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import { config } from 'dotenv';
@@ -201,7 +207,24 @@ try {
   process.exit(1);
 }
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+server.on('upgrade', (req, socket, head) => {
+  const url = new URL(req.url, 'http://x');
+  if (url.pathname !== '/api/admin/console/terminal') return socket.destroy();
+  const email = ticketStore.redeem(url.searchParams.get('ticket') || '');
+  if (!email) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+    return socket.destroy();
+  }
+  const fakeReq = { headers: req.headers, ip: req.socket.remoteAddress };
+  wss.handleUpgrade(req, socket, head, (ws) => attachTerminal({
+    ws, email, ip: fakeReq.headers['cf-connecting-ip'] || fakeReq.ip, connectSsh,
+    audit: (a) => auditLog(prisma, { req: fakeReq, ...a }),
+  }));
+});
+
+server.listen(PORT, () => {
   console.log(`🚀 Zenda ERP API corriendo en http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🔭 Observability: http://localhost:${PORT}/api/admin/observability/overview`);
