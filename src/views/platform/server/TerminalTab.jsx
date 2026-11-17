@@ -35,19 +35,22 @@ export default function TerminalTab({ sessionToken, onLocked }) {
       fit.fit();
       const socket = new WebSocket(consoleApi.terminalUrl(ticket));
       socket.binaryType = 'arraybuffer';
-      ws.current = socket;
       let reason = 'Sesión cerrada';
       const send = (m) => socket.readyState === 1 && socket.send(JSON.stringify(m));
       socket.onopen = () => { setState('Conectado'); send({ t: 'resize', cols: t.cols, rows: t.rows }); };
+      const detach = () => { socket.onmessage = socket.onopen = socket.onclose = socket.onerror = null; };
+      let gotReason = false;
       socket.onmessage = (ev) => {
-        if (typeof ev.data === 'string') reason = ev.data;
+        if (typeof ev.data === 'string') { reason = ev.data; gotReason = true; }
         else t.write(new Uint8Array(ev.data));
       };
+      socket.onerror = () => { if (!gotReason) reason = 'No se pudo conectar con el servidor'; };
       socket.onclose = () => { setState(reason); setClosed(true); };
       const d1 = t.onData((d) => send({ t: 'in', d }));
-      const onResize = () => { fit.fit(); send({ t: 'resize', cols: t.cols, rows: t.rows }); };
-      window.addEventListener('resize', onResize);
-      cleanup = () => { window.removeEventListener('resize', onResize); d1.dispose(); socket.close(); t.dispose(); };
+      const ro = new ResizeObserver(() => { fit.fit(); send({ t: 'resize', cols: t.cols, rows: t.rows }); });
+      ro.observe(host.current);
+      cleanup = () => { ro.disconnect(); detach(); d1.dispose(); socket.close(); t.dispose(); };
+      ws.current = { close: () => { detach(); socket.close(); } };
     })();
     return () => { dead = true; cleanup(); };
   }, [sessionToken, attempt]); // eslint-disable-line react-hooks/exhaustive-deps

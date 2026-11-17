@@ -394,6 +394,13 @@ const qs = (params) => {
   return q ? `?${q}` : '';
 };
 
+// API_URL puede ser relativo ('/api') o absoluto
+export function terminalUrl(ticket, apiUrl = API_URL) {
+  const base = new URL(apiUrl, window.location.origin);
+  base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${base.toString().replace(/\/$/, '')}/admin/console/terminal?ticket=${encodeURIComponent(ticket)}`;
+}
+
 export const consoleApi = {
   isUnlocked: () => !!consoleToken,
   lock: () => { consoleToken = ''; },
@@ -407,12 +414,7 @@ export const consoleApi = {
   table: (t, name, { search, page } = {}) =>
     consoleFetch(`/admin/console/db/tables/${encodeURIComponent(name)}${qs({ search, page })}`, t),
   query: (t, sql, confirm = false) => consoleFetch('/admin/console/db/query', t, consoleJson({ sql, confirm })),
-  // API_URL puede ser relativo ('/api') o absoluto
-  terminalUrl: (ticket) => {
-    const base = new URL(API_URL, window.location.origin);
-    base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${base.toString().replace(/\/$/, '')}/admin/console/terminal?ticket=${encodeURIComponent(ticket)}`;
-  },
+  terminalUrl,
 };
 
 export const platformBilling = {

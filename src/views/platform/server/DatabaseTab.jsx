@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { consoleApi } from '../../../api/client.js';
 import Button from '../../../components/ui/Button.jsx';
 import Input from '../../../components/ui/Input.jsx';
@@ -33,23 +33,35 @@ export default function DatabaseTab({ sessionToken, onLocked }) {
   const [result, setResult] = useState(null);
   const [pending, setPending] = useState(null);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [reload, setReload] = useState(0);
+  const req = useRef(0);
 
   const fail = (e) => (e.status === 401 && e.data?.code === 'CONSOLE_LOCKED' ? onLocked() : setError(e.message));
 
-  useEffect(() => { consoleApi.tables(sessionToken).then(setTables).catch(fail); }, [sessionToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { consoleApi.tables(sessionToken).then((t) => { setTables(t); setError(''); }).catch(fail); }, [sessionToken]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!name) return;
-    consoleApi.table(sessionToken, name, { search, page }).then(setView).catch(fail);
-  }, [sessionToken, name, search, page]); // eslint-disable-line react-hooks/exhaustive-deps
+    const mine = ++req.current;
+    consoleApi.table(sessionToken, name, { search, page })
+      .then((v) => { if (mine === req.current) { setView(v); setError(''); } })
+      .catch((e) => { if (mine === req.current) fail(e); });
+  }, [sessionToken, name, search, page, reload]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function run(confirm = false) {
+  async function run(text, confirm = false) {
+    if (busy) return;
+    setBusy(true);
     setError('');
     try {
-      setResult(await consoleApi.query(sessionToken, sql, confirm));
+      const r = await consoleApi.query(sessionToken, text, confirm);
+      setResult(r);
       setPending(null);
+      if (confirm && r.wrote) setReload((n) => n + 1);
     } catch (e) {
-      if (e.status === 409 && !confirm) setPending(sql);
+      if (e.status === 409 && !confirm) setPending(text);
       else { setPending(null); fail(e); }
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -78,7 +90,7 @@ export default function DatabaseTab({ sessionToken, onLocked }) {
         )}
         <div className="space-y-2">
           <textarea aria-label="Consulta SQL" className="input-base font-mono h-28" placeholder="SELECT * FROM ..." value={sql} onChange={(e) => setSql(e.target.value)} />
-          <Button onClick={() => run(false)} disabled={!sql.trim()}>Ejecutar</Button>
+          <Button onClick={() => run(sql)} disabled={busy || !sql.trim()}>Ejecutar</Button>
         </div>
         {result && (
           <div className="space-y-1">
@@ -91,7 +103,7 @@ export default function DatabaseTab({ sessionToken, onLocked }) {
         <pre data-testid="pending-sql" className="bg-surface-muted rounded p-3 text-xs font-mono whitespace-pre-wrap break-all mb-4">{pending}</pre>
         <div className="flex gap-2 justify-end">
           <Button variant="secondary" onClick={() => setPending(null)}>Cancelar</Button>
-          <Button variant="danger" onClick={() => run(true)}>Ejecutar de todos modos</Button>
+          <Button variant="danger" disabled={busy} onClick={() => run(pending, true)}>Ejecutar de todos modos</Button>
         </div>
       </Modal>
     </div>

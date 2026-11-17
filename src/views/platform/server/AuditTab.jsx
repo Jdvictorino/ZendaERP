@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { consoleApi } from '../../../api/client.js';
+import Select from '../../../components/ui/Select.jsx';
 import Button from '../../../components/ui/Button.jsx';
 import { formatDateTime } from '../shared.jsx';
 
@@ -18,9 +19,9 @@ export default function AuditTab({ sessionToken }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-muted">El registro de comandos es aproximado: el autocompletado, el historial y editores como vim no se registran fielmente.</p>
-      <select aria-label="Filtrar por tipo" className="input-base max-w-xs" value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }}>
+      <Select aria-label="Filtrar por tipo" className="max-w-xs" value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }}>
         {KINDS.map((k) => <option key={k} value={k}>{k || 'Todos los tipos'}</option>)}
-      </select>
+      </Select>
       {error && <p role="alert" className="text-sm text-danger-600">{error}</p>}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
