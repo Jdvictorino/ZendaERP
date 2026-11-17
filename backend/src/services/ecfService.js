@@ -141,8 +141,8 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
       rncEmisor: company.rnc || '',
       rncComprador: invoice.customerRnc || null,
       nombreComprador: invoice.customerName || invoice.customer?.name || null,
-      montoTotal: invoice.total,
-      itbisTotal: invoice.taxAmount,
+      montoTotal: ecfObject.ECF.Encabezado.Totales.MontoTotal,
+      itbisTotal: ecfObject.ECF.Encabezado.Totales.TotalITBIS || 0,
       fechaEmision: invoice.date,
       dgiiStatus: 'pendiente',
     },
@@ -156,7 +156,7 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
     let response;
     
     // E32 (Factura de Consumo) menor de RD$250,000 se envía como resumen (RFCE); la regla es la del paquete
-    if (isSummaryInvoice(eNcf, String(invoice.total))) {
+    if (isSummaryInvoice(eNcf, String(ecfObject.ECF.Encabezado.Totales.MontoTotal))) {
       const rfceData = convertECF32ToRFCE(xmlSigned);
       const rfceSigned = signature.signXml(rfceData.xml, 'RFCE');
       response = await ecfClient.sendSummary(rfceSigned, fileName);

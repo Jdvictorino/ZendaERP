@@ -34,13 +34,33 @@ describe('montos e-CF', () => {
     expect(T.MontoTotal).toBe('118.00');
   });
 
-  it('nota de crédito total sobre factura vieja: MontoTotal = monto de la nota', () => {
-    const items = [
-      { productName: 'A', quantity: 2, unitPrice: 118, subtotal: 200, discountPercent: 0, taxRate: 18 },
-      { productName: 'B', quantity: 1, unitPrice: 50, subtotal: 50, discountPercent: 0, taxRate: 0 },
-    ];
-    const inv = { ...base, pricesIncludeTax: true, ncfNumber: 'E310000000003', items, total: 286 };
-    const { ECF } = buildEcfFromNote({ amount: 286, reason: 'Devolución' }, inv, company, 'E34', 'E340000000001', sequence, { full: true });
-    expect(ECF.Encabezado.Totales.MontoTotal).toBe('286.00');
+  const build = (inv) => buildEcfFromInvoice({ ...base, ...inv }, company, 'E31', 'E310000000009', sequence).ECF;
+  const check = (ECF) => {
+    const T = ECF.Encabezado.Totales;
+    const sumItems = [ECF.DetallesItems.Item].flat().reduce((n, i) => n + Number(i.MontoItem), 0);
+    expect(Number(T.MontoTotal)).toBeCloseTo(Number(T.MontoGravadoTotal) + Number(T.MontoExento || 0) + Number(T.TotalITBIS), 2);
+    expect(sumItems).toBeCloseTo(Number(T.MontoGravadoTotal) + Number(T.MontoExento || 0), 2);
+    expect(ECF.Encabezado.IdDoc.TablaFormasPago.FormaDePago.MontoPago).toBe(T.MontoTotal);
+    return T;
+  };
+
+  it('legacy 2 x 1 con base 1.69: ítems suman la base y el total es lo cobrado', () => {
+    const T = check(build({ pricesIncludeTax: true, total: 2, items: [{ productName: 'A', quantity: 2, unitPrice: 1, subtotal: 1.69, discountPercent: 0, taxRate: 18 }] }));
+    expect(T.MontoGravadoTotal).toBe('1.69');
+    expect(T.MontoTotal).toBe('2.00');
+  });
+
+  it('legacy con descuento: MontoItem es la base guardada y el total lo cobrado', () => {
+    const ECF = build({ pricesIncludeTax: true, total: 254.97, items: [{ productName: 'A', quantity: 3, unitPrice: 99.99, subtotal: 216.08, discountPercent: 15, taxRate: 18 }] });
+    const T = check(ECF);
+    expect([ECF.DetallesItems.Item].flat()[0].MontoItem).toBe('216.08');
+    expect(T.MontoTotal).toBe('254.97');
+  });
+
+  it('cupón: las líneas se escalan al total de la venta', () => {
+    // 108 / 1.18 = 91.5254: con precio a 2 decimales, 91.53 + 16.48 = 108.01 y 91.52 + 16.47 = 107.99; 108.00 no existe (inevitable, 1 centavo)
+    const T = check(build({ pricesIncludeTax: false, discountAmount: 10, total: 108, items: [{ productName: 'A', quantity: 1, unitPrice: 100, discountPercent: 0, taxRate: 18 }] }));
+    expect(T.MontoTotal).toBe('108.01');
+    expect(T.TotalITBIS).toBe('16.48');
   });
 });

@@ -84,7 +84,11 @@ function getIndicadorFacturacion(taxRate) {
  * @returns {Object} Objeto IECF listo para convertir a XML
  */
 export function buildEcfFromInvoice(invoice, company, tipoEcf, eNcf, sequence) {
-  const items = normalizeItems(invoice.items || [], invoice.pricesIncludeTax);
+  let items = normalizeItems(invoice.items || [], invoice.pricesIncludeTax);
+  // Cupón: el total de la venta ya viene rebajado y las líneas no; se escalan para que el XML declare ese total
+  if (Number(invoice.discountAmount) > 0) {
+    items = scaleToTotal(items.map((i) => ({ ...i, net: lineCalc(i).base })), Number(invoice.total));
+  }
   const tipoCode = ECF_TYPE_CODES[tipoEcf];
   const fechaEmision = formatDateDGII(invoice.date || new Date());
   // Formato e-CF v1.0: la fecha de vencimiento "no corresponde" en la factura de consumo (32) ni en la nota de crédito (34)
@@ -183,7 +187,7 @@ export function buildEcfFromInvoice(invoice, company, tipoEcf, eNcf, sequence) {
 function buildItems(invoiceItems) {
   return invoiceItems.map((item, index) => {
     const quantity = Number(item.quantity);
-    const { base } = lineAmounts(item);
+    const { base } = lineCalc(item);
     const discountAmount = round2(quantity * item.unitPrice - base);
 
     const ecfItem = {
@@ -208,13 +212,35 @@ function buildItems(invoiceItems) {
 
 /**
  * Lleva todas las líneas a precio sin ITBIS. Las facturas con ITBIS incluido (pricesIncludeTax) declaran
- * la base guardada en `subtotal` (ya con descuento), igual que la factura.
+ * la base guardada en `subtotal` (ya con descuento) y conservan lo cobrado por línea (storedGross).
  */
 function normalizeItems(items, pricesIncludeTax) {
   return items.map((i) => {
     const item = { ...i, quantity: Number(i.quantity), taxRate: Number(i.taxRate || 0), discountPercent: Number(i.discountPercent || 0), unitPrice: Number(i.unitPrice) };
-    return pricesIncludeTax ? { ...item, unitPrice: netUnitPrice(item, true), storedBase: round2(Number(i.subtotal)) } : item;
+    if (!pricesIncludeTax) return item;
+    const storedGross = round2(item.quantity * item.unitPrice * (1 - item.discountPercent / 100));
+    return { ...item, unitPrice: netUnitPrice(item, true), storedBase: round2(Number(i.subtotal)), storedGross };
   });
+}
+
+// Base e ITBIS de una línea; fuente única para los ítems y los totales
+function lineCalc(item) {
+  if (item.storedBase === undefined) return lineAmounts(item);
+  // Línea con ITBIS incluido: el ITBIS es lo cobrado menos la base, así la línea suma exactamente lo cobrado
+  return { base: item.storedBase, itbis: item.taxRate > 0 ? round2(item.storedGross - item.storedBase) : 0 };
+}
+
+/**
+ * Reparte `target` (total con ITBIS) entre las líneas en proporción a su monto con ITBIS (`net` = base de la línea).
+ * Sin líneas con monto, una línea exenta de ajuste. Usado por las notas y por facturas con cupón.
+ */
+function scaleToTotal(lines, target, reason = 'Ajuste') {
+  const weight = (l) => l.net * (1 + Number(l.taxRate || 0) / 100);
+  const withTax = lines.reduce((sum, l) => sum + weight(l), 0);
+  const factor = withTax > 0 ? target / withTax : 0;
+  return factor > 0
+    ? lines.map((l) => ({ productName: l.productName, quantity: Number(l.quantity), taxRate: Number(l.taxRate || 0), discountPercent: 0, unitPrice: Number(((l.net / Number(l.quantity)) * factor).toFixed(2)) }))
+    : [{ productName: reason, quantity: 1, taxRate: 0, discountPercent: 0, unitPrice: Number(target.toFixed(2)) }];
 }
 
 /**
@@ -225,8 +251,7 @@ function calcularTotalesPorTasa(items) {
 
   for (const item of items) {
     const rate = item.taxRate;
-    const base = item.storedBase ?? lineAmounts(item).base;
-    const itbis = round2((base * rate) / 100);
+    const { base, itbis } = lineCalc(item);
     if (rate === 18) { t.montoGravadoI1 += base; t.totalITBIS1 += itbis; }
     else if (rate === 16) { t.montoGravadoI2 += base; t.totalITBIS2 += itbis; }
     else if (rate > 0) { t.montoGravadoI3 += base; t.totalITBIS3 += itbis; }
@@ -250,15 +275,11 @@ export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, 
   const noteDate = new Date(note.createdAt || Date.now());
   const source = lines?.length ? lines : originalInvoice.items || [];
   const net = (i) => netUnitPrice({ unitPrice: Number(i.unitPrice), taxRate: Number(i.taxRate || 0) }, !!originalInvoice.pricesIncludeTax) * (1 - parseFloat(i.discountPercent || 0) / 100);
-  const withTax = source.reduce((sum, i) => sum + net(i) * parseInt(i.quantity) * (1 + parseFloat(i.taxRate || 0) / 100), 0);
   const amount = parseFloat(note.amount);
-  const factor = withTax > 0 ? amount / withTax : 0;
-  const items = factor > 0
-    ? source.map((i) => ({ productName: i.productName, quantity: i.quantity, taxRate: i.taxRate, discountPercent: 0, unitPrice: (net(i) * factor).toFixed(2) }))
-    : [{ productName: note.reason || 'Ajuste', quantity: 1, taxRate: 0, discountPercent: 0, unitPrice: amount.toFixed(2) }];
+  const items = scaleToTotal(source.map((i) => ({ ...i, net: net(i) * parseInt(i.quantity) })), amount, note.reason || 'Ajuste');
 
   // Las líneas ya van sin ITBIS: no se normalizan de nuevo
-  const ecfData = buildEcfFromInvoice({ ...originalInvoice, pricesIncludeTax: false, date: noteDate, items }, company, tipoEcf, eNcf, sequence);
+  const ecfData = buildEcfFromInvoice({ ...originalInvoice, pricesIncludeTax: false, discountAmount: 0, date: noteDate, items }, company, tipoEcf, eNcf, sequence);
   const { TablaFormasPago, ...idDoc } = ecfData.ECF.Encabezado.IdDoc; // opcional/no corresponde en notas
   if (tipoEcf === 'E34') {
     const originalDate = new Date(originalInvoice.billedDate || originalInvoice.date);
