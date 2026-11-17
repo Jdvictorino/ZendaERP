@@ -28,4 +28,17 @@ describe('comprobantes disponibles y sugerencia', () => {
   it('cliente común no genera aviso', () => {
     expect(missingVoucherWarning({ taxpayerType: 'empresa' }, { ecf: false, exempt: false }, [], 'B01')).toBeNull();
   });
+
+  describe('B01/B02 según Secuencias NCF o columna', () => {
+    const values = (prof) => buildVoucherOptions(prof).map(o => o.value);
+    it('prefijo solo en ncfSequences (columna vacía): se ofrece B02', () => {
+      expect(values({ ncf: { b02_prefix: '', b02_sequence_next: 7 }, ncfSequences: [{ code: 'B02', prefix: 'B02', end: 50, active: true }] })).toContain('B02');
+    });
+    it('prefijo solo en la columna: se ofrece B02', () => {
+      expect(values({ ncf: { b02_prefix: 'B02', b02_sequence_next: 1 } })).toContain('B02');
+    });
+    it('secuencia B02 inactiva y sin prefijo de columna: no se ofrece', () => {
+      expect(values({ ncf: { b02_prefix: '' }, ncfSequences: [{ code: 'B02', prefix: 'B02', end: 50, active: false }] })).not.toContain('B02');
+    });
+  });
 });
