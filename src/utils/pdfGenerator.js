@@ -2,6 +2,7 @@ import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 import { withEcfPrintData, qrModules } from './ecfPrint.js';
+import { docLine, docTotals } from './docLines.js';
 
 let pdfLibrariesPromise = null;
 
@@ -281,7 +282,7 @@ const resolveSku = (item) => {
     return match ? String(match).trim() : '-';
 };
 
-const drawItemsTable = (doc, theme, { items = [], currency, startY }) => {
+const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax }) => {
     if (!items.length) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
@@ -292,7 +293,7 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY }) => {
     const tableRows = items.map((item) => {
         // Compatibilidad con estructura Firebase y PostgreSQL
         const name = item.name || item.productName || item.product?.name || '-';
-        const price = item.price ?? item.unitPrice ?? 0;
+        const { unit: price, amount } = docLine(item, pricesIncludeTax);
         const qty = item.quantity || 0;
         const notes = item.customizationNotes || item.description || item.notes || '—';
         return [
@@ -301,7 +302,7 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY }) => {
             notes,
             qty,
             formatCurrency(price, currency),
-            formatCurrency(price * qty, currency),
+            formatCurrency(amount, currency),
         ];
     });
 
@@ -344,11 +345,12 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
     const summaryX = bankDetails?.bankName ? 110 : 14;
     
     // Compatibilidad Firebase y PostgreSQL
-    const taxableAmount = docData.montoGravado ?? docData.subtotal ?? 0;
-    const exemptAmount = docData.montoExento ?? 0;
+    const coupon = docTotals(docData); // con cupón: suma de las líneas (incluye lo exento) y la parte del cupón en la base
+    const taxableAmount = coupon?.subtotal ?? docData.montoGravado ?? docData.subtotal ?? 0;
+    const exemptAmount = coupon ? 0 : docData.montoExento ?? 0;
     const taxAmount = docData.itbis ?? docData.taxAmount ?? 0;
     const totalAmount = docData.total ?? 0;
-    const discAmount = docData.discountAmount ?? 0;
+    const discAmount = coupon?.discount ?? docData.discountAmount ?? 0;
     
     const summaryEntries = [
         { label: 'Monto gravado', value: taxableAmount },
@@ -413,6 +415,11 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
         }
         cursorY += 8;
     });
+
+    if (docData.exemptionNumber) {
+        doc.setFontSize(8);
+        doc.text(`Exento de ITBIS — Carnet N.º ${docData.exemptionNumber}`, summaryX + 8, cursorY - 2);
+    }
 
     return startY + adjustedHeight;
 };
@@ -668,6 +675,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         cursorY = drawItemsTable(doc, theme, {
             items: docData?.items || [],
             currency,
+            pricesIncludeTax: docData?.pricesIncludeTax,
             startY: cursorY,
         });
 

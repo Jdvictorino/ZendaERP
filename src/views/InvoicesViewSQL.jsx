@@ -688,6 +688,7 @@ const InvoicesViewSQL = ({ companyProfile, isMasterUser, currentUserProfile }) =
                     onConfirm={handleFacturar}
                     customer={safeCustomers.find(c => c.id === billingOrder.customerId)}
                     companyProfile={companyProfile}
+                    exempt={!!billingOrder.exemptionNumber}
                 />
             )}
             {showEmailModal && (

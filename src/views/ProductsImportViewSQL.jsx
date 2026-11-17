@@ -102,7 +102,7 @@ const ProductsImportViewSQL = ({ onImportComplete, embedded = false }) => {
                                     <th className="px-3 py-2 border-b border-line">Nombre</th>
                                     <th className="px-3 py-2 border-b border-line">Código (entrada)</th>
                                     <th className="px-3 py-2 border-b border-line">SKU</th>
-                                    <th className="px-3 py-2 border-b border-line">PrecioVenta</th>
+                                    <th className="px-3 py-2 border-b border-line">Precio venta (sin ITBIS)</th>
                                     <th className="px-3 py-2 border-b border-line">Stock</th>
                                 </tr>
                             </thead>

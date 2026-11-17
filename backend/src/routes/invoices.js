@@ -9,6 +9,9 @@ import { createAlert } from './alerts.js';
 import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 import { requireApproval } from '../services/approvals.js';
+import { priceInvoiceLines } from '../services/invoiceAmounts.js';
+import { discountedAmounts } from '../services/ecfXmlBuilder.js';
+import { isTaxExempt, todayRD, voucherError } from '../services/tax.js';
 import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
@@ -94,7 +97,8 @@ const invoiceSchema = z.object({
   deliveryType: z.string().optional(),
   notes: z.string().optional(),
   status: z.string().default('Pendiente'),
-  paymentTermDays: z.number().int().min(0).max(365).optional()
+  paymentTermDays: z.number().int().min(0).max(365).optional(),
+  pricesExcludeTax: z.boolean().optional()
 });
 
 /**
@@ -219,34 +223,10 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
       needsApproval ||= check.needsApproval;
     }
 
-    // Calcular totales
-    // unitPrice viene del frontend ya con ITBIS incluido (precio final).
-    // subtotal = suma de precios base (sin ITBIS)
-    // taxAmount = ITBIS extraído de los precios
-    // total = unitPrice * quantity (lo que el cliente paga)
-    let subtotal = 0;
-    let taxAmount = 0;
-
-    const itemsWithTotals = data.items.map(item => {
-      const discountFactor = 1 - item.discountPercent / 100;
-      const itemTotalWithTax = item.quantity * item.unitPrice * discountFactor;
-      // Extraer base e ITBIS desde el precio final inclusivo
-      const divisor = item.taxRate > 0 ? (1 + item.taxRate / 100) : 1;
-      const itemBase = itemTotalWithTax / divisor;
-      const itemTax = itemTotalWithTax - itemBase;
-      subtotal += itemBase;
-      taxAmount += itemTax;
-
-      return {
-        ...item,
-        subtotal: itemBase,
-        customizationNotes: item.customizationNotes || null,
-        customImageUrls: item.customImageUrls || [],
-        variantInfo: item.variantInfo || null,
-      };
-    });
-
-    const total = subtotal + taxAmount; // = sum of (unitPrice * qty) after discounts
+    // Apps nuevas mandan precios sin ITBIS; las 1.1.x no mandan la marca y siguen con ITBIS incluido
+    const pricesExcludeTax = data.pricesExcludeTax === true;
+    const exempt = pricesExcludeTax && isTaxExempt(customer, todayRD());
+    const { items: itemsWithTotals, subtotal, taxAmount, total } = priceInvoiceLines(data.items, { pricesExcludeTax, exempt });
     const changeAmount = data.amountPaid > total ? data.amountPaid - total : 0;
 
     // Venta a crédito: no puede pasar el límite del cliente (límite 0 = sin límite)
@@ -287,6 +267,8 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
           subtotal,
           taxAmount,
           total,
+          pricesIncludeTax: !pricesExcludeTax,
+          exemptionNumber: exempt ? customer.exemptionNumber : null,
           paymentMethod: data.paymentMethod,
           // venta a crédito: vence en la fecha de la venta + plazo; de contado no lleva vencimiento propio
           paymentTermDays: data.paymentTermDays || null,
@@ -297,7 +279,12 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
           notes: data.notes,
           status: data.status,
           items: {
-            create: itemsWithTotals
+            create: itemsWithTotals.map((i) => ({
+              ...i,
+              customizationNotes: i.customizationNotes || null,
+              customImageUrls: i.customImageUrls || [],
+              variantInfo: i.variantInfo || null
+            }))
           }
         },
         include: {
@@ -393,7 +380,7 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: { select: { id: true } } }
+      include: { items: true }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
@@ -402,7 +389,8 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
     const body = req.body;
     const manager = canManageInvoices(req.user);
     const updateData = {};
-    const grossTotal = Number(invoice.subtotal) + Number(invoice.taxAmount); // total antes de descuentos (precios con ITBIS)
+    // Total antes del cupón (con ITBIS). No sale de subtotal + taxAmount: con cupón esos ya van rebajados
+    const grossTotal = Number(invoice.total) + Number(invoice.discountAmount || 0);
 
     if (body.notes !== undefined) updateData.notes = body.notes;
     if (body.paymentMethod !== undefined) updateData.paymentMethod = body.paymentMethod;
@@ -427,6 +415,8 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
       if (discount > cap + 0.01 && (await requireApproval(req, res, 'price_override')) === false) return;
       updateData.discountAmount = discount;
       updateData.total = grossTotal - discount;
+      // Base e ITBIS rebajados con el mismo reparto que declara el e-CF, así el 607 y el e-CF dicen lo mismo
+      Object.assign(updateData, discountedAmounts({ ...invoice, ...updateData }));
     }
     const total = updateData.total ?? Number(invoice.total);
 
@@ -508,6 +498,17 @@ router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next
       return res.status(400).json({ error: 'La factura ya está facturada' });
     }
 
+    // Comprobante según la venta: exenta -> E44/B14; gobierno -> E45/B15. Sin tipo en una venta exenta cuenta como NoFiscal
+    const customer = invoice.customerId
+      ? await prisma.customer.findFirst({ where: { id: invoice.customerId, companyId: req.companyId }, select: { taxpayerType: true } })
+      : null;
+    const exemptApplied = !!invoice.exemptionNumber;
+    const voucherCheck = ncfType || (exemptApplied ? 'NoFiscal' : null);
+    if (voucherCheck) {
+      const voucherProblem = voucherError(voucherCheck, { exemptApplied, taxpayerType: customer?.taxpayerType });
+      if (voucherProblem) return res.status(400).json({ error: voucherProblem });
+    }
+
     // ── e-CF: Tipos electrónicos (E31, E32, E33, E34, etc.) ──
     if (ncfType && ncfType.startsWith('E')) {
       const company = await prisma.company.findUnique({ where: { id: req.companyId } });
@@ -544,8 +545,8 @@ router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next
       return res.json({ ...updatedInvoice, ecfResult });
     }
 
-    // ── NCF Tradicional (B01, B02, NoFiscal) ──
-    if (ncfType && !['B01', 'B02', 'NoFiscal'].includes(ncfType)) {
+    // ── NCF Tradicional (B01, B02, B14, B15, NoFiscal) ──
+    if (ncfType && !['B01', 'B02', 'B14', 'B15', 'NoFiscal'].includes(ncfType)) {
       return res.status(400).json({ error: 'Tipo de comprobante no válido.' });
     }
     const updatedInvoice = await prisma.$transaction(async (tx) => {
@@ -556,7 +557,7 @@ router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next
       });
       if (claimed.count === 0) throw httpError(400, 'La factura ya está facturada');
 
-      const ncf = ncfType === 'B01' || ncfType === 'B02' ? await takeNcf(tx, req.companyId, ncfType) : { number: 'NoFiscal', expiresAt: null };
+      const ncf = ['B01', 'B02', 'B14', 'B15'].includes(ncfType) ? await takeNcf(tx, req.companyId, ncfType) : { number: 'NoFiscal', expiresAt: null };
       return tx.invoice.update({
         where: { id: invoice.id },
         data: { invoiceNumber: invoice.orderNumber, ncfNumber: ncf.number, ncfExpiresAt: ncf.expiresAt ? new Date(ncf.expiresAt) : null, ncfType: ncfType || 'NoFiscal', customerRnc }

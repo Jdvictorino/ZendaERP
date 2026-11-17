@@ -10,6 +10,8 @@ import { Trash2, AlertTriangle, History, Loader2, Package, PlusCircle, Palette, 
 import toast from 'react-hot-toast';
 
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { productRate } from '../utils/productRate.js';
+import { round2 } from '../utils/tax.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import ProductModal from '../components/modals/ProductModal.jsx';
 import StockModal from '../components/modals/StockModal.jsx';
@@ -275,6 +277,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                     onCategoryAdded={refetchCategories}
                     onSupplierAdded={refetchSuppliers}
                     isMasterUser={isMasterUser}
+                    currency={currency}
                     fullPage
                 />
             </div>
@@ -371,7 +374,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                                             </td>
                                             <td className="px-4 py-3 text-sm text-ink-soft dark:text-gray-400 font-mono">{product.sku || '-'}</td>
                                             <td className="px-4 py-3 text-sm text-ink-muted dark:text-gray-400">{product.code || product.barcode}</td>
-                                            <td className="px-4 py-3 text-right text-sm font-medium dark:text-gray-100">{formatCurrency(product.salePrice || 0, currency)}</td>
+                                            <td className="px-4 py-3 text-right text-sm font-medium dark:text-gray-100">{formatCurrency(product.salePrice || 0, currency)}<div className="text-xs font-normal text-ink-muted">{productRate(product) > 0 ? `Con ITBIS: ${formatCurrency(round2((product.salePrice || 0) * (1 + productRate(product) / 100)), currency)}` : 'Exento'}</div></td>
                                             <td className="px-4 py-3 text-right">
                                                 <span className={badgeClass(product.stock <= (product.minStock || 0) ? 'danger' : 'success')}>
                                                     {product.stock || 0}

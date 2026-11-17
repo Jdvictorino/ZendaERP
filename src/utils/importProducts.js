@@ -20,7 +20,7 @@ export async function parseXlsxFile(file) {
     const errors = [];
     const data = raw.map((row, idx) => {
         const nombre = (row.Nombre || '').toString().trim();
-        const precioVenta = parseFloat(row.PrecioVenta || row.Precio || 0) || 0;
+        const precioVenta = parseFloat(row['Precio venta (sin ITBIS)'] || row.PrecioVenta || row.Precio || 0) || 0;
         const precioCompra = parseFloat(row.PrecioCompra || 0) || 0;
         const stock = parseFloat(row.Stock || 0) || 0;
         if (!nombre) errors.push({ row: idx + 2, error: 'Nombre es obligatorio' });

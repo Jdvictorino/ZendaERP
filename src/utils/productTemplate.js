@@ -13,7 +13,7 @@ export async function downloadProductTemplate() {
         Proveedor: '',
         ProveedorId: '',
         PrecioCompra: 0,
-        PrecioVenta: 0,
+        'Precio venta (sin ITBIS)': 0,
         Stock: 0,
         StockThreshold: 5,
         Impuesto: 'Gravado (18%)',
@@ -33,7 +33,8 @@ export async function downloadProductTemplate() {
         ['- SKU es opcional. Si está vacío o duplicado, se generará automáticamente uno único basado en el nombre.'],
         ['- Si se provee un EAN-13 válido y no duplicado, será respetado como código y barcode.'],
         ['- Columnas soportadas: Nombre, SKU, CodigoProducto, CodigoBarras, Categoria, CategoriaId, Proveedor, ProveedorId,'],
-        ['  PrecioCompra, PrecioVenta, Stock, StockThreshold, Impuesto, Descripcion, Variantes (JSON), Imagenes (separadas por coma).'],
+        ['  PrecioCompra, Precio venta (sin ITBIS), Stock, StockThreshold, Impuesto, Descripcion, Variantes (JSON), Imagenes (separadas por coma).'],
+        ['- Los precios van SIN ITBIS; el sistema calcula el ITBIS al facturar. El encabezado antiguo PrecioVenta también se acepta.'],
         ['- Cualquier columna adicional será ignorada.']
     ];
     const notesSheet = window.XLSX.utils.aoa_to_sheet(notes);
@@ -42,4 +43,4 @@ export async function downloadProductTemplate() {
     window.XLSX.writeFile(workbook, 'product_template.xlsx');
 }
 
-export const TEMPLATE_HEADERS = ['Nombre','SKU','CodigoProducto','CodigoBarras','Categoria','CategoriaId','Proveedor','ProveedorId','PrecioCompra','PrecioVenta','Stock','StockThreshold','Impuesto','Descripcion','Variantes','Imagenes'];
+export const TEMPLATE_HEADERS = ['Nombre','SKU','CodigoProducto','CodigoBarras','Categoria','CategoriaId','Proveedor','ProveedorId','PrecioCompra','Precio venta (sin ITBIS)','Stock','StockThreshold','Impuesto','Descripcion','Variantes','Imagenes'];

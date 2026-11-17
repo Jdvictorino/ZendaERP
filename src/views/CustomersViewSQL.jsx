@@ -11,6 +11,8 @@ import ConfirmationModal from '../components/modals/ConfirmationModal.jsx';
 import CustomerModal from '../components/modals/CustomerModal.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
+import { TAXPAYER_TYPES, exemptionStatus, todayRD } from '../utils/tax.js';
+import { badgeClass } from '../components/ui/Badge.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
 // API PostgreSQL
@@ -422,7 +424,10 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                         <td className="p-3 text-sm font-medium dark:text-gray-100">{c.name}</td>
                                         <td className="p-3 text-sm text-ink-soft dark:text-gray-400">{c.category || 'Sin categoría'}</td>
                                         <td className="p-3 text-sm text-ink-soft dark:text-gray-400">{(c.accountType || 'contado') === 'credito' ? 'Crédito' : 'Contado'}</td>
-                                        <td className="p-3 text-sm dark:text-gray-400">{c.identificationNumber}{c.type ? ` (${c.type})` : ''}</td>
+                                        <td className="p-3 text-sm dark:text-gray-400">{c.identificationNumber}{c.taxpayerType ? ` (${TAXPAYER_TYPES.find(t => t.value === c.taxpayerType)?.label || c.taxpayerType})` : ''}
+                                            {exemptionStatus(c, todayRD()) === 'valid' && <span className={`${badgeClass('success')} ml-2`}>Exento</span>}
+                                            {exemptionStatus(c, todayRD()) === 'expired' && <span className={`${badgeClass('danger')} ml-2`}>Carnet vencido</span>}
+                                        </td>
                                         <td className="p-3 text-sm dark:text-gray-400">{c.phone}</td>
                                         <td className="p-3"><div className="flex flex-wrap gap-2 items-center">
                                             <Button variant="ghost" size="sm" onClick={() => setEditingCustomer(c)} title="Editar cliente">

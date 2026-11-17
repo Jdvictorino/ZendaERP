@@ -4,6 +4,7 @@ import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
+import { customerTaxFields, exemptionChangeError } from '../services/customerTax.js';
 
 const router = Router();
 router.use(authenticate);
@@ -144,7 +145,10 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', authorize(...rolesFor('customers')), async (req, res, next) => {
   try {
     const parsed = customerSchema.parse(req.body);
-    const data = transformCustomerData(parsed);
+    const tax = customerTaxFields(req.body);
+    const denied = exemptionChangeError(tax, null, req.user);
+    if (denied) return res.status(403).json({ error: denied });
+    const data = { ...transformCustomerData(parsed), ...tax };
     
     // Generar código si no viene
     if (!data.customerCode) {
@@ -191,6 +195,15 @@ router.put('/:id', authorize(...rolesFor('customers')), async (req, res, next) =
 
     if (!existing) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+
+    // Un PUT sin campos de impuesto conserva los guardados
+    const b = req.body;
+    if (b.taxpayerType || 'exemptionNumber' in b || 'exemptionExpiresAt' in b) {
+      const tax = customerTaxFields(b, existing);
+      const denied = exemptionChangeError(tax, existing, req.user);
+      if (denied) return res.status(403).json({ error: denied });
+      Object.assign(data, tax);
     }
 
     const customer = await prisma.customer.update({

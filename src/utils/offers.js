@@ -81,6 +81,16 @@ export function applyCouponToCart(coupon, cart = []) {
   };
 }
 
+// Carrito para el cupón a partir de las líneas de una factura. El cupón va sobre el precio con ITBIS:
+// en las facturas nuevas (pricesIncludeTax === false) el precio guardado es sin ITBIS y se le suma.
+export function couponCart(invoice) {
+  const withTax = invoice?.pricesIncludeTax === false;
+  return (invoice?.items || []).map((i) => {
+    const price = Number(i.unitPrice ?? i.price) || 0;
+    return { cartId: i.cartId || i.id, productId: i.productId, categoryId: i.categoryId, price: withTax ? price * (1 + (Number(i.taxRate) || 0) / 100) : price, quantity: i.quantity };
+  });
+}
+
 /**
  * Redimir un cupón en una transacción (incrementar timesUsed)
  */
@@ -101,5 +111,6 @@ export default {
   getCouponByCode,
   validateCoupon,
   applyCouponToCart,
+  couponCart,
   redeemCouponTransaction
 };

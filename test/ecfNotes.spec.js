@@ -68,3 +68,16 @@ describe('E33 nota de débito y E32', () => {
     expect(ECF.Encabezado.IdDoc.FechaVencimientoSecuencia).toBeUndefined();
   });
 });
+
+describe('nota sobre factura vieja (ITBIS incluido)', () => {
+  it('nota de crédito total sobre factura vieja: MontoTotal = monto de la nota', () => {
+    const items = [
+      { productName: 'A', quantity: 2, unitPrice: 118, subtotal: 200, discountPercent: 0, taxRate: 18 },
+      { productName: 'B', quantity: 1, unitPrice: 50, subtotal: 50, discountPercent: 0, taxRate: 0 },
+    ];
+    const inv = { date: invoice.date, paymentMethod: 'Efectivo', customerRnc: '101010101', pricesIncludeTax: true, ncfNumber: 'E310000000003', items, total: 286 };
+    const { ECF } = buildEcfFromNote({ amount: 286, reason: 'Devolución' }, inv, company, 'E34', 'E340000000001', sequence, { full: true });
+    expect(ECF.Encabezado.Totales.MontoTotal).toBe('286.00');
+    expect(Number(ECF.Encabezado.Totales.MontoTotal)).toBeCloseTo(sumTotals(ECF.Encabezado.Totales), 2);
+  });
+});
