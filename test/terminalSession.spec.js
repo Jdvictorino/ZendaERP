@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { attachTerminal } from '../backend/src/services/terminalSession.js';
 
 const fakeWs = () => {
@@ -6,12 +6,14 @@ const fakeWs = () => {
   return { h, sent: [], closed: null, on: (e, f) => { h[e] = f; }, send(d) { this.sent.push(d); }, close(c, r) { this.closed = r ?? 'x'; } };
 };
 const fakeSsh = () => ({ written: [], ended: false, write(d) { this.written.push(d); }, resize() {}, onData(f) { this.data = f; }, onClose(f) { this.closeCb = f; }, end() { this.ended = true; } });
-const setup = () => {
-  const ws = fakeWs(); const ssh = fakeSsh(); const audit = vi.fn();
+const opened = [];
+afterEach(() => { opened.forEach((w) => w.h.close?.()); opened.length = 0; });
+const setup = (connect) => {
+  const ws = fakeWs(); const ssh = fakeSsh(); opened.push(ws); const audit = vi.fn();
   const timers = [];
   const setTimer = (fn, ms) => { const t = { fn, ms, off: false }; timers.push(t); return t; };
   const clearTimer = (t) => { if (t) t.off = true; };
-  attachTerminal({ ws, email: 'a@b', ip: '1.1.1.1', connectSsh: async () => ssh, audit, setTimer, clearTimer });
+  attachTerminal({ ws, email: 'a@b', ip: '1.1.1.1', connectSsh: connect || (async () => ssh), audit, setTimer, clearTimer });
   return { ws, ssh, audit, timers };
 };
 const kinds = (a) => a.mock.calls.map((c) => c[0].kind);
@@ -44,5 +46,25 @@ describe('terminalSession', () => {
     a.ssh.closeCb();
     expect(a.ws.closed).toBe('Conexión SSH cerrada');
     expect(kinds(a.audit)).toContain('terminal_close');
+  });
+  it('la entrada reinicia el temporizador de inactividad', async () => {
+    const a = setup(); await tick();
+    const first = a.timers.find((t) => t.ms === 600000 && !t.off);
+    a.ws.h.message(JSON.stringify({ t: 'in', d: 'x' }));
+    expect(first.off).toBe(true);
+    expect(a.timers.filter((t) => t.ms === 600000 && !t.off)).toHaveLength(1);
+  });
+  it('un fallo de connectSsh libera la sesión y registra el cierre', async () => {
+    const a = setup(async () => { throw new Error('sin llave'); }); await tick();
+    expect(a.ws.closed).toBe('sin llave');
+    expect(kinds(a.audit)).toEqual(['terminal_open', 'terminal_close']);
+    const b = setup(); await tick();
+    expect(b.ws.closed).toBe(null);
+  });
+  it('un mensaje tras el cierre no escribe en SSH', async () => {
+    const a = setup(); await tick();
+    a.ws.h.close();
+    a.ws.h.message(JSON.stringify({ t: 'in', d: 'x' }));
+    expect(a.ssh.written).toEqual([]);
   });
 });

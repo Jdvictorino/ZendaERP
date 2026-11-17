@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { StringDecoder } from 'node:string_decoder';
 import { Client } from 'ssh2';
 import { createCommandRecorder } from './commandRecorder.js';
 
@@ -23,7 +24,7 @@ export function attachTerminal({ ws, email, ip, connectSsh, audit, now = Date.no
     if (active === self) active = null;
     clearTimer(idle); clearTimer(maxTimer);
     try { ssh?.end(); } catch { /* ya cerrada */ }
-    try { if (reason) ws.send(reason); ws.close(1000, reason); } catch { /* ya cerrado */ }
+    try { if (reason) ws.send(reason); ws.close(1000, reason && Buffer.from(reason).subarray(0, 120).toString().replace(/�$/, '')); } catch { /* ya cerrado */ }
     log('terminal_close', { reason: reason || 'cerrada', seconds: Math.round((now() - started) / 1000) });
   };
   const self = { close };
@@ -36,7 +37,7 @@ export function attachTerminal({ ws, email, ip, connectSsh, audit, now = Date.no
   ws.on('message', (raw) => {
     let m;
     try { m = JSON.parse(raw.toString()); } catch { return; }
-    if (!ssh) return;
+    if (!ssh || done) return;
     if (m.t === 'in' && typeof m.d === 'string') {
       resetIdle();
       ssh.write(m.d);
@@ -44,11 +45,13 @@ export function attachTerminal({ ws, email, ip, connectSsh, audit, now = Date.no
     } else if (m.t === 'resize') ssh.resize(Number(m.cols) || 80, Number(m.rows) || 24);
   });
   ws.on('close', () => close(null));
+  ws.on('error', () => close(null));
 
   connectSsh(process.env).then((s) => {
     if (done) { s.end(); return; }
     ssh = s;
-    s.onData((d) => { rec.output(d.toString()); ws.send(d, { binary: true }); });
+    const dec = new StringDecoder('utf8');
+    s.onData((d) => { rec.output(dec.write(d)); ws.send(d, { binary: true }); });
     s.onClose(() => close('Conexión SSH cerrada'));
   }).catch((e) => close(e.message || 'No se pudo conectar por SSH'));
 }
@@ -69,7 +72,7 @@ export function connectSsh(env) {
           write: (d) => stream.write(d),
           resize: (cols, rows) => stream.setWindow(rows, cols, 0, 0),
           onData: (cb) => stream.on('data', cb),
-          onClose: (cb) => stream.on('close', cb),
+          onClose: (cb) => { stream.on('close', cb); stream.on('error', cb); },
           end: () => conn.end(),
         });
       });

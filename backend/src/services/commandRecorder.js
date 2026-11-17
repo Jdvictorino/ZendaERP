@@ -2,6 +2,7 @@ const PROMPT = /password for|contraseña|password:|passphrase/i;
 
 // Reconstruye líneas tecleadas (con retroceso, sin secuencias de escape). Nunca guarda la salida:
 // solo la mira para detectar avisos de contraseña.
+// shortcut: input typed ahead (password pasted before the prompt arrives) is not redacted; fine for a single owner.
 export function createCommandRecorder() {
   let line = '';
   let lastOutput = '';

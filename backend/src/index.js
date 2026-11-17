@@ -4,7 +4,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import prisma from './db.js';
 import { ticketStore } from './services/consoleAuth.js';
-import { audit as auditLog } from './services/platformAudit.js';
+import { audit as auditLog, clientIp } from './services/platformAudit.js';
 import { attachTerminal, connectSsh } from './services/terminalSession.js';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -208,20 +208,26 @@ try {
 }
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 server.on('upgrade', (req, socket, head) => {
-  const url = new URL(req.url, 'http://x');
-  if (url.pathname !== '/api/admin/console/terminal') return socket.destroy();
-  const email = ticketStore.redeem(url.searchParams.get('ticket') || '');
-  if (!email) {
-    socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
-    return socket.destroy();
+  socket.on('error', () => socket.destroy());
+  try {
+    const url = new URL(req.url, 'http://x');
+    if (url.pathname !== '/api/admin/console/terminal') return socket.destroy();
+    const email = ticketStore.redeem(url.searchParams.get('ticket') || '');
+    if (!email) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+      return socket.destroy();
+    }
+    const fakeReq = { headers: req.headers, ip: req.socket.remoteAddress };
+    const ip = clientIp(fakeReq);
+    wss.handleUpgrade(req, socket, head, (ws) => attachTerminal({
+      ws, email, ip, connectSsh,
+      audit: (a) => auditLog(prisma, { req: fakeReq, ...a }),
+    }));
+  } catch {
+    socket.destroy();
   }
-  const fakeReq = { headers: req.headers, ip: req.socket.remoteAddress };
-  wss.handleUpgrade(req, socket, head, (ws) => attachTerminal({
-    ws, email, ip: fakeReq.headers['cf-connecting-ip'] || fakeReq.ip, connectSsh,
-    audit: (a) => auditLog(prisma, { req: fakeReq, ...a }),
-  }));
 });
 
 server.listen(PORT, () => {
