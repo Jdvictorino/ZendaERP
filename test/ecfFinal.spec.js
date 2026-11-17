@@ -1,6 +1,6 @@
 // @vitest-environment node
 // e-CF: comprador en E44/E45, base de línea guardada y reparto de cupones/notas al centavo
-import { buildEcfFromInvoice, buildEcfFromNote, discountedAmounts } from '../backend/src/services/ecfXmlBuilder.js';
+import { buildEcfFromInvoice, buildEcfFromNote, discountedAmounts, ecfToXml } from '../backend/src/services/ecfXmlBuilder.js';
 import { priceInvoiceLines } from '../backend/src/services/invoiceAmounts.js';
 import { round2 } from '../backend/src/services/tax.js';
 
@@ -110,4 +110,18 @@ describe('scaleToTotal: notas pequeñas sobre muchas líneas', () => {
 it('cupón del 10 % sobre 118: el PUT guarda 90.00 + 16.20 = 106.20', () => {
   const invoice = { ...base, pricesIncludeTax: false, discountAmount: 11.8, total: 106.2, items: [{ productName: 'A', quantity: 1, unitPrice: 100, discountPercent: 0, taxRate: 18, subtotal: 100 }] };
   expect(discountedAmounts(invoice)).toEqual({ subtotal: 90, taxAmount: 16.2 });
+});
+
+// Formato e-CF v1.0: DescuentoMonto totaliza la TablaSubDescuento, y va antes que ella y que MontoItem
+test('una línea con descuento lleva su TablaSubDescuento en el orden del formato', () => {
+  const items = [{ productName: 'Taza', quantity: 2, unitPrice: 100, discountPercent: 10, taxRate: 18, subtotal: 180 }];
+  const { ECF } = buildEcfFromInvoice({ ...base, items }, company, 'E31', 'E310000000001', sequence);
+  const [line] = itemsOf(ECF);
+  expect(line.DescuentoMonto).toBe('20.00');
+  expect(line.TablaSubDescuento.SubDescuento).toEqual({ TipoSubDescuento: '$', MontoSubDescuento: '20.00' });
+  const xml = ecfToXml({ ECF });
+  const at = (tag) => xml.indexOf(`<${tag}>`);
+  expect(at('PrecioUnitarioItem')).toBeLessThan(at('DescuentoMonto'));
+  expect(at('DescuentoMonto')).toBeLessThan(at('TablaSubDescuento'));
+  expect(at('TablaSubDescuento')).toBeLessThan(at('MontoItem'));
 });
