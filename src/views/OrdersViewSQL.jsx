@@ -22,6 +22,8 @@ import { v4 as uuidv4 } from 'uuid';
 import Button from '../components/ui/Button.jsx';
 import Segmented from '../components/ui/Segmented.jsx';
 import api from '../api/client.js';
+import { lineAmounts, round2, isTaxExempt, todayRD } from '../utils/tax.js';
+import { ExemptionNote } from './POSBillingOrdersView.jsx';
 import useApproval from '../hooks/useApproval.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import { useScanner } from '../context/ScannerContext.jsx';
@@ -61,6 +63,9 @@ const formatCustomerLabel = (customer) => {
     ].filter(Boolean);
     return pieces.join(' · ');
 };
+
+// Tasa de ITBIS de la línea (la que se envía): 0 si el producto es exento o el cliente tiene exención vigente
+const itemRate = (item, exempt) => (exempt || item.isTaxable === false ? 0 : (Number.isFinite(parseFloat(item.taxRate)) ? parseFloat(item.taxRate) : 18));
 
 const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
     const { withApproval, approvalModal } = useApproval();
@@ -205,19 +210,12 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
         }
 
         const finalPrice = customizedItem.price;
-        let basePrice = finalPrice;
-        let itbisAmount = 0;
         const taxStatus = variant?.taxStatus || product.taxStatus;
         const taxRate = variant?.taxRate ?? product.taxRate ?? 18;
         const isTaxable = variant?.isTaxable ?? product.isTaxable ?? (taxStatus && taxStatus.includes('Gravado'));
         const categoryId = customizedItem.categoryId || product.categoryId || product.category || null;
-        
-        // Calcular base e ITBIS si está gravado
-        if (isTaxable && taxRate > 0) {
-            basePrice = finalPrice / (1 + taxRate / 100);
-            itbisAmount = finalPrice - basePrice;
-        }
-        const itemToAdd = { ...customizedItem, basePrice, itbisAmount, taxStatus, taxRate, isTaxable, categoryId, cartId: Date.now() };
+
+        const itemToAdd = { ...customizedItem, taxStatus, taxRate, isTaxable, categoryId, cartId: Date.now() };
         setCart(currentCart => [...currentCart, itemToAdd]);
         setCustomizingItem(null);
     };
@@ -260,24 +258,15 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 // Si no está, agregarlo nuevo
                 toast.success(`Agregado: ${found.name}`);
                 const finalPrice = found.salePrice || 0;
-                let basePrice = finalPrice;
-                let itbisAmount = 0;
                 const taxRate = found.taxRate ?? 18;
                 const taxStatus = found.taxStatus || 'Exento';
                 const isTaxable = found.isTaxable ?? (taxStatus && taxStatus.includes('Gravado'));
-                
-                if (isTaxable && taxRate > 0) {
-                    basePrice = finalPrice / (1 + taxRate / 100);
-                    itbisAmount = finalPrice - basePrice;
-                }
 
                 const newItem = {
                     name: found.name,
                     productId: found.id,
                     imageUrl: found.imageUrl,
                     price: finalPrice,
-                    basePrice,
-                    itbisAmount,
                     taxStatus,
                     taxRate,
                     isTaxable,
@@ -305,18 +294,24 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
         };
     }, [processScannedBarcode, registerScanHandler, unregisterScanHandler]);
 
+    const customerRecord = useMemo(() => safeCustomers.find(c => c.id === selectedCustomer) || null, [safeCustomers, selectedCustomer]);
+    const today = todayRD();
+    const exempt = isTaxExempt(customerRecord, today);
+
+    // Precios sin ITBIS: igual que el servidor, el descuento baja la base de cada línea y el ITBIS sale de esa base
     const taxSummary = useMemo(() => {
-        const montoGravado = cart.reduce((sum, item) => (item.isTaxable || (item.taxStatus && item.taxStatus.includes('Gravado'))) ? sum + (item.basePrice * item.quantity) : sum, 0);
-        const montoExento = cart.reduce((sum, item) => (!item.isTaxable && (!item.taxStatus || item.taxStatus === 'Exento')) ? sum + (item.basePrice * item.quantity) : sum, 0);
-        const subtotal = montoGravado + montoExento;
-        const itbis = cart.reduce((sum, item) => sum + (item.itbisAmount * item.quantity), 0);
-        const discountAmount = discountType === 'percentage' ? subtotal * (discount / 100) : Math.min(subtotal, discount);
-        // El descuento se aplica igual que en el servidor: como porcentaje de cada línea, así también baja el ITBIS
+        const lines = cart.map(item => ({ quantity: item.quantity, unitPrice: Number(item.price) || 0, taxRate: itemRate(item, exempt) }));
+        const baseOf = (pred) => round2(lines.reduce((sum, l) => (pred(l) ? sum + lineAmounts(l).base : sum), 0));
+        const montoGravado = baseOf(l => l.taxRate > 0);
+        const montoExento = baseOf(l => !(l.taxRate > 0));
+        const subtotal = round2(montoGravado + montoExento);
+        const discountAmount = discountType === 'percentage' ? round2(subtotal * (discount / 100)) : Math.min(subtotal, discount);
         const discountPct = subtotal > 0 ? Math.min(100, (discountAmount / subtotal) * 100) : 0;
-        const itbisNet = itbis * (1 - discountPct / 100);
-        const total = subtotal - discountAmount + itbisNet;
-        return { montoGravado, montoExento, subtotal, itbis: itbisNet, discountAmount, discountPct, total };
-    }, [cart, discount, discountType]);
+        const net = lines.map(l => lineAmounts({ ...l, discountPercent: discountPct }));
+        const itbis = round2(net.reduce((sum, l) => sum + l.itbis, 0));
+        const total = round2(round2(net.reduce((sum, l) => sum + l.base, 0)) + itbis);
+        return { montoGravado, montoExento, subtotal, itbis, discountAmount, discountPct, total };
+    }, [cart, discount, discountType, exempt]);
 
     const orderTotal = Math.max(0, taxSummary.total);
 
@@ -422,7 +417,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 quantity: parseInt(item.quantity, 10),
                 unitPrice: parseFloat(item.price) || 0,
                 discountPercent: taxSummary.discountPct,
-                taxRate: item.isTaxable === false ? 0 : (Number.isFinite(parseFloat(item.taxRate)) ? parseFloat(item.taxRate) : 18),
+                taxRate: itemRate(item, exempt),
                 customizationNotes: item.customizationNotes || '',
                 customImageUrls: Array.isArray(item.customImageUrls) ? item.customImageUrls : [],
                 variantInfo: item.variantInfo || null,
@@ -432,6 +427,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 customerId,
                 customerName,
                 items,
+                pricesExcludeTax: true,
                 paymentMethod: 'pendiente',
                 amountPaid: 0,
                 deliveryType,
@@ -757,6 +753,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                             )}
                         </div>
 
+                            <ExemptionNote customer={customerRecord} today={today} />
                         <div className="mb-4 border-t border-line pt-4">
                             <p className="text-sm font-medium text-ink mb-2">Tipo de entrega</p>
                             <Segmented
@@ -835,6 +832,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                     </div>
                                     <div className="text-right flex flex-col items-end">
                                         <p className="font-semibold tabular-nums">{formatCurrency(item.price * item.quantity, companyProfile?.currency)}</p>
+                                        <p className="text-xs text-ink-muted tabular-nums">{itemRate(item, exempt) > 0 ? `ITBIS ${formatCurrency(lineAmounts({ quantity: item.quantity, unitPrice: Number(item.price) || 0, taxRate: itemRate(item, exempt) }).itbis, companyProfile?.currency)}` : 'Exento'}</p>
                                         <div className="flex gap-2 mt-1 items-center">
                                             {companyProfile?.allowCustomization !== false && (
                                                 <button onClick={() => setEditingCartItem(item)} className="text-brand-600 hover:underline text-sm">Editar</button>
@@ -890,7 +888,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                     <span>-{formatCurrency(taxSummary.discountAmount, companyProfile?.currency)}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between"><span>ITBIS (18%):</span><span>{formatCurrency(taxSummary.itbis, companyProfile?.currency)}</span></div>
+                            <div className="flex justify-between"><span>{exempt ? 'ITBIS (exento):' : 'ITBIS:'}</span><span>{formatCurrency(taxSummary.itbis, companyProfile?.currency)}</span></div>
                             <div className="flex justify-between items-baseline text-ink font-semibold text-2xl pt-3 mt-1 border-t border-line"><span className="text-base">Total</span><span>{formatCurrency(orderTotal, companyProfile?.currency)}</span></div>
                         </div>
                         <Button size="lg" className="mt-5 w-full" onClick={submitOrder} disabled={cart.length === 0 || isSubmitting}>
