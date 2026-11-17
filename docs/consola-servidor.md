@@ -17,7 +17,13 @@ echo "from=\"172.16.0.0/12\",no-agent-forwarding,no-port-forwarding,no-X11-forwa
 
 Con `from="172.16.0.0/12"` la llave solo sirve desde la red de Docker (el backend está en `172.18.0.0/16`); copiada a otra máquina no abre nada.
 
-El backend lee la llave privada con el usuario del contenedor. Si al conectar dice que no puede leerla, revisa con `ls -ln /srv/zenda/secrets/console_ed25519` que el dueño numérico coincida con el usuario del contenedor (`docker exec zenda-backend id -u`).
+El backend lee la llave con el usuario del contenedor (uid 1000, que en el host es `odroid`). Pásale la llave a ese uid usando la propia imagen del backend (`zenda` está en el grupo `docker`, no hace falta `sudo`):
+
+```bash
+docker run --rm --user 0 --entrypoint chown -v /srv/zenda/secrets:/s "$(docker inspect -f '{{.Config.Image}}' zenda-backend)" 1000:1000 /s/console_ed25519
+```
+
+`odroid` ya pertenece al grupo `sudo`, así que poder leer la llave no le da acceso nuevo.
 
 ## 2. Huella del servidor
 
@@ -29,9 +35,11 @@ Copia la parte que va después de `SHA256:` (por ejemplo `AbC…xyz`). Si la hue
 
 ## 3. Compose del servidor
 
-El `compose.yaml` de `/srv/zenda/app` tiene cambios propios del servidor: agrega solo estas líneas al servicio `backend`.
+El `compose.yaml` de `/srv/zenda/app` tiene cambios propios del servidor y contiene secretos: no lo edites. Crea al lado `compose.override.yaml` (Docker Compose lo combina solo y git no lo sigue):
 
 ```yaml
+services:
+  backend:
     volumes:
       - /srv/zenda/secrets/console_ed25519:/run/secrets/console_ed25519:ro
     extra_hosts:
@@ -43,7 +51,7 @@ El `compose.yaml` de `/srv/zenda/app` tiene cambios propios del servidor: agrega
       CONSOLE_SSH_HOST_FINGERPRINT: "<huella del paso 2, sin SHA256:>"
 ```
 
-Si el servicio ya tiene `volumes`, `extra_hosts` o `environment`, agrega las entradas a las listas existentes en vez de repetir la clave.
+Los volúmenes del override se suman a los de `compose.yaml`. Comprueba el resultado con `docker compose config | grep -E "CONSOLE_|console_ed25519|host.docker.internal"`.
 
 ## 4. Despliegue
 
