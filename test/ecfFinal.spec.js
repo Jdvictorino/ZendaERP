@@ -90,3 +90,24 @@ describe('I2: cupones y notas conservan el precio y declaran el descuento', () =
     expect(itemsOf(ECF).find((i) => i.NombreItem === 'Taza').PrecioUnitarioItem).toBe('300.00');
   });
 });
+
+describe('scaleToTotal: notas pequeñas sobre muchas líneas', () => {
+  // Cada línea redondeada (base 0.03 + ITBIS 0.01) suma más que la nota: antes la línea mayor no tenía base válida y lanzaba
+  const many = (n) => ({
+    ...base, ncfNumber: 'E310000000011', total: n * 11.8, pricesIncludeTax: false,
+    items: Array.from({ length: n }, (_, k) => ({ productName: `P${k}`, quantity: 1, unitPrice: 10, discountPercent: 0, taxRate: 18, subtotal: 10 })),
+  });
+  it.each([[1, 30], [2, 30], [0.5, 15], [0.15, 20]])('nota de %s sobre %s líneas', (amount, n) => {
+    let ECF;
+    expect(() => ({ ECF } = buildEcfFromNote({ amount, reason: 'Ajuste' }, many(n), company, 'E34', 'E340000000009', sequence))).not.toThrow();
+    const T = checkLines(ECF);
+    expect(Number(T.MontoTotal)).toBeCloseTo(Number(T.MontoGravadoTotal || 0) + Number(T.MontoExento || 0) + Number(T.TotalITBIS || 0), 2);
+    expect(round2(Math.abs(Number(T.MontoTotal) - amount))).toBeLessThanOrEqual(0.01);
+    expect(itemsOf(ECF).every((i) => Number(i.MontoItem) >= 0)).toBe(true);
+  });
+});
+
+it('cupón del 10 % sobre 118: el PUT guarda 90.00 + 16.20 = 106.20', () => {
+  const invoice = { ...base, pricesIncludeTax: false, discountAmount: 11.8, total: 106.2, items: [{ productName: 'A', quantity: 1, unitPrice: 100, discountPercent: 0, taxRate: 18, subtotal: 100 }] };
+  expect(discountedAmounts(invoice)).toEqual({ subtotal: 90, taxAmount: 16.2 });
+});

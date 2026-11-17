@@ -258,12 +258,18 @@ function scaleToTotal(lines, target, reason = 'Ajuste') {
   const factor = target / withTax;
   const out = lines.map((l) => ({ productName: l.productName, quantity: Number(l.quantity), taxRate: rate(l), discountPercent: 0, unitPrice: Number(l.unitPrice), storedBase: round2(l.net * factor) }));
   const gross = (l, base = l.storedBase) => base + round2((base * l.taxRate) / 100);
-  const largest = out.reduce((a, b) => (b.storedBase > a.storedBase ? b : a));
-  const rest = out.reduce((sum, l) => (l === largest ? sum : sum + gross(l)), 0);
-  // Base de la línea más grande que deja el total más cerca de target (con ITBIS no todo total existe al centavo)
-  const ideal = round2((target - rest) / (1 + largest.taxRate / 100));
-  const off = (b) => Math.abs(round2(rest + gross(largest, b) - target));
-  largest.storedBase = [ideal, round2(ideal - 0.01), round2(ideal + 0.01)].filter((b) => b >= 0).reduce((a, b) => (off(b) < off(a) ? b : a));
+  const bySize = [...out].sort((a, b) => b.storedBase - a.storedBase);
+  const largest = bySize[0];
+  for (let i = bySize.length - 1; ; i--) {
+    const rest = out.reduce((sum, l) => (l === largest ? sum : sum + gross(l)), 0);
+    // Base de la línea más grande que deja el total más cerca de target (con ITBIS no todo total existe al centavo)
+    const ideal = Math.max(0, round2((target - rest) / (1 + largest.taxRate / 100)));
+    const off = (b) => Math.abs(round2(rest + gross(largest, b) - target));
+    largest.storedBase = [ideal, round2(ideal - 0.01), round2(ideal + 0.01)].filter((b) => b >= 0).reduce((a, b) => (off(b) < off(a) ? b : a));
+    if (off(largest.storedBase) <= 0.01 || i < 1) break;
+    // Nota pequeña sobre muchas líneas: los centavos redondeados de las demás ya pasan target; se quita la más pequeña
+    bySize[i].storedBase = 0;
+  }
   // Una nota pequeña deja en cero algunas líneas: no se declaran (las de precio cero desde la venta sí)
   const kept = out.filter((l, i) => l.storedBase > 0 || !(lines[i].net > 0));
   return kept.length ? kept : out;
