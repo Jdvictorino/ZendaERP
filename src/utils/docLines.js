@@ -10,10 +10,18 @@ export function docLine(item, pricesIncludeTax) {
     return { unit, amount };
 }
 
-// Con cupón, subtotal y taxAmount se guardan ya rebajados (igual que el e-CF). Los documentos muestran la base de
-// antes del cupón para que Subtotal − Descuento + ITBIS = Total. Sin cupón: null (cada documento usa lo suyo).
-export function couponSubtotal(doc) {
-    const discount = Number(doc?.discountAmount) || 0;
-    if (!(discount > 0)) return null;
-    return round2(Number(doc.total) - Number(doc.taxAmount ?? doc.itbis ?? 0) + discount);
+// Montos impresos de una factura con cupón: subtotal y taxAmount se guardan ya rebajados (igual que el e-CF), así que
+// Subtotal = suma de las líneas impresas y Descuento = la parte de la base que quitó el cupón; Subtotal − Descuento + ITBIS = Total.
+// Sin cupón: null (cada documento usa lo suyo). Sin líneas guardadas: base de antes del cupón sacada del total.
+export function docTotals(doc) {
+    const discountAmount = Number(doc?.discountAmount) || 0;
+    if (!(discountAmount > 0)) return null;
+    const itbis = Number(doc.taxAmount ?? doc.itbis ?? 0);
+    const total = Number(doc.total) || 0;
+    const items = Array.isArray(doc.items) ? doc.items : [];
+    if (!items.length || items.some((i) => i.subtotal == null)) {
+        return { subtotal: round2(total - itbis + discountAmount), discount: discountAmount, itbis, total };
+    }
+    const subtotal = round2(items.reduce((sum, i) => sum + round2(Number(i.subtotal)), 0));
+    return { subtotal, discount: round2(subtotal - Number(doc.subtotal)), itbis, total };
 }

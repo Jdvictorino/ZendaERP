@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateThermalReceiptHTML } from '../src/utils/escposGenerator.js';
-import { docLine, couponSubtotal } from '../src/utils/docLines.js';
+import { docLine, docTotals } from '../src/utils/docLines.js';
 
 const profile = { name: 'Zenda', currency: 'DOP' };
 const nueva = { pricesIncludeTax: false, items: [{ productName: 'A', quantity: 2, unitPrice: 100, taxRate: 18, subtotal: 200 }], subtotal: 200, taxAmount: 36, total: 236 };
@@ -32,14 +32,22 @@ describe('montos en documentos', () => {
 describe('cupón: Subtotal − Descuento + ITBIS = Total', () => {
   // 1 × 100 al 18 % (118) con cupón del 10 % = 11.80. El PUT guarda subtotal/taxAmount como el e-CF: 90.00 / 16.20; total 106.20.
   const conCupon = { ...nueva, items: [{ productName: 'A', quantity: 1, unitPrice: 100, taxRate: 18, subtotal: 100 }], subtotal: 90, taxAmount: 16.2, discountAmount: 11.8, total: 106.2 };
-  it('couponSubtotal: base de antes del cupón; sin cupón null', () => {
-    expect(couponSubtotal(conCupon)).toBe(101.8);
-    expect(couponSubtotal(nueva)).toBeNull();
+  it('docTotals: suma de las líneas y la parte del cupón en la base; sin cupón null', () => {
+    const t = docTotals(conCupon);
+    expect(t).toEqual({ subtotal: 100, discount: 10, itbis: 16.2, total: 106.2 });
+    expect(Math.round((t.subtotal - t.discount + t.itbis) * 100) / 100).toBe(t.total);
+    expect(docTotals(nueva)).toBeNull();
   });
-  it('el ticket cuadra: 101.80 − 11.80 + 16.20 = 106.20', () => {
+  it('sin líneas guardadas: base de antes del cupón sacada del total', () => {
+    expect(docTotals({ ...conCupon, items: [] })).toEqual({ subtotal: 101.8, discount: 11.8, itbis: 16.2, total: 106.2 });
+  });
+  it('el ticket cuadra con las líneas: 100.00 − 10.00 + 16.20 = 106.20', () => {
     const html = generateThermalReceiptHTML(conCupon, 'invoice', profile, null, null);
-    expect(html).toMatch(/SUBTOTAL:<\/span><span>[^<]*101\.80/);
-    expect(html).toMatch(/DESCUENTO:<\/span><span>-[^<]*11\.80/);
+    const num = (label) => Number(html.match(new RegExp(`>${label}:</span><span>-?[^0-9]*([0-9.,]+)`))[1].replace(/,/g, ''));
+    expect([num('SUBTOTAL'), num('DESCUENTO'), num('ITBIS'), num('TOTAL')]).toEqual([100, 10, 16.2, 106.2]);
+    expect(Math.round((num('SUBTOTAL') - num('DESCUENTO') + num('ITBIS')) * 100) / 100).toBe(num('TOTAL'));
+    expect(html).toMatch(/SUBTOTAL:<\/span><span>[^<]*100\.00/);
+    expect(html).toMatch(/DESCUENTO:<\/span><span>-[^<]*10\.00/);
     expect(html).toMatch(/ITBIS:<\/span><span>[^<]*16\.20/);
     expect(html).toMatch(/TOTAL:<\/span><span>[^<]*106\.20/);
   });
