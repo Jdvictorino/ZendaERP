@@ -120,7 +120,23 @@ Precio unitario sin ITBIS, columna/linea de ITBIS aparte, total con ITBIS:
 
 ## Despliegue
 
-Igual que el PR #34: primero la actualización de la app (OTA), luego copia de seguridad, backend y migración (`docker exec zenda-backend npx prisma migrate deploy`). Como el servidor acepta ambos formatos, el orden no rompe nada, pero **los precios suben un 18 % en cuanto la app nueva entra** — avisar al dueño antes.
+Después de que el lanzamiento de seguridad (PR #34) esté desplegado, en este orden:
+
+1. Copia de seguridad de la base de datos.
+2. Backend (`git pull` + `docker compose`).
+3. Migración: `docker exec zenda-backend npx prisma migrate deploy`.
+4. Actualización de la app (OTA).
+
+Por qué este orden: la app vieja no manda `pricesExcludeTax` y el servidor nuevo la atiende por el camino de siempre (precio con ITBIS), así que backend primero no rompe nada. Al revés, una app nueva contra el servidor viejo mostraría 118 y cobraría 100 (el servidor viejo trata el precio como si ya trajera ITBIS). **Los precios suben un 18 % en cuanto la app nueva entra** — avisar al dueño antes.
+
+Antes de la primera venta con la app nueva:
+
+- La migración pone como `empresa` a todo cliente con RNC de 9 dígitos: reclasificar a mano los clientes gubernamentales (y los de zona franca, régimen especial, diplomáticos y ONG).
+- Los clientes exentos necesitan su carnet de exención (número y vencimiento) registrado por un gerente o administrador; sin carnet vigente se les cobra ITBIS.
+
+## Seguimiento
+
+- Cerrar el camino viejo (venta sin `pricesExcludeTax`, precio con ITBIS) exigiendo una versión mínima de la app, cuando todas las cajas usen la app nueva. Hasta entonces un cliente modificado puede mandar precios sin la bandera y cobrar 15.25 % menos sin PIN.
 
 ## Hallazgo a confirmar
 
