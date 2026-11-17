@@ -5,6 +5,7 @@ import { generatePDF, generateAccountStatementPDF } from '../../utils/pdfGenerat
 import { Mail, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SendEmailModal from './SendEmailModal.jsx';
+import { docLine } from '../../utils/docLines.js';
 
 const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], companyProfile = {} }) => {
   const currency = companyProfile?.currency || 'USD';
@@ -14,9 +15,8 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
   // Las líneas del backend traen productName/unitPrice/subtotal; las locales antiguas, name/price
   const items = (Array.isArray(invoice.items) ? invoice.items : []).map((item) => {
     const quantity = Number(item.quantity) || 0;
-    const price = Number(item.unitPrice ?? item.price) || 0;
-    // unitPrice ya incluye ITBIS (item.subtotal es la base sin impuesto), así que el total de la línea sale del precio
-    const lineTotal = quantity * price * (1 - (Number(item.discountPercent) || 0) / 100);
+    // Precio sin ITBIS e importe = base guardada (también en facturas viejas)
+    const { unit: price, amount: lineTotal } = docLine(item, invoice.pricesIncludeTax);
     return { ...item, quantity, price, lineTotal, name: item.productName || item.name };
   });
 

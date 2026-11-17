@@ -4,6 +4,7 @@ import { getCouponByCode, validateCoupon, applyCouponToCart, redeemCouponTransac
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
+import { docLine } from '../../utils/docLines.js';
 import { generateThermalReceiptHTML } from '../../utils/escposGenerator.js';
 import { withEcfPrintData } from '../../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../../utils/printer.js';
@@ -421,11 +422,11 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                             <h5 className="font-bold text-lg">{item.productName} ({item.quantity}x)</h5>
                                             {isDiscounted ? (
                                                 <div className="text-right">
-                                                    <p className="text-sm text-ink-muted line-through">{formatCurrency(item.quantity * (item.unitPrice ?? item.price ?? 0), companyProfile.currency)}</p>
-                                                    <p className="font-bold text-lg">{formatCurrency((item.quantity * (item.unitPrice ?? item.price ?? 0)) - lineDiscount, companyProfile.currency)}</p>
+                                                    <p className="text-sm text-ink-muted line-through">{formatCurrency(docLine(item, invoice.pricesIncludeTax).amount, companyProfile.currency)}</p>
+                                                    <p className="font-bold text-lg">{formatCurrency((docLine(item, invoice.pricesIncludeTax).amount) - lineDiscount, companyProfile.currency)}</p>
                                                 </div>
                                             ) : (
-                                                <p className="font-bold text-lg">{formatCurrency(item.quantity * (item.unitPrice ?? item.price ?? 0), companyProfile.currency)}</p>
+                                                <p className="font-bold text-lg">{formatCurrency(docLine(item, invoice.pricesIncludeTax).amount, companyProfile.currency)}</p>
                                             )}
                                 </div>
                                 <div className="mt-2 pl-4 border-l-2 border-brand-200">
@@ -456,7 +457,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm text-red-600 font-bold">-{formatCurrency(lineDiscount, companyProfile.currency)}</p>
-                                                <p className="text-xs text-ink-muted">Total: {formatCurrency(((item.unitPrice ?? item.price ?? 0) * item.quantity) - lineDiscount, companyProfile.currency)}</p>
+                                                <p className="text-xs text-ink-muted">Total: {formatCurrency((docLine(item, invoice.pricesIncludeTax).amount) - lineDiscount, companyProfile.currency)}</p>
                                             </div>
                                         </div>
                                     )}

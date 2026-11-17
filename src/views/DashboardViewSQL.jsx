@@ -135,9 +135,10 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
                 const key = item.productId || item.name;
                 const current = map.get(key) || { name: item.name || item.productName || 'Producto', revenue: 0, quantity: 0 };
                 const quantity = Number(item.quantity) || 0;
-                const price = normalizeAmount(item.unitPrice || item.price);
+                // Ingreso = base guardada sin ITBIS (en carritos sin base: precio * cantidad)
+                const revenue = item.subtotal != null ? normalizeAmount(item.subtotal) : normalizeAmount(item.unitPrice || item.price) * quantity;
                 current.quantity += quantity;
-                current.revenue += price * quantity;
+                current.revenue += revenue;
                 map.set(key, current);
             });
         });

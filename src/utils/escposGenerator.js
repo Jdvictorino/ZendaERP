@@ -1,5 +1,6 @@
 import { formatCurrency } from './formatCurrency.js';
 import { qrSvg } from './ecfPrint.js';
+import { docLine } from './docLines.js';
 
 // Para un e-CF, pasar docData por withEcfPrintData (ecfPrint.js) antes: así el ticket lleva QR y código de seguridad
 export const generateThermalReceiptHTML = (docData, docType, companyProfile, customerDetails, emitterInfo) => {
@@ -77,12 +78,11 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         (docData?.items || []).forEach(item => {
             const itemName = String(item.name || item.productName || item.product?.name || 'Item');
             const qty = item.quantity || 1;
-            const itemPrice = item.price ?? item.unitPrice ?? 0;
-            const itemTotal = itemPrice * qty;
+            const { unit, amount: itemTotal } = docLine(item, docData?.pricesIncludeTax);
             itemsHtml += `
                 <tr>
                     <td>${qty}</td>
-                    <td style="padding-left: 4px;">${itemName}</td>
+                    <td style="padding-left: 4px;">${itemName}${qty > 1 ? `<br>${qty} x ${formatCurrency(unit, currency)}` : ''}</td>
                     <td class="text-right">${formatCurrency(itemTotal, currency)}</td>
                 </tr>
             `;
@@ -105,6 +105,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         }
         itemsHtml += `<div class="flex"><span>ITBIS:</span><span>${formatCurrency(tax, currency)}</span></div>`;
         itemsHtml += `<div class="flex text-lg mt-1 bold"><span>TOTAL:</span><span>${formatCurrency(total, currency)}</span></div>`;
+        if (docData?.exemptionNumber) itemsHtml += `<div class="text-sm">Exento de ITBIS — Carnet N.º ${docData.exemptionNumber}</div>`;
         itemsHtml += `</div>`;
 
         const paidAmount = docData?.amountPaid ?? docData?.paidAmount ?? 0;

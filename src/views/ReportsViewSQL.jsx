@@ -174,12 +174,12 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
 
             (inv.items || []).forEach(item => {
                 const qty = item.quantity || 0;
-                const price = num(item.unitPrice ?? item.price);
+                const revenue = item.subtotal != null ? num(item.subtotal) : num(item.unitPrice ?? item.price) * qty;
                 const product = productsMap.get(item.productId);
                 const itemCost = num(product?.costPrice ?? product?.purchasePrice) * qty;
                 totalCost += itemCost;
                 const key = item.productName || item.name || product?.name || 'Producto';
-                productRevenueMap.set(key, (productRevenueMap.get(key) || 0) + price * qty);
+                productRevenueMap.set(key, (productRevenueMap.get(key) || 0) + revenue);
             });
 
             const sellerName = inv.emitterInfo?.fullName || 'No asignado';
@@ -398,7 +398,7 @@ const ReportsViewSQL = ({ companyProfile, isMasterUser, onProfileUpdate }) => {
                 profitabilityData[itemName] = profitabilityData[itemName] || { name: itemName, units: 0, revenue: 0, totalCost: 0, netProfit: 0 };
                 const pData = profitabilityData[itemName];
                 pData.units += item.quantity;
-                const itemRevenue = num(item.unitPrice ?? item.price) * (item.quantity || 0);
+                const itemRevenue = item.subtotal != null ? num(item.subtotal) : num(item.unitPrice ?? item.price) * (item.quantity || 0);
                 const itemCost = cost * item.quantity;
                 pData.revenue += itemRevenue;
                 pData.totalCost += itemCost;
