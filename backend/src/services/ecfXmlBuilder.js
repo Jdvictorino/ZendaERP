@@ -187,7 +187,9 @@ function buildItems(invoiceItems) {
     // Lo que la base difiere de cantidad x precio es descuento (o recargo, si una nota de débito supera la venta)
     const adjust = round2(quantity * item.unitPrice - base);
 
-    // El XSD exige DescuentoMonto y RecargoMonto entre PrecioUnitarioItem y MontoItem
+    // Formato e-CF v1.0: DescuentoMonto totaliza la TablaSubDescuento (y RecargoMonto la TablaSubRecargo);
+    // ambas van entre PrecioUnitarioItem y MontoItem, en este orden
+    const monto = Math.abs(adjust).toFixed(2);
     return {
       NumeroLinea: String(index + 1),
       IndicadorFacturacion: String(getIndicadorFacturacion(item.taxRate)),
@@ -196,8 +198,8 @@ function buildItems(invoiceItems) {
       CantidadItem: String(quantity),
       UnidadMedida: '43', // Tabla IV del Formato e-CF: 43 = Unidad (1 es Barril)
       PrecioUnitarioItem: item.unitPrice.toFixed(2),
-      ...(adjust > 0 ? { DescuentoMonto: adjust.toFixed(2) } : {}),
-      ...(adjust < 0 ? { RecargoMonto: (-adjust).toFixed(2) } : {}),
+      ...(adjust > 0 ? { DescuentoMonto: monto, TablaSubDescuento: { SubDescuento: { TipoSubDescuento: '$', MontoSubDescuento: monto } } } : {}),
+      ...(adjust < 0 ? { RecargoMonto: monto, TablaSubRecargo: { SubRecargo: { TipoSubRecargo: '$', MontoSubRecargo: monto } } } : {}),
       MontoItem: base.toFixed(2),
     };
   });
