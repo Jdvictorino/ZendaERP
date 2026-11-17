@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { consoleApi } from '../../../api/client.js';
 import Button from '../../../components/ui/Button.jsx';
 
-export default function TerminalTab({ sessionToken, onLocked }) {
+export default function TerminalTab({ sessionToken, onLocked, onLogout }) {
   const host = useRef(null);
   const ws = useRef(null);
   const [state, setState] = useState('Conectando…');
@@ -61,7 +61,7 @@ export default function TerminalTab({ sessionToken, onLocked }) {
         <span className="text-ink-muted" role="status">{state}</span>
         <div className="flex-1" />
         {closed && <Button size="sm" onClick={() => setAttempt((n) => n + 1)}>Reconectar</Button>}
-        <Button size="sm" variant="secondary" onClick={() => { ws.current?.close(); consoleApi.lock(); onLocked(); }}>Cerrar sesión</Button>
+        <Button size="sm" variant="secondary" onClick={() => { ws.current?.close(); consoleApi.lock(); onLogout(); }}>Cerrar sesión</Button>
       </div>
       <div ref={host} className="rounded-lg bg-[#0b0f14] p-2 h-[28rem]" />
       <p className="text-xs text-ink-muted">Para tareas largas usa <code>nohup … &amp;</code></p>

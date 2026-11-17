@@ -33,7 +33,7 @@ export default function ServerSection({ sessionToken }) {
     <div className="space-y-4">
       <div className="max-w-md"><Segmented label="Servidor" options={TABS} value={tab} onChange={setTab} /></div>
       {needsCode && <UnlockDialog sessionToken={sessionToken} onUnlocked={() => setUnlocked(true)} onClose={() => setTab('audit')} />}
-      {!needsCode && tab === 'terminal' && <TerminalTab sessionToken={sessionToken} onLocked={() => { setUnlocked(false); setTab('audit'); }} />}
+      {!needsCode && tab === 'terminal' && <TerminalTab sessionToken={sessionToken} onLocked={() => setUnlocked(false)} onLogout={() => { setUnlocked(false); setTab('audit'); }} />}
       {!needsCode && tab === 'db' && <DatabaseTab sessionToken={sessionToken} onLocked={() => setUnlocked(false)} />}
       {tab === 'audit' && <AuditTab sessionToken={sessionToken} />}
     </div>
