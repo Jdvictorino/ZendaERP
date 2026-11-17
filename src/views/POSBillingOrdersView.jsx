@@ -9,7 +9,6 @@ import Button from '../components/ui/Button.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
-import { ECF_TYPE_MAP } from '../utils/ecfConstants.js';
 import toast from 'react-hot-toast';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ScannerLinkModal from '../components/modals/ScannerLinkModal.jsx';
@@ -469,41 +468,18 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   }, []);
   useEffect(() => { loadEcf(); }, [loadEcf]);
 
-  const comprobanteOptions = useMemo(() => {
-    const p = companyProfile || {};
-    // GET /settings entrega las secuencias como ncf.b02_prefix / ncf.b02_sequence_next
-    const ncf = p.ncf || {};
-    const opts = [{ value: 'NoFiscal', label: 'Sin valor fiscal', requiresBuyer: false, preview: '' }];
-    const traditional = [
-      { value: 'B02', label: 'Consumo (B02)', prefix: ncf.b02_prefix ?? p.ncfB02Prefix, next: ncf.b02_sequence_next ?? p.ncfB02SequenceNext, end: ncf.b02_sequence_end ?? p.ncfB02SequenceEnd, requiresBuyer: false },
-      { value: 'B01', label: 'Crédito fiscal (B01)', prefix: ncf.b01_prefix ?? p.ncfB01Prefix, next: ncf.b01_sequence_next ?? p.ncfB01SequenceNext, end: ncf.b01_sequence_end ?? p.ncfB01SequenceEnd, requiresBuyer: true },
-    ];
-    // B14 (régimen especial) y B15 (gubernamental): talonarios de Configuración > Secuencias NCF
-    for (const [code, label] of [['B14', 'Régimen Especial (B14)'], ['B15', 'Gubernamental (B15)']]) {
-      const q = (p.ncfSequences || []).find(x => x.code === code && x.active);
-      if (q) traditional.push({ value: code, label, prefix: q.prefix, next: q.next, end: q.end, requiresBuyer: true });
-    }
-    for (const t of traditional) {
-      const next = ncfNextLocal[t.value] || t.next || 1;
-      if (t.prefix && (!t.end || next <= t.end)) {
-        opts.push({ value: t.value, label: t.label, requiresBuyer: t.requiresBuyer, preview: `${t.prefix}${String(next).padStart(8, '0')}` });
-      }
-    }
-    if (ecfInfo.enabled) {
-      const ECF_LABELS = { E32: 'e-CF Consumo (E32)', E31: 'e-CF Crédito fiscal (E31)', E44: 'e-CF Regímenes especiales (E44)', E45: 'e-CF Gubernamental (E45)' };
-      for (const code of Object.keys(ECF_LABELS)) {
-        const seq = ecfInfo.sequences.find(q => q.tipoEcf === code && q.estado === 'activa' && (!q.rangoHasta || q.secuencial <= q.rangoHasta));
-        if (seq) opts.push({ value: code, label: ECF_LABELS[code], requiresBuyer: !!ECF_TYPE_MAP[code]?.requiresBuyer, preview: `${code}${String(seq.secuencial).padStart(10, '0')}` });
-      }
-    }
-    return opts;
-  }, [companyProfile, ecfInfo, ncfNextLocal]);
+  const comprobanteOptions = useMemo(() => buildVoucherOptions(companyProfile, ecfInfo, ncfNextLocal), [companyProfile, ecfInfo, ncfNextLocal]);
 
-  // al cambiar el cliente se sugiere el comprobante que le corresponde (si está disponible); el cajero puede cambiarlo
+  // al elegir cliente (o al cargar la config e-CF) se sugiere su comprobante; no se repite al cambiar la lista de opciones, para respetar la elección del cajero
+  const optionsRef = useRef(comprobanteOptions);
+  optionsRef.current = comprobanteOptions;
+  const customerId = selectedCustomer?.id;
   useEffect(() => {
+    if (!customerId) return;
     const code = suggestedVoucher(selectedCustomer, { ecf: ecfInfo.enabled, exempt });
-    if (comprobanteOptions.some(o => o.value === code)) setComprobante(code);
-  }, [selectedCustomer, exempt]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (optionsRef.current.some(o => o.value === code)) setComprobante(code);
+  }, [customerId, exempt, ecfInfo.enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  const voucherWarning = selectedCustomer ? missingVoucherWarning(selectedCustomer, { ecf: ecfInfo.enabled, exempt }, comprobanteOptions, suggestedVoucher(selectedCustomer, { ecf: ecfInfo.enabled, exempt })) : null;
 
   const selectedComprobante = comprobanteOptions.find(o => o.value === comprobante) || comprobanteOptions[0];
   // si el comprobante elegido deja de estar disponible (secuencia agotada, e-CF deshabilitado), volver a "Sin valor fiscal"
@@ -828,6 +804,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         <div className="grid grid-cols-[1fr_320px] overflow-hidden">
           <div className="flex flex-col p-4 pb-0 bg-surface-muted overflow-hidden">
             <HeaderFields idPrefix="pos-d" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
+            {voucherWarning && <p role="alert" className="mt-2 text-xs text-warning-700 dark:text-warning-400">{voucherWarning}</p>}
             {comprobanteOptions.length === 1 && (
               <p className="mt-2 text-xs text-ink-muted">
                 Solo puedes emitir ventas sin valor fiscal: no hay talonarios NCF ni secuencias e-CF activas.{' '}
@@ -942,6 +919,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
               </summary>
               <div className="mt-2">
                 <HeaderFields idPrefix="pos-m" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
+            {voucherWarning && <p role="alert" className="mt-2 text-xs text-warning-700 dark:text-warning-400">{voucherWarning}</p>}
               </div>
             </details>
           </div>
