@@ -210,7 +210,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
             await toast.promise(promise, {
                 loading: 'Procesando...',
                 success: () => { playSuccessSound(); onRefresh?.(); return '¡Acción completada con éxito!'; },
-                error: () => { playErrorSound(); return 'No se pudo completar la acción.'; }
+                error: (err) => { playErrorSound(); return err?.message || 'No se pudo completar la acción.'; }
             });
             onClose();
         }
