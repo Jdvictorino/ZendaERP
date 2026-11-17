@@ -1,6 +1,6 @@
 import { formatCurrency } from './formatCurrency.js';
 import { qrSvg } from './ecfPrint.js';
-import { docLine } from './docLines.js';
+import { docLine, couponSubtotal } from './docLines.js';
 
 // Para un e-CF, pasar docData por withEcfPrintData (ecfPrint.js) antes: así el ticket lleva QR y código de seguridad
 export const generateThermalReceiptHTML = (docData, docType, companyProfile, customerDetails, emitterInfo) => {
@@ -91,7 +91,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
 
         const taxableAmount = docData?.subtotal || 0;
         const exemptAmount = docData?.montoExento || 0;
-        const subtotal = taxableAmount + exemptAmount;
+        const subtotal = couponSubtotal(docData) ?? taxableAmount + exemptAmount;
         const tax = docData?.taxAmount || docData?.itbis || 0;
         const discount = docData?.discountAmount || 0;
         const total = docData?.total || 0;

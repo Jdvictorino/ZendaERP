@@ -4,7 +4,7 @@ import { getCouponByCode, validateCoupon, applyCouponToCart, couponCart, redeemC
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
-import { docLine } from '../../utils/docLines.js';
+import { docLine, couponSubtotal } from '../../utils/docLines.js';
 import { generateThermalReceiptHTML } from '../../utils/escposGenerator.js';
 import { withEcfPrintData } from '../../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../../utils/printer.js';
@@ -511,7 +511,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                             </div>
                         </div>
                                 <div className="text-right">
-                           <p>Subtotal (sin ITBIS): {formatCurrency(invoice.subtotal, companyProfile.currency)}</p>
+                           <p>Subtotal (sin ITBIS): {formatCurrency(couponSubtotal(invoice) ?? invoice.subtotal, companyProfile.currency)}</p>
                            {invoice.taxAmount > 0 && <p className="text-ink-soft">ITBIS: +{formatCurrency(invoice.taxAmount, companyProfile.currency)}</p>}
                            {invoice.discountAmount > 0 && <p className="text-red-600">Descuento: -{formatCurrency(invoice.discountAmount, companyProfile.currency)}</p>}
                            <p className="text-2xl font-bold mt-2">Total del Pedido: <span className="text-brand-600">{formatCurrency(invoice.total, companyProfile.currency)}</span></p>

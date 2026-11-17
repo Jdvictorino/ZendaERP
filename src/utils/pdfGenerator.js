@@ -2,7 +2,7 @@ import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 import { withEcfPrintData, qrModules } from './ecfPrint.js';
-import { docLine } from './docLines.js';
+import { docLine, couponSubtotal } from './docLines.js';
 
 let pdfLibrariesPromise = null;
 
@@ -345,8 +345,9 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
     const summaryX = bankDetails?.bankName ? 110 : 14;
     
     // Compatibilidad Firebase y PostgreSQL
-    const taxableAmount = docData.montoGravado ?? docData.subtotal ?? 0;
-    const exemptAmount = docData.montoExento ?? 0;
+    const preCoupon = couponSubtotal(docData); // con cupón: base de antes del cupón (incluye lo exento)
+    const taxableAmount = preCoupon ?? docData.montoGravado ?? docData.subtotal ?? 0;
+    const exemptAmount = preCoupon != null ? 0 : docData.montoExento ?? 0;
     const taxAmount = docData.itbis ?? docData.taxAmount ?? 0;
     const totalAmount = docData.total ?? 0;
     const discAmount = docData.discountAmount ?? 0;

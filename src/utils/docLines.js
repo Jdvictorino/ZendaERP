@@ -9,3 +9,11 @@ export function docLine(item, pricesIncludeTax) {
     const amount = saved && item.subtotal != null ? Number(item.subtotal) : round2(unit * qty);
     return { unit, amount };
 }
+
+// Con cupón, subtotal y taxAmount se guardan ya rebajados (igual que el e-CF). Los documentos muestran la base de
+// antes del cupón para que Subtotal − Descuento + ITBIS = Total. Sin cupón: null (cada documento usa lo suyo).
+export function couponSubtotal(doc) {
+    const discount = Number(doc?.discountAmount) || 0;
+    if (!(discount > 0)) return null;
+    return round2(Number(doc.total) - Number(doc.taxAmount ?? doc.itbis ?? 0) + discount);
+}

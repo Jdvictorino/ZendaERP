@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateThermalReceiptHTML } from '../src/utils/escposGenerator.js';
-import { docLine } from '../src/utils/docLines.js';
+import { docLine, couponSubtotal } from '../src/utils/docLines.js';
 
 const profile = { name: 'Zenda', currency: 'DOP' };
 const nueva = { pricesIncludeTax: false, items: [{ productName: 'A', quantity: 2, unitPrice: 100, taxRate: 18, subtotal: 200 }], subtotal: 200, taxAmount: 36, total: 236 };
@@ -26,5 +26,21 @@ describe('montos en documentos', () => {
   it('exención en el ticket', () => {
     const html = generateThermalReceiptHTML({ ...nueva, exemptionNumber: 'ABC-1' }, 'invoice', profile, null, null);
     expect(html).toContain('Exento de ITBIS — Carnet N.º ABC-1');
+  });
+});
+
+describe('cupón: Subtotal − Descuento + ITBIS = Total', () => {
+  // 1 × 100 al 18 % (118) con cupón del 10 % = 11.80. El PUT guarda subtotal/taxAmount como el e-CF: 90.00 / 16.20; total 106.20.
+  const conCupon = { ...nueva, items: [{ productName: 'A', quantity: 1, unitPrice: 100, taxRate: 18, subtotal: 100 }], subtotal: 90, taxAmount: 16.2, discountAmount: 11.8, total: 106.2 };
+  it('couponSubtotal: base de antes del cupón; sin cupón null', () => {
+    expect(couponSubtotal(conCupon)).toBe(101.8);
+    expect(couponSubtotal(nueva)).toBeNull();
+  });
+  it('el ticket cuadra: 101.80 − 11.80 + 16.20 = 106.20', () => {
+    const html = generateThermalReceiptHTML(conCupon, 'invoice', profile, null, null);
+    expect(html).toMatch(/SUBTOTAL:<\/span><span>[^<]*101\.80/);
+    expect(html).toMatch(/DESCUENTO:<\/span><span>-[^<]*11\.80/);
+    expect(html).toMatch(/ITBIS:<\/span><span>[^<]*16\.20/);
+    expect(html).toMatch(/TOTAL:<\/span><span>[^<]*106\.20/);
   });
 });
