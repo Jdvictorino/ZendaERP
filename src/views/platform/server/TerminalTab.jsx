@@ -33,7 +33,15 @@ export default function TerminalTab({ sessionToken, onLocked, onLogout }) {
       t.loadAddon(fit);
       t.open(host.current);
       fit.fit();
-      const socket = new WebSocket(consoleApi.terminalUrl(ticket));
+      let socket;
+      try {
+        socket = new WebSocket(consoleApi.terminalUrl(ticket));
+      } catch (e) {
+        // Un bloqueo de la política de seguridad (CSP) lanza aquí en lugar de cerrar el socket
+        t.dispose();
+        if (!dead) { setState(`No se pudo abrir la conexión: ${e.message}`); setClosed(true); }
+        return;
+      }
       socket.binaryType = 'arraybuffer';
       let reason = 'Sesión cerrada';
       const send = (m) => socket.readyState === 1 && socket.send(JSON.stringify(m));
@@ -51,7 +59,7 @@ export default function TerminalTab({ sessionToken, onLocked, onLogout }) {
       ro.observe(host.current);
       cleanup = () => { ro.disconnect(); detach(); d1.dispose(); socket.close(); t.dispose(); };
       ws.current = { close: () => { detach(); socket.close(); } };
-    })();
+    })().catch((e) => { if (!dead) { setState(`No se pudo abrir la terminal: ${e.message}`); setClosed(true); } });
     return () => { dead = true; cleanup(); };
   }, [sessionToken, attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
