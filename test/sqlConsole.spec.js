@@ -20,10 +20,20 @@ describe('checkSql', () => {
     expect(checkSql('select * from platform_audit_log')).toBe('Esa tabla no se puede consultar desde aquí');
     expect(checkSql('')).toBe('Escribe una consulta');
   });
+  it('rechaza instrucciones peligrosas', () => {
+    for (const q of ["select query_to_xml('select 1', true, true, '')", 'DO $$ BEGIN PERFORM 1; END $$', "copy customers to '/tmp/x'",
+      'set statement_timeout = 0', 'reset all', 'select pg_terminate_backend(1)']) {
+      expect(checkSql(q), q).not.toBeNull();
+    }
+    expect(checkSql("copy customers to '/tmp/x'")).toBe('Esta instrucción no está permitida en el editor.');
+  });
+  it('no confunde columnas con palabras reservadas', () => {
+    expect(checkSql('select offset_set, reset_at from t')).toBeNull();
+  });
 });
 
 describe('runSql', () => {
-  it('lectura: tope de 500 filas y BigInt intacto', async () => {
+  it('lectura: tope de 500 filas', async () => {
     const p = fake({ rows: Array.from({ length: 600 }, (_, i) => ({ i })) });
     const r = await runSql(p, 'select 1');
     expect(r).toMatchObject({ rowCount: 600, wrote: false });

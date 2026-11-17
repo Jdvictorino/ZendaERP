@@ -32,7 +32,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v, (_, x) => (typeof x === 'bigin
 const listTables = () => prisma.$queryRawUnsafe(
   `SELECT c.relname AS name, GREATEST(c.reltuples, 0)::bigint AS rows FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
-   WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname NOT IN ('platform_security', '_prisma_migrations')
+   WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname NOT IN ('platform_security', 'platform_audit_log', '_prisma_migrations')
    ORDER BY c.relname`);
 
 router.get('/db/tables', requireConsole, flow(async () => ({ status: 200, body: plain(await listTables()) })));
@@ -50,10 +50,14 @@ router.get('/db/tables/:name', requireConsole, flow(async (req) => {
     ? `WHERE ${textCols.map((c) => `"${c.column_name.replace(/"/g, '""')}"::text ILIKE '%' || $1 || '%'`).join(' OR ')}` : '';
   const args = where ? [search] : [];
   const order = cols.length ? `ORDER BY "${cols[0].column_name.replace(/"/g, '""')}"` : '';
-  const [rows, [{ n }]] = await Promise.all([
-    prisma.$queryRawUnsafe(`SELECT * FROM ${q} ${where} ${order} LIMIT 50 OFFSET ${(page - 1) * 50}`, ...args),
-    prisma.$queryRawUnsafe(`SELECT count(*) AS n FROM ${q} ${where}`, ...args)
-  ]);
+  const [rows, [{ n }]] = await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+    await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '15s'");
+    return [
+      await tx.$queryRawUnsafe(`SELECT * FROM ${q} ${where} ${order} LIMIT 50 OFFSET ${(page - 1) * 50}`, ...args),
+      await tx.$queryRawUnsafe(`SELECT count(*) AS n FROM ${q} ${where}`, ...args)
+    ];
+  });
   return { status: 200, body: plain({ columns: cols.map((c) => c.column_name), rows, total: n }) };
 }));
 

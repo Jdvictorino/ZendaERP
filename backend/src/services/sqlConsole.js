@@ -1,5 +1,8 @@
 import { httpError } from './ncfService.js';
 
+// shortcut: denylist, no un rol de BD de solo lectura; frena un token robado, no a quien ya tiene shell. Mejorar con un rol dedicado.
+const DENIED = /\b(do|execute|copy|set|reset|discard|begin|commit|rollback|start\s+transaction|savepoint|query_to_xml\w*|table_to_xml\w*|cursor_to_xml|dblink\w*|lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|pg_terminate_backend|pg_cancel_backend)\b/i;
+
 export function checkSql(sql) {
   const s = String(sql || '').trim();
   if (!s) return 'Escribe una consulta';
@@ -7,6 +10,7 @@ export function checkSql(sql) {
   if (s.replace(/;\s*$/, '').includes(';')) return 'Una sola sentencia por consulta';
   if (/\bcopy\b[\s\S]*\bprogram\b/i.test(s)) return 'COPY … PROGRAM no está permitido';
   if (/platform_security|platform_audit_log/i.test(s)) return 'Esa tabla no se puede consultar desde aquí';
+  if (DENIED.test(s)) return 'Esta instrucción no está permitida en el editor.';
   return null;
 }
 
