@@ -28,6 +28,7 @@ import monitoringRoutes from './routes/monitoring.js';
 import ecfRoutes from './routes/ecf.js';
 import emailRoutes from './routes/email.js';
 import adminObservabilityRoutes from './routes/adminObservability.js';
+import adminConsoleRoutes from './routes/adminConsole.js';
 import updatesRoutes from './routes/updates.js';
 import { observabilityMiddleware, observabilityErrorCapture, log } from './middleware/observability.js';
 import { runBillingEnforcement } from './services/billingEnforcementService.js';
@@ -101,7 +102,7 @@ const authLimiter = rateLimit({
   keyGenerator: clientKey,
   message: { error: 'Demasiados intentos de login, intenta en 15 minutos.' }
 });
-app.use(['/api/auth/login', '/api/auth/forgot-password', '/api/auth/register', '/api/admin/billing/login'], authLimiter);
+app.use(['/api/auth/login', '/api/auth/forgot-password', '/api/auth/register', '/api/admin/billing/login', '/api/admin/console/unlock'], authLimiter);
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -137,6 +138,7 @@ app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/ecf', ecfRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/admin/observability', adminObservabilityRoutes);
+app.use('/api/admin/console', adminConsoleRoutes);
 app.use('/api/updates', updatesRoutes);
 
 // Observability — captura de errores (antes del handler global)
