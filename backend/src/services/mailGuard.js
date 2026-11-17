@@ -2,6 +2,11 @@
 export function createWindowCounter(limit, windowMs, now = Date.now) {
   const hits = new Map();
   return {
+    // intentos vigentes de la clave, sin registrar uno nuevo
+    count(key) {
+      const t = now();
+      return (hits.get(key) || []).filter(x => t - x < windowMs).length;
+    },
     hit(key) {
       const t = now();
       // shortcut: barrido completo solo al pasar de 1000 claves; así las claves inactivas no crecen sin límite
