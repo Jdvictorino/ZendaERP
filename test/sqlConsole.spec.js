@@ -22,13 +22,15 @@ describe('checkSql', () => {
   });
   it('rechaza instrucciones peligrosas', () => {
     for (const q of ["select query_to_xml('select 1', true, true, '')", 'DO $$ BEGIN PERFORM 1; END $$', "copy customers to '/tmp/x'",
-      'set statement_timeout = 0', 'reset all', 'select pg_terminate_backend(1)']) {
+      'set statement_timeout = 0', '/* x */ -- y\n set statement_timeout = 0', 'reset all', 'select pg_terminate_backend(1)']) {
       expect(checkSql(q), q).not.toBeNull();
     }
     expect(checkSql("copy customers to '/tmp/x'")).toBe('Esta instrucción no está permitida en el editor.');
   });
   it('no confunde columnas con palabras reservadas', () => {
     expect(checkSql('select offset_set, reset_at from t')).toBeNull();
+    expect(checkSql("update customers set name = 'x' where id = 1")).toBeNull();
+    expect(checkSql('insert into t (id) values (1) on conflict do nothing')).toBeNull();
   });
 });
 
