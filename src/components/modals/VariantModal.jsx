@@ -105,8 +105,8 @@ const VariantModal = ({ product, onClose, companyProfile }) => {
                             <input type="file" required onChange={handleImageChange} className="text-sm" />
                             <input name="name" value={newVariant.name} onChange={handleChange} placeholder="Nombre (ej. Rojo, Azul)" className="input-base" required />
                             <div className="grid grid-cols-2 gap-4">
-                                <input type="number" name="purchasePrice" value={newVariant.purchasePrice} onChange={handleChange} placeholder="Precio Compra" className="input-base" step="0.01" />
-                                <input type="number" name="salePrice" value={newVariant.salePrice} onChange={handleChange} placeholder="Precio Venta" className="input-base" step="0.01" required />
+                                <input type="number" name="purchasePrice" value={newVariant.purchasePrice} onChange={handleChange} placeholder="Precio compra" aria-label="Precio de compra" className="input-base" step="0.01" />
+                                <input type="number" name="salePrice" value={newVariant.salePrice} onChange={handleChange} placeholder="Precio venta (sin ITBIS)" aria-label="Precio de venta (sin ITBIS)" className="input-base" step="0.01" required />
                             </div>
                             <input type="number" name="stock" value={newVariant.stock} onChange={handleChange} placeholder="Stock de esta variante" className="input-base" required />
                             <Button type="submit" disabled={isLoading} className="w-full">
@@ -125,7 +125,7 @@ const VariantModal = ({ product, onClose, companyProfile }) => {
                                     <img src={variant.imageUrl} alt={variant.name} className="w-16 h-16 object-cover rounded-md" />
                                     <div className="flex-1">
                                         <p className="font-semibold">{variant.name}</p>
-                                        <p className="text-sm">Venta: {formatCurrency(variant.salePrice, currency)} | Stock: {variant.stock}</p>
+                                        <p className="text-sm">Venta (sin ITBIS): {formatCurrency(variant.salePrice, currency)} | Stock: {variant.stock}</p>
                                     </div>
                                     <Button variant="ghost" onClick={() => handleDeleteVariant(variant.id)} className="text-red-600 hover:text-red-700">
                                         <Trash2 size={18} />

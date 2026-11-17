@@ -525,6 +525,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                 onConfirm={handleFacturar}
                 customer={customerDetails}
                 companyProfile={companyProfile}
+                exempt={!!invoice.exemptionNumber}
             />}
 
             {viewingImage && <ImageViewerModal imageUrl={viewingImage} onClose={() => setViewingImage(null)} />}

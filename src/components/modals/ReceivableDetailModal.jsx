@@ -25,7 +25,7 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
     paid: entry?.paid || 0,
     outstanding: entry?.outstanding || 0,
     discount: invoice?.discountAmount || invoice?.discount || 0,
-    tax: invoice?.itbis || invoice?.tax || 0,
+    tax: Number(invoice?.taxAmount ?? invoice?.itbis ?? invoice?.tax ?? 0),
     shipping: invoice?.shippingCost || invoice?.shipping || 0,
     subtotal: invoice?.subtotal || items.reduce((sum, item) => sum + item.lineTotal, 0),
   }), [entry, invoice, items]);

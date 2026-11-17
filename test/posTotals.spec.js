@@ -57,3 +57,11 @@ describe('computeTotals: ITBIS de cada producto', () => {
     expect(t.total).toBeCloseTo(216, 2);
   });
 });
+
+describe('POS: lo que se ve en Totales cuadra', () => {
+  it.each([0, 7.5, 12.5])('Subtotal − Descuento + ITBIS = Total (descuento general %s)', (g) => {
+    const t = computeTotals(rows, g);
+    expect(t.gross).toBe(Math.round(t.gross * 100) / 100);
+    expect(Math.round((t.gross - t.discAmt + t.tax) * 100) / 100).toBe(t.total);
+  });
+});

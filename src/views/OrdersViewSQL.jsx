@@ -944,6 +944,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                     onConfirm={handleFacturar}
                     customer={customers.find(c => c.id === billingOrder.customerId)}
                     companyProfile={companyProfile}
+                    exempt={!!billingOrder.exemptionNumber}
                 />
             )}
             {paymentForOrder && (

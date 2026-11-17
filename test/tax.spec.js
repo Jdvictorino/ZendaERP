@@ -65,6 +65,6 @@ describe.each([['servidor', server], ['app', app]])('tax (%s)', (_n, t) => {
 });
 
 it('las dos copias son idénticas desde la línea 2', () => {
-  const body = (p) => readFileSync(p, 'utf8').split('\n').slice(1).join('\n');
+  const body = (p) => readFileSync(p, 'utf8').replace(/\r/g, '').split('\n').slice(1).join('\n');
   expect(body('src/utils/tax.js')).toBe(body('backend/src/services/tax.js'));
 });

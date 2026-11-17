@@ -25,7 +25,7 @@ import { printEscPosReceipt } from '../utils/printer.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { confirmDialog } from '../utils/confirmDialog.jsx';
 import useApproval from '../hooks/useApproval.js';
-import { round2, lineAmounts, isTaxExempt, exemptionStatus, suggestedVoucher, todayRD } from '../utils/tax.js';
+import { round2, lineAmounts, isTaxExempt, exemptionStatus, suggestedVoucher, todayRD, voucherError } from '../utils/tax.js';
 
 const TAX_RATE = 0.18;
 // Tasa de ITBIS de la línea: la del producto (0 si es exento); 18 % para líneas escritas a mano
@@ -49,8 +49,8 @@ export function computeTotals(rows, globalDisc, { exempt = false } = {}) {
     const l = lineAmounts({ quantity: r.qty, unitPrice: r.price, discountPercent: combinedDiscount(r.disc, globalDisc), taxRate: exempt ? 0 : rateOf(r) * 100 });
     subtotal += l.base; tax += l.itbis;
   }
-  subtotal = round2(subtotal); tax = round2(tax);
-  return { gross, discAmt: gross - subtotal, subtotal, tax, total: round2(subtotal + tax) };
+  subtotal = round2(subtotal); tax = round2(tax); gross = round2(gross);
+  return { gross, discAmt: round2(gross - subtotal), subtotal, tax, total: round2(subtotal + tax) };
 }
 
 // Aviso/etiqueta del carnet de exención del cliente elegido (DD/MM/AAAA desde la parte YYYY-MM-DD, sin cambio de zona horaria)
@@ -351,7 +351,8 @@ function Totals({ rows, globalDisc, exempt, onSubmit, isSubmitting, submitLabel,
   const t = computeTotals(rows, globalDisc, { exempt });
   return (
     <div className="mt-auto flex flex-col pt-4">
-      <TotalRow label="Subtotal" value={fmt(t.subtotal)} />
+      {/* Subtotal antes del descuento general: en pantalla Subtotal - Descuento + ITBIS = Total */}
+      <TotalRow label="Subtotal" value={fmt(t.gross)} />
       {t.discAmt > 0 && <TotalRow label={`Descuento general (${globalDisc}%)`} value={`−${fmt(t.discAmt)}`} valueClass="text-danger-700 dark:text-danger-400" />}
       <TotalRow label={exempt ? 'ITBIS (exento)' : 'ITBIS'} value={fmt(t.tax)} />
       <div className="flex justify-between items-baseline mt-3 px-4 py-3 bg-night-900 dark:bg-black/40 dark:ring-1 dark:ring-inset dark:ring-line rounded-xl">
@@ -680,6 +681,9 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     const buyerDoc = selectedCustomer?.rnc || selectedCustomer?.identificationNumber || '';
     if (option.requiresBuyer && !buyerDoc) { toast.error(`${option.label} requiere un cliente con RNC o cédula.`); focusCustomer(); return; }
     if (!selectedCustomer) { toast.error('Selecciona el cliente de la venta.'); focusCustomer(); return; }
+    // Mismo chequeo que el servidor al facturar: si no, la venta se guarda y cobra pero no se puede facturar
+    const voucherProblem = voucherError(option.value, { exemptApplied: exempt, taxpayerType: selectedCustomer.taxpayerType });
+    if (voucherProblem) { toast.error(voucherProblem); return; }
     // el efectivo de una venta de contado entra en la caja: sin turno abierto no cuadraría en el cierre
     if (!isCredit && !openShift) { toast.error('Abre un turno de caja para cobrar ventas de contado.'); return; }
 
@@ -733,7 +737,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
           if (ecf.success) toast.success(`e-CF ${doc.eNcf || ''} enviado a la DGII (${doc.dgiiStatus || 'pendiente'}).`);
           else toast.error(`La DGII no aceptó el e-CF ${doc.eNcf || ''}: ${ecf.error || doc.dgiiMessage || 'error desconocido'}. Revísalo en Gestión Fiscal › e-CF.`);
           loadEcf(); // la secuencia avanzó
-        } else if (billed?.ncfNumber && (option.value === 'B01' || option.value === 'B02')) {
+        } else if (billed?.ncfNumber && ['B01', 'B02', 'B14', 'B15'].includes(option.value)) {
           const used = parseInt(String(billed.ncfNumber).replace(/\D/g, '').slice(-8), 10);
           if (used) setNcfNextLocal(prev => ({ ...prev, [option.value]: used + 1 }));
         }
