@@ -8,6 +8,9 @@ const { safeUserPath, isImagePath } = require('./safePath');
 
 const isDev = !app.isPackaged;
 
+// HTTP/3 (QUIC) por el túnel de Cloudflare corta descargas largas con net::ERR_QUIC_PROTOCOL_ERROR
+app.commandLine.appendSwitch('disable-quic');
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -40,6 +43,9 @@ ipcMain.on('updates:check', (event, { token, apiUrl } = {}) => {
   // 404 = la empresa no tiene actualizaciones activadas; no es un error para el usuario
   autoUpdater.checkForUpdates().catch((error) => console.info('Sin actualización disponible:', error.message));
 });
+
+// Sin este oyente, un fallo de red al descargar se lanza como excepción no capturada (ventana de error)
+autoUpdater.on('error', (error) => console.info('Actualización interrumpida:', error?.message || error));
 
 autoUpdater.on('update-downloaded', (info) => {
   BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('updates:ready', { version: info.version }));
