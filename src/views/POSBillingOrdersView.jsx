@@ -26,6 +26,7 @@ import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { confirmDialog } from '../utils/confirmDialog.jsx';
 import useApproval from '../hooks/useApproval.js';
 import { round2, lineAmounts, isTaxExempt, exemptionStatus, suggestedVoucher, todayRD, voucherError } from '../utils/tax.js';
+import { buildVoucherOptions, missingVoucherWarning } from '../utils/voucherOptions.js';
 
 const TAX_RATE = 0.18;
 // Tasa de ITBIS de la línea: la del producto (0 si es exento); 18 % para líneas escritas a mano
