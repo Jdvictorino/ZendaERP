@@ -725,3 +725,24 @@ model EcfDocument {
   @@index([dgiiStatus])
   @@map("ecf_documents")
 }
+
+model PlatformSecurity {
+  id              Int       @id @default(1)
+  totpSecret      String?
+  totpConfirmedAt DateTime?
+  lastTotpStep    Int       @default(-1)
+
+  @@map("platform_security")
+}
+
+model PlatformAuditLog {
+  id        String   @id @default(uuid())
+  at        DateTime @default(now())
+  ip        String?
+  kind      String
+  detail    String
+  sessionId String?
+
+  @@index([at])
+  @@map("platform_audit_log")
+}
