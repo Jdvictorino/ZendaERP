@@ -193,7 +193,7 @@ function buildItems(invoiceItems) {
     return {
       NumeroLinea: String(index + 1),
       IndicadorFacturacion: String(getIndicadorFacturacion(item.taxRate)),
-      NombreItem: (item.productName || '').substring(0, 80),
+      NombreItem: item.productName || '',
       IndicadorBienoServicio: '1', // 1=Bien, 2=Servicio
       CantidadItem: String(quantity),
       UnidadMedida: '43', // Tabla IV del Formato e-CF: 43 = Unidad (1 es Barril)
@@ -333,7 +333,7 @@ export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, 
       NCFModificado: originalInvoice.ncfNumber || '',
       FechaNCFModificado: formatDateDGII(fechaModificado),
       CodigoModificacion: tipoEcf === 'E34' && full ? '1' : '3', // 1: anula el NCF modificado; 3: corrige montos
-      RazonModificacion: (note.reason || '').substring(0, 90),
+      RazonModificacion: note.reason || '',
     },
     FechaHoraFirma,
   };
@@ -360,7 +360,7 @@ export function buildEcfFromExpense(expense, company, tipoEcf, eNcf, sequence) {
   const itbisRetenido = exento ? 0 : n(expense.itbisRetenido);
   const isrRetenido = tipoCode === 43 ? 0 : n(expense.montoRetencionIsr);
   const conRetencion = tipoCode === 41 || tipoCode === 47;
-  const nombre = (expense.description || '').substring(0, 80);
+  const nombre = expense.description || '';
 
   const lineas = [
     { tipo: 1, monto: bienes, nombre: nombre || 'Bienes' },
