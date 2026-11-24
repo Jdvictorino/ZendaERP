@@ -93,7 +93,7 @@ export const authService = {
     // Determinar modo de pedido según tipo de actividad comercial
     const CRAFT_BUSINESS_TYPES = new Set([
       'restaurante', 'comida_rapida', 'food_truck', 'cafeteria', 'reposteria',
-      'tienda_regalos', 'tienda_personalizada', 'libreria', 'floristeria'
+      'tienda_regalos', 'tienda_personalizada', 'libreria', 'floristeria', 'salon', 'barberia'
     ]);
     const resolvedBusinessType = businessType || 'otro';
     const initialOrderMode = CRAFT_BUSINESS_TYPES.has(resolvedBusinessType) ? 'craft' : 'distributor';

@@ -72,12 +72,13 @@ export default function RegisterModal({ onClose, onRegister }) {
                                     <option value="tienda_regalos">Tienda de regalos / artículos personalizados</option>
                                     <option value="libreria">Librería</option>
                                     <option value="floristeria">Floristería</option>
+                                    <option value="salon">Salón de belleza / Estética</option>
+                                    <option value="barberia">Barbería</option>
                                 </optgroup>
                                 <optgroup label="Modo Distribuidor">
                                     <option value="distribuidora">Distribuidora / Mayorista</option>
                                     <option value="ferreteria">Ferretería</option>
                                     <option value="farmacia">Farmacia</option>
-                                    <option value="salon">Salón de belleza / Estética</option>
                                     <option value="supermercado">Supermercado / Minimarket</option>
                                     <option value="tecnologia">Tecnología / Electrónica</option>
                                     <option value="otro">Otra actividad</option>
