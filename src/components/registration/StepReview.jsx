@@ -1,117 +1,82 @@
 import React from 'react';
-import ProfilePicture from '../common/ProfilePicture.jsx';
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { Pencil, Loader2 } from 'lucide-react';
+import { Section, StepHeader } from './FormParts.jsx';
+import { GENDERS, businessTypeLabel } from './validation.js';
 
-const displayValue = (v) => {
-  if (v === null || v === undefined || v === '') return '—';
-  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
-  if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
-  return String(v);
-};
+const show = (v) => (v === null || v === undefined || String(v).trim() === '' ? '—' : String(v));
+const addressLine = (a = {}) => [a.street, a.sector, a.city, a.country].filter(s => s && s.trim()).join(', ');
 
-const Field = ({ label, value }) => (
-  <div className="space-y-0.5">
-    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-    <p className="text-sm font-medium text-ink break-words">{displayValue(value)}</p>
-  </div>
-);
-
-const ReviewSection = ({ title, children, onEdit }) => (
-  <div className="reg-section">
-    <div className="reg-section-header flex items-center justify-between">
-      <h3>{title}</h3>
-      {onEdit && (
-        <button type="button" onClick={onEdit}
-          className="text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors">
-          Editar →
-        </button>
-      )}
+function Item({ label, value, wide }) {
+  return (
+    <div className={wide ? 'sm:col-span-2' : ''}>
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className="mt-0.5 text-sm text-ink break-words">{show(value)}</dd>
     </div>
-    <div className="reg-section-body grid grid-cols-2 sm:grid-cols-3 gap-4">
-      {children}
-    </div>
-  </div>
-);
+  );
+}
+
+function EditButton({ onClick, label }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={label}
+      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-sm font-medium text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950/40">
+      <Pencil size={14} aria-hidden="true" /> Editar
+    </button>
+  );
+}
 
 export default function StepReview({
-  adminData = {}, companyData = {},
-  onBack, onBackToCompany, onConfirm, onClear,
-  isProcessing, progressStep, progressMessage,
-  animClass
+  adminData = {}, companyData = {}, onBack, onBackToCompany,
+  isProcessing, progressStep, progressMessage, animClass,
 }) {
-  const adminAddr = adminData.address || {};
-  const companyAddr = companyData.address || {};
-
   return (
     <div className={`space-y-6 ${animClass}`}>
-      {/* Header */}
-      <div className="reg-step-header">
-        <p className="step-tag">Paso 3 de 3</p>
-        <h2>Confirma los Datos</h2>
-        <p>Revisa la información antes de crear tu cuenta. Puedes volver a editar cualquier sección.</p>
-      </div>
+      <StepHeader step={3} title="Revisa y confirma">
+        Si algo está mal, edítalo antes de crear la cuenta. Tu prueba gratis empieza al confirmar.
+      </StepHeader>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="card flex items-center gap-4 p-4">
-          <ProfilePicture photoURL={adminData.photoURL} handleImageChange={() => {}} id="reviewAdmin" />
-          <div>
-            <p className="font-semibold text-ink">
-              {[adminData.firstName, adminData.lastName].filter(Boolean).join(' ') || '—'}
-            </p>
-            <p className="text-xs text-gray-400 uppercase tracking-wide mt-0.5">Administrador</p>
-            <p className="text-xs text-ink-muted mt-0.5">{adminData.email || '—'}</p>
-          </div>
+      <Section title="Tu negocio" action={<EditButton onClick={onBackToCompany} label="Editar los datos del negocio" />}>
+        <div className="flex items-start gap-4">
+          {companyData.logo && <img src={companyData.logo} alt="" className="w-14 h-14 rounded-lg object-cover border border-line" />}
+          <dl className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Item label="Nombre comercial" value={companyData.name} />
+            <Item label="RNC" value={companyData.rnc} />
+            <Item label="Tipo de negocio" value={businessTypeLabel(companyData.businessType)} />
+            <Item label="Moneda" value={companyData.currency} />
+            <Item label="Teléfono" value={companyData.phone} />
+            <Item label="Correo" value={companyData.email} />
+            <Item label="Dirección fiscal" value={addressLine(companyData.address)} wide />
+          </dl>
         </div>
-        <div className="card flex items-center gap-4 p-4">
-          <ProfilePicture photoURL={companyData.logo} handleImageChange={() => {}} id="reviewCompany" />
-          <div>
-            <p className="font-semibold text-ink">{companyData.name || '—'}</p>
-            <p className="text-xs text-gray-400 uppercase tracking-wide mt-0.5">Empresa</p>
-            <p className="text-xs text-ink-muted mt-0.5">{companyData.rnc ? `RNC: ${companyData.rnc}` : 'Sin RNC'}</p>
-          </div>
+      </Section>
+
+      <Section title="Administrador" action={<EditButton onClick={onBack} label="Editar los datos del administrador" />}>
+        <div className="flex items-start gap-4">
+          {adminData.photoURL && <img src={adminData.photoURL} alt="" className="w-14 h-14 rounded-full object-cover border border-line" />}
+          <dl className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Item label="Nombre" value={[adminData.firstName, adminData.lastName].filter(Boolean).join(' ')} />
+            <Item label="Correo de acceso" value={adminData.email} />
+            <Item label="Cargo" value={adminData.cargo} />
+            <Item label="Permisos" value="Acceso total" />
+            <Item label="Cédula o pasaporte" value={adminData.idNumber} />
+            <Item label="Género" value={GENDERS[adminData.gender] || adminData.gender} />
+            <Item label="Celular" value={adminData.cellphone} />
+            <Item label="Teléfono fijo" value={adminData.phone} />
+          </dl>
         </div>
-      </div>
+      </Section>
 
-      {/* Admin details */}
-      <ReviewSection title="Administrador" onEdit={onBack}>
-        <Field label="Nombres" value={adminData.firstName} />
-        <Field label="Apellidos" value={adminData.lastName} />
-        <Field label="Correo" value={adminData.email} />
-        <Field label="Cargo" value={adminData.cargo} />
-        <Field label="Permisos" value="Administrador (acceso total)" />
-        <Field label="Género" value={adminData.gender} />
-        <Field label="Identificación" value={adminData.idNumber} />
-        <Field label="Teléfono" value={adminData.phone} />
-        <Field label="Celular" value={adminData.cellphone} />
-        <Field label="Ciudad" value={adminAddr.city} />
-      </ReviewSection>
-
-      {/* Company details */}
-      <ReviewSection title="Empresa" onEdit={onBackToCompany}>
-        <Field label="Nombre" value={companyData.name} />
-        <Field label="RNC" value={companyData.rnc} />
-        <Field label="Teléfono" value={companyData.phone} />
-        <Field label="Correo" value={companyData.email} />
-        <Field label="Moneda" value={companyData.currency} />
-        <Field label="Ciudad" value={companyAddr.city} />
-      </ReviewSection>
-
-      {/* Progress overlay when processing */}
       {isProcessing && (
-        <div className="rounded-xl border border-brand-100 bg-brand-50 p-6 text-center">
-          <Loader2 className="mx-auto animate-spin text-brand-500 mb-3" size={32} />
-          <p className="text-sm font-semibold text-brand-800">{progressMessage || 'Procesando...'}</p>
-          <div className="mt-4 h-2 w-full rounded-full bg-brand-200 overflow-hidden">
-            <div className="h-full bg-brand-500 transition-all duration-500 rounded-full"
-              style={{ width: `${Math.min(100, (progressStep / 3) * 100)}%` }} />
+        <div className="card p-5" role="status" aria-live="polite">
+          <div className="flex items-center gap-3">
+            <Loader2 className="animate-spin text-brand-600 shrink-0" size={20} aria-hidden="true" />
+            <p className="text-sm font-medium text-ink">{progressMessage || 'Creando tu cuenta…'}</p>
           </div>
-          <p className="text-xs text-brand-400 mt-2">Mantén la ventana abierta hasta finalizar.</p>
+          <div className="mt-3 h-1.5 rounded-full bg-surface-muted dark:bg-gray-800 overflow-hidden">
+            <div className="h-full rounded-full bg-brand-600 transition-all duration-500" style={{ width: `${Math.min(100, (progressStep / 3) * 100)}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">No cierres esta ventana hasta que termine.</p>
         </div>
       )}
-
-      {/* Actions — footer is rendered by RegistrationFlow, but we expose the confirm button here */}
-      <button type="button" id="step-review-confirm" className="hidden" onClick={onConfirm} />
     </div>
   );
 }

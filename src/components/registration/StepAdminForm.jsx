@@ -1,247 +1,165 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Check, Circle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { CARGO_OPTIONS } from '../../utils/permissions.js';
-import { Eye, EyeOff, User, Check, X } from 'lucide-react';
+import { calcPasswordStrength, checkPasswordCriteria } from '../../utils/password.js';
+import { compressImage } from '../../utils/compressImage.js';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import AddressFields from '../common/AddressFields.jsx';
-import { calcPasswordStrength, isPasswordStrong } from '../../utils/password.js';
+import { Section, Field, StepHeader, focusFirstError } from './FormParts.jsx';
+import { validateAdmin, GENDERS } from './validation.js';
 
-const PWD_COLORS = ['bg-red-500', 'bg-red-400', 'bg-yellow-400', 'bg-yellow-300', 'bg-success-400', 'bg-success-500'];
-const PWD_LABELS = ['Muy débil', 'Débil', 'Aceptable', 'Buena', 'Fuerte', 'Muy fuerte'];
-
-const criteria = [
-  { label: 'Mínimo 8 caracteres',       test: (p) => p.length >= 8 },
-  { label: 'Al menos una mayúscula',    test: (p) => /[A-Z]/.test(p) },
-  { label: 'Al menos una minúscula',    test: (p) => /[a-z]/.test(p) },
-  { label: 'Al menos un número',        test: (p) => /[0-9]/.test(p) },
-  { label: 'Al menos un símbolo',       test: (p) => /[^A-Za-z0-9]/.test(p) },
+const STRENGTH = [
+  { label: 'Muy débil', color: 'bg-danger-500' },
+  { label: 'Débil', color: 'bg-danger-500' },
+  { label: 'Aceptable', color: 'bg-warning-500' },
+  { label: 'Buena', color: 'bg-warning-500' },
+  { label: 'Fuerte', color: 'bg-success-500' },
+  { label: 'Muy fuerte', color: 'bg-success-500' },
 ];
+const CRITERIA = [
+  ['minLength', 'Mínimo 8 caracteres'], ['hasUpper', 'Una mayúscula'], ['hasLower', 'Una minúscula'],
+  ['hasNumber', 'Un número'], ['hasSymbol', 'Un símbolo'],
+];
+
+function PasswordInput({ show, onToggle, ...props }) {
+  return (
+    <div className="relative">
+      <input type={show ? 'text' : 'password'} className="input-base pr-10" {...props} />
+      <button type="button" onClick={onToggle} aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        className="absolute inset-y-0 right-0 px-3 text-ink-muted hover:text-ink">
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
 
 export default function StepAdminForm({ initialData = {}, companyName = '', onNext, animClass }) {
   const [form, setForm] = useState({
-    photoURL: '', firstName: '', lastName: '', idNumber: '', gender: 'M',
-    cargo: 'Administrador', empresa: companyName,
+    photoURL: '', firstName: '', lastName: '', idNumber: '', gender: 'otro',
+    cargo: 'Propietario',
     address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana' },
     phone: '', cellphone: '', email: '', password: '', confirmPassword: '',
     ...initialData,
   });
+  const [errors, setErrors] = useState({});
   const [showPwd, setShowPwd] = useState(false);
-  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
-  const [pwdStrength, setPwdStrength] = useState(0);
-  const [touched, setTouched] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  useEffect(() => { setPwdStrength(calcPasswordStrength(form.password)); }, [form.password]);
-  useEffect(() => { if (companyName) setForm(p => ({ ...p, empresa: companyName })); }, [companyName]);
+  // Corrige al vuelo solo los campos que ya marcaron error
+  useEffect(() => {
+    if (!Object.keys(errors).length) return;
+    const now = validateAdmin(form);
+    setErrors(prev => Object.fromEntries(Object.keys(prev).filter(k => now[k]).map(k => [k, now[k]])));
+  }, [form]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (field, value) => setForm(p => ({ ...p, [field]: value }));
-  const handleChange = (e) => set(e.target.name, e.target.value);
+  const handleChange = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
   const handleAddress = (e) => setForm(p => ({ ...p, address: { ...p.address, [e.target.name]: e.target.value } }));
-  const compressImage = (file, callback) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        callback(dataUrl);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handlePhoto = (e) => {
-    if (e.target.files?.[0]) {
-      compressImage(e.target.files[0], (dataUrl) => setForm(p => ({ ...p, photoURL: dataUrl })));
-    }
+    const file = e.target.files?.[0];
+    if (file) compressImage(file).then(url => setForm(p => ({ ...p, photoURL: url }))).catch(() => toast.error('No se pudo leer la imagen.'));
   };
-
-  const pwdMatch = form.password === form.confirmPassword && form.confirmPassword.length > 0;
-  const canSubmit = form.email && form.firstName && form.lastName && form.password &&
-    pwdMatch && isPasswordStrong(form.password, 3);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setTouched(true);
-    if (!canSubmit) return;
+    const found = validateAdmin(form);
+    setErrors(found);
+    if (Object.keys(found).length) { focusFirstError(e.currentTarget, found); return; }
     onNext(form);
   };
 
+  const strength = calcPasswordStrength(form.password);
+  const checks = checkPasswordCriteria(form.password || '');
+
   return (
     <form onSubmit={handleSubmit} className={`space-y-6 ${animClass}`} noValidate>
-      {/* Header */}
-      <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-1">Paso 1 de 3</p>
-        <h2 className="text-2xl md:text-3xl font-bold text-ink">Datos del Administrador</h2>
-        <p className="text-sm text-ink-muted mt-1">El administrador tendrá acceso total al sistema. Completa todos los campos requeridos.</p>
-      </div>
+      <StepHeader step={1} title="Tu cuenta de administrador">
+        Con este usuario entras al sistema y tienes acceso a todo. Después puedes agregar a tu equipo con permisos más limitados.
+      </StepHeader>
 
-      {/* Foto + Datos Personales */}
-      <div className="card mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Información Personal</h3></div>
-          <div className="p-5">
-          <div className="flex flex-col md:flex-row gap-6">
-            {/* Foto */}
-            <div className="flex flex-col items-center gap-2 md:w-36 flex-shrink-0">
-              <ProfilePicture photoURL={form.photoURL} handleImageChange={handlePhoto} id="adminPhoto" />
-              <p className="text-xs text-gray-400 text-center">Foto de perfil<br/>(opcional)</p>
-            </div>
-            {/* Campos */}
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-ink-soft mb-1">Nombres <span className="text-red-500">*</span></label>
-                <input name="firstName" value={form.firstName} onChange={handleChange}
-                  className="input-base" placeholder="Ej: Juan Carlos" required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-ink-soft mb-1">Apellidos <span className="text-red-500">*</span></label>
-                <input name="lastName" value={form.lastName} onChange={handleChange}
-                  className="input-base" placeholder="Ej: Pérez García" required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-ink-soft mb-1">Cédula / Pasaporte</label>
-                <input name="idNumber" value={form.idNumber} onChange={handleChange}
-                  className="input-base" placeholder="000-0000000-0" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-ink-soft mb-1">Género</label>
-                <select name="gender" value={form.gender} onChange={handleChange} className="input-base">
-                  <option value="M">Masculino</option>
-                  <option value="F">Femenino</option>
-                  <option value="otro">Prefiero no decir</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="admin-cargo" className="block text-xs font-semibold text-ink-soft mb-1">Cargo</label>
-                <input id="admin-cargo" name="cargo" list="admin-cargo-options" value={form.cargo} onChange={handleChange}
-                  className="input-base" placeholder="Propietario, Administrador..." maxLength={60} />
-                <datalist id="admin-cargo-options">{CARGO_OPTIONS.map(c => <option key={c} value={c} />)}</datalist>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-ink-soft mb-1">Permisos</span>
-                <span className="input-base block bg-surface-muted text-ink-muted">Administrador (acceso total)</span>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-ink-soft mb-1">Empresa</label>
-                <input name="empresa" value={form.empresa} readOnly
-                  className="input-base bg-surface-muted text-ink-muted cursor-not-allowed" />
-              </div>
-            </div>
+      <Section title="Datos personales">
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="flex flex-col items-center gap-2 md:w-32 shrink-0">
+            <ProfilePicture photoURL={form.photoURL} handleImageChange={handlePhoto} id="adminPhoto" />
+            <p className="text-xs text-ink-muted text-center">Foto (opcional)</p>
+          </div>
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field id="reg-firstName" label="Nombres" required error={errors.firstName}>
+              <input name="firstName" value={form.firstName} onChange={handleChange} className="input-base" autoComplete="given-name" placeholder="Juan Carlos" />
+            </Field>
+            <Field id="reg-lastName" label="Apellidos" required error={errors.lastName}>
+              <input name="lastName" value={form.lastName} onChange={handleChange} className="input-base" autoComplete="family-name" placeholder="Pérez García" />
+            </Field>
+            <Field id="reg-idNumber" label="Cédula o pasaporte" optional error={errors.idNumber}>
+              <input name="idNumber" value={form.idNumber} onChange={handleChange} className="input-base" placeholder="001-0000000-1" />
+            </Field>
+            <Field id="reg-gender" label="Género">
+              <select name="gender" value={form.gender} onChange={handleChange} className="input-base">
+                {Object.entries(GENDERS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </Field>
+            <Field id="reg-cargo" label="Cargo" hint={companyName ? `En ${companyName}` : undefined}>
+              <input name="cargo" list="admin-cargo-options" value={form.cargo} onChange={handleChange} className="input-base" maxLength={60} placeholder="Propietario" />
+            </Field>
+            <datalist id="admin-cargo-options">{CARGO_OPTIONS.map(c => <option key={c} value={c} />)}</datalist>
           </div>
         </div>
-      </div>
+      </Section>
 
-      {/* Dirección */}
-      <div className="card mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Dirección</h3></div>
-          <div className="p-5">
-          <AddressFields address={form.address} onChange={handleAddress} />
+      <Section title="Contacto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field id="reg-cellphone" label="Celular" optional error={errors.cellphone}>
+            <input name="cellphone" type="tel" value={form.cellphone} onChange={handleChange} className="input-base" autoComplete="tel" inputMode="tel" placeholder="849-000-0000" />
+          </Field>
+          <Field id="reg-phone" label="Teléfono fijo" optional error={errors.phone}>
+            <input name="phone" type="tel" value={form.phone} onChange={handleChange} className="input-base" inputMode="tel" placeholder="809-000-0000" />
+          </Field>
         </div>
-      </div>
+      </Section>
 
-      {/* Contacto */}
-      <div className="card mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Contacto</h3></div>
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="reg-label">Teléfono</label>
-            <input name="phone" value={form.phone} onChange={handleChange}
-              className="input-base" placeholder="809-000-0000" />
-          </div>
-          <div>
-            <label className="reg-label">Celular</label>
-            <input name="cellphone" value={form.cellphone} onChange={handleChange}
-              className="input-base" placeholder="849-000-0000" />
-          </div>
-        </div>
-      </div>
+      <Section title="Dirección" description="Opcional. Sirve para tu perfil; la dirección fiscal va en el paso siguiente.">
+        <AddressFields address={form.address} onChange={handleAddress} title={null} idPrefix="admin-addr" />
+      </Section>
 
-      {/* Credenciales */}
-      <div className="card mb-6 overflow-hidden">
-          <div className="px-5 py-3 border-b border-line bg-surface-muted"><h3 className="text-sm font-semibold text-brand-600 uppercase tracking-wide">Credenciales de Acceso</h3></div>
-          <div className="p-5 space-y-4">
-          <div>
-            <label className="reg-label">Correo electrónico <span className="text-red-500">*</span></label>
-            <input type="email" name="email" value={form.email} onChange={handleChange}
-              className="input-base" placeholder="admin@empresa.com" required />
-          </div>
+      <Section title="Acceso" description="Usarás este correo y esta contraseña para entrar.">
+        <div className="space-y-4">
+          <Field id="reg-email" label="Correo electrónico" required error={errors.email}>
+            <input name="email" type="email" value={form.email} onChange={handleChange} className="input-base" autoComplete="email" placeholder="tunombre@empresa.com" />
+          </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="reg-label">Contraseña <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <input type={showPwd ? 'text' : 'password'} name="password"
-                  value={form.password} onChange={(e) => { handleChange(e); setTouched(true); }}
-                  className="input-base pr-10" placeholder="Mínimo 8 caracteres" required />
-                <button type="button" onClick={() => setShowPwd(!showPwd)}
-                  className="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600">
-                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {/* Strength bar */}
-              <div className="pwd-bar">
-                <div className={`pwd-bar-fill ${PWD_COLORS[pwdStrength] || 'bg-gray-200'}`}
-                  style={{ width: `${(pwdStrength / 5) * 100}%` }} />
-              </div>
-              <p className="text-xs text-ink-muted mt-1">{PWD_LABELS[Math.max(0, pwdStrength - 1)] || 'Muy débil'}</p>
+              <Field id="reg-password" label="Contraseña" required error={errors.password}>
+                <PasswordInput name="password" value={form.password} onChange={handleChange} autoComplete="new-password"
+                  show={showPwd} onToggle={() => setShowPwd(v => !v)} />
+              </Field>
+              {form.password && (
+                <div className="mt-2" aria-live="polite">
+                  <div className="h-1.5 rounded-full bg-surface-muted dark:bg-gray-800 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${STRENGTH[strength].color}`} style={{ width: `${(strength / 5) * 100}%` }} />
+                  </div>
+                  <p className="mt-1 text-xs text-ink-muted">Seguridad: {STRENGTH[strength].label}</p>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="reg-label">Confirmar contraseña <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <input type={showConfirmPwd ? 'text' : 'password'} name="confirmPassword"
-                  value={form.confirmPassword} onChange={handleChange}
-                  className="input-base pr-10" placeholder="Repite la contraseña" required />
-                <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)}
-                  className="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600">
-                  {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-                {form.confirmPassword.length > 0 && (
-                  <span className={`absolute right-9 top-1/2 -translate-y-1/2 font-bold text-sm ${pwdMatch ? 'text-success-500' : 'text-red-500'}`}>
-                    {pwdMatch ? <Check size={16} aria-label="Las contraseñas coinciden" /> : <X size={16} aria-label="Las contraseñas no coinciden" />}
-                  </span>
-                )}
-              </div>
-            </div>
+            <Field id="reg-confirmPassword" label="Repite la contraseña" required error={errors.confirmPassword}>
+              <PasswordInput name="confirmPassword" value={form.confirmPassword} onChange={handleChange} autoComplete="new-password"
+                show={showConfirm} onToggle={() => setShowConfirm(v => !v)} />
+            </Field>
           </div>
-
-          {/* Criteria list */}
-          {touched && (
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-1">
-              {criteria.map((c) => (
-                <li key={c.label} className={`flex items-center gap-1.5 text-xs ${c.test(form.password) ? 'text-success-600' : 'text-gray-400'}`}>
-                  <span className="text-base leading-none">{c.test(form.password) ? '●' : '○'}</span>
-                  {c.label}
+          {form.password && (
+            <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+              {CRITERIA.map(([key, label]) => (
+                <li key={key} className={`flex items-center gap-1.5 text-xs ${checks[key] ? 'text-success-700 dark:text-success-400' : 'text-ink-muted'}`}>
+                  {checks[key] ? <Check size={14} aria-hidden="true" /> : <Circle size={12} aria-hidden="true" />}
+                  {label}
                 </li>
               ))}
-              <li className={`flex items-center gap-1.5 text-xs ${pwdMatch ? 'text-success-600' : 'text-gray-400'}`}>
-                <span className="text-base leading-none">{pwdMatch ? '●' : '○'}</span>
-                Las contraseñas coinciden
-              </li>
             </ul>
           )}
         </div>
-      </div>
+      </Section>
 
-      {/* Footer is rendered by RegistrationFlow */}
+      {/* El botón del pie (RegistrationFlow) envía este formulario */}
       <button type="submit" id="step-admin-submit" className="hidden" />
     </form>
   );

@@ -114,25 +114,27 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
 
         {/* Form content */}
         <div className="flex-1 overflow-y-auto px-6 py-8 md:px-12 md:py-10">
+          <div className="max-w-4xl">
           {step === 1 && (
             <StepAdminForm key="step1" initialData={adminData} companyName={companyData.name || ''}
               onNext={handleAdminNext} animClass={animClass} />
           )}
           {step === 2 && (
             <StepCompanyForm key="step2" initialData={companyData}
-              onNext={handleCompanyNext} onBack={() => goTo(1)} animClass={animClass} />
+              onNext={handleCompanyNext} animClass={animClass} />
           )}
           {step === 3 && (
             <StepReview key="step3" adminData={adminData} companyData={companyData}
               onBack={() => goTo(1)} onBackToCompany={() => goTo(2)}
-              onConfirm={handleConfirm} onClear={handleClear}
               isProcessing={isProcessing} progressStep={progressStep} progressMessage={progressMessage}
               animClass={animClass} />
           )}
+          </div>
         </div>
 
         {/* Footer */}
-        <footer className="flex items-center justify-between gap-4 px-6 py-4 md:px-12 border-t border-line bg-surface">
+        <footer className="px-6 py-4 md:px-12 border-t border-line bg-surface">
+          <div className="max-w-4xl flex items-center justify-between gap-4">
           {step > 1 ? (
             <button type="button" onClick={() => goTo(step - 1)} disabled={isProcessing}
               className="flex items-center gap-2 text-sm font-medium text-ink-soft hover:text-gray-900 disabled:opacity-40 transition-colors">
@@ -147,15 +149,16 @@ export default function RegistrationFlow({ onCancel, onFinalize, isProcessing = 
 
           {step < 3 ? (
             <button type="button" onClick={triggerStep}
-              className="flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+              className="ml-auto flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
               Siguiente <ChevronRight size={16} />
             </button>
           ) : (
             <button type="button" onClick={handleConfirm} disabled={isProcessing}
-              className={`flex items-center gap-2 px-8 py-2.5 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm ${isProcessing ? 'bg-brand-300 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700'}`}>
-              {isProcessing ? 'Creando cuenta...' : 'Confirmar y crear cuenta'}
+              className={`ml-auto flex items-center gap-2 px-8 py-2.5 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm ${isProcessing ? 'bg-brand-300 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700'}`}>
+              {isProcessing ? 'Creando cuenta…' : 'Crear cuenta'}
             </button>
           )}
+          </div>
         </footer>
       </main>
     </div>

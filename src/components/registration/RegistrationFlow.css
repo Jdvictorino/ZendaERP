@@ -16,3 +16,7 @@
 .reg-animate-back {
   animation: slideInLeft 0.28s ease both;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .reg-animate-in, .reg-animate-back { animation: none; }
+}
