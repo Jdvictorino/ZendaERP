@@ -4,7 +4,7 @@ import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
-import { customerTaxFields, exemptionChangeError } from '../services/customerTax.js';
+import { customerTaxFields, exemptionChangeError, normalizeCustomerId, customerIdError } from '../services/customerTax.js';
 
 const router = Router();
 router.use(authenticate);
@@ -43,11 +43,9 @@ function transformCustomerData(data) {
   };
 
   // Mapear identificationNumber a rnc
-  if (data.identificationNumber) {
-    dbData.rnc = data.identificationNumber.replace(/\D/g, '');
-  } else if (data.rnc) {
-    dbData.rnc = data.rnc;
-  }
+  // Vacío no borra: las apps viejas mandan identificationNumber '' en cada edición
+  const id = normalizeCustomerId(data.identificationNumber) || normalizeCustomerId(data.rnc);
+  if (id) dbData.rnc = id;
 
   // Convertir address objeto a string si es necesario
   if (data.address) {
@@ -149,6 +147,8 @@ router.post('/', authorize(...rolesFor('customers')), async (req, res, next) => 
     const denied = exemptionChangeError(tax, null, req.user);
     if (denied) return res.status(403).json({ error: denied });
     const data = { ...transformCustomerData(parsed), ...tax };
+    const idError = customerIdError(data.taxpayerType, data.rnc);
+    if (idError) return res.status(400).json({ error: idError });
     
     // Generar código si no viene
     if (!data.customerCode) {
@@ -205,6 +205,8 @@ router.put('/:id', authorize(...rolesFor('customers')), async (req, res, next) =
       if (denied) return res.status(403).json({ error: denied });
       Object.assign(data, tax);
     }
+    const idError = customerIdError(data.taxpayerType ?? existing.taxpayerType, data.rnc ?? existing.rnc);
+    if (idError) return res.status(400).json({ error: idError });
 
     const customer = await prisma.customer.update({
       where: { id: req.params.id },

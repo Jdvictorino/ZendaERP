@@ -1,4 +1,20 @@
-import { customerTaxFields, exemptionChangeError } from '../backend/src/services/customerTax.js';
+import { customerTaxFields, exemptionChangeError, normalizeCustomerId, customerIdError } from '../backend/src/services/customerTax.js';
+
+describe('identificación del cliente', () => {
+  it('normaliza cédula, RNC y pasaporte', () => {
+    expect(normalizeCustomerId('001-1234567-8')).toBe('00112345678');
+    expect(normalizeCustomerId('ab 123-456')).toBe('AB123456');
+    expect(normalizeCustomerId('')).toBeNull();
+    expect(normalizeCustomerId(undefined)).toBeNull();
+  });
+  it('obligatoria para empresas, opcional para personas', () => {
+    expect(customerIdError('empresa', null)).toMatch(/obligatoria/);
+    expect(customerIdError('ong', '')).toMatch(/obligatoria/);
+    expect(customerIdError('empresa', '100000004')).toBeNull();
+    expect(customerIdError('consumidor_final', null)).toBeNull();
+    expect(customerIdError('persona_fisica', null)).toBeNull();
+  });
+});
 
 describe('customerTaxFields', () => {
   it('zona franca conserva carnet y fecha', () => {
