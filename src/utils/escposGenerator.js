@@ -1,6 +1,6 @@
 import { formatCurrency } from './formatCurrency.js';
 import { qrSvg } from './ecfPrint.js';
-import { docLine, docTotals, qtyText } from './docLines.js';
+import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle } from './docLines.js';
 
 // Para un e-CF, pasar docData por withEcfPrintData (ecfPrint.js) antes: así el ticket lleva QR y código de seguridad
 export const generateThermalReceiptHTML = (docData, docType, companyProfile, customerDetails, emitterInfo) => {
@@ -27,11 +27,10 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
 
     switch (docType) {
         case 'invoice':
+            docTitle = invoiceTitle(docData).toUpperCase();
             if (docData?.ncfType === 'NoFiscal' || docData?.ncfNumber === 'NoFiscal') {
-                docTitle = 'FACTURA (CONSUMO)';
                 docNumber = docData?.invoiceNumber || docData?.orderNumber;
             } else {
-                docTitle = 'FACTURA CON COMPROBANTE';
                 docNumber = docData?.ncfNumber || docData?.ncf?.number || docData?.ncf || docData?.invoiceNumber;
                 numberLabel = 'NCF:';
             }
@@ -54,7 +53,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
     const dateStr = !isNaN(dateToPrint.getTime()) ? dateToPrint.toLocaleString('es-DO') : new Date().toLocaleString('es-DO');
 
     const customerName = customerDetails?.name || docData?.customerName || 'Consumidor Final';
-    const customerId = customerDetails?.identificationNumber || docData?.customerRnc || docData?.customerId;
+    const customerId = customerTaxId(customerDetails, docData);
     const customerPhone = customerDetails?.phone || docData?.customerPhone;
 
     let itemsHtml = '';

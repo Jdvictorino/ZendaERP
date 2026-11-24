@@ -2,7 +2,8 @@ import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 import { withEcfPrintData, qrModules } from './ecfPrint.js';
-import { docLine, docTotals, qtyText } from './docLines.js';
+import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, showNotesColumn } from './docLines.js';
+import { round2 } from './tax.js';
 
 let pdfLibrariesPromise = null;
 
@@ -165,22 +166,22 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
     return headerHeight + 6;
 };
 
-const buildCustomerLines = (doc, customerDetails, docData) => {
-    const idLabel = customerDetails?.type === 'Empresa' ? 'RNC/Cédula:' : 'Cédula/Pasaporte:';
+// Datos del cliente como pide la DGII: RNC/Cédula y nombre o razón social; el resto solo si existe
+const buildCustomerLines = (doc, customerDetails, docData, width) => {
+    const taxId = customerTaxId(customerDetails, docData);
+    const phone = customerDetails?.phone || docData?.customerPhone;
+    const email = customerDetails?.email || docData?.customerEmail;
+    const rawAddress = customerDetails?.address || docData?.customerAddress;
+    const address = rawAddress && typeof rawAddress === 'object' ? Object.values(rawAddress).filter(Boolean).join(', ') : rawAddress;
     const lines = [
-        customerDetails?.name || docData?.customerName || 'Consumidor Final',
-        `${idLabel} ${customerDetails?.identificationNumber || docData?.customerId || 'N/A'}`,
-        `Tel: ${customerDetails?.phone || docData?.customerPhone || 'N/A'}`,
-        `Email: ${customerDetails?.email || docData?.customerEmail || 'N/A'}`,
-    ];
+        taxId ? `RNC/Cédula: ${taxId}` : '',
+        `Nombre o razón social: ${customerDetails?.name || docData?.customerName || 'Consumidor final'}`,
+        phone ? `Tel.: ${phone}` : '',
+        email ? `Correo: ${email}` : '',
+        address ? `Dirección: ${address}` : '',
+    ].filter(Boolean);
 
-    if (customerDetails?.address) {
-        lines.push(`Dirección: ${customerDetails.address}`);
-    } else if (docData?.customerAddress) {
-        lines.push(`Dirección: ${docData.customerAddress}`);
-    }
-
-    return doc.splitTextToSize(lines.filter(Boolean), 80);
+    return doc.splitTextToSize(lines, width);
 };
 
 const buildEmitterLines = (doc, emitterInfo) => {
@@ -192,47 +193,51 @@ const buildEmitterLines = (doc, emitterInfo) => {
     const fullName = emitterInfo.fullName || 
         (emitterInfo.firstName && emitterInfo.lastName ? `${emitterInfo.firstName} ${emitterInfo.lastName}` : '') ||
         emitterInfo.name || '';
-    const position = emitterInfo.cargo || emitterInfo.role || emitterInfo.position || '';
-    const empId = emitterInfo.employeeId || emitterInfo.id || '';
-    const dept = emitterInfo.department || '';
-
+    // emitterInfo.id es el id interno del usuario: no se imprime
     const lines = [
         fullName,
-        position ? `Puesto: ${position}` : '',
-        empId ? `ID empleado: ${empId}` : '',
-        dept ? `Departamento: ${dept}` : '',
+        emitterInfo.employeeId ? `Empleado N.º ${emitterInfo.employeeId}` : '',
     ].filter(Boolean);
 
-    return doc.splitTextToSize(lines.length ? lines : [''], 80);
+    return doc.splitTextToSize(lines.length ? lines : [''], 48);
 };
 
+// Cliente a la izquierda (parte inferior del encabezado, art. 7 Norma 06-2018); "Atendido por" pequeño a la derecha
 const drawInfoCards = (doc, theme, { customerDetails, docData, emitterInfo, startY, leftTitle = 'Cliente' }) => {
-    const cardPadding = 7;
-    const cardHeightBase = 38;
-    const columnWidth = 86;
+    const cardPadding = 6;
+    const cardWidth = 128;
+    const emitterX = 148;
 
-    const customerLines = buildCustomerLines(doc, customerDetails, docData);
-    const emitterLines = buildEmitterLines(doc, emitterInfo);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const customerLines = buildCustomerLines(doc, customerDetails, docData, cardWidth - cardPadding * 2);
+    doc.setFontSize(8);
+    const emitterLines = emitterInfo ? buildEmitterLines(doc, emitterInfo) : [];
 
-    const customerHeight = customerLines.length * 5 + cardPadding * 2;
-    const emitterHeight = emitterLines.length * 5 + cardPadding * 2;
-    const cardHeight = Math.max(cardHeightBase, customerHeight, emitterHeight);
+    const cardHeight = Math.max(24, customerLines.length * 5 + cardPadding * 2 + 6);
 
     doc.setFillColor(...(theme.cardBg || DEFAULT_THEME.cardBg));
-    doc.roundedRect(14, startY, columnWidth, cardHeight, 4, 4, 'F');
-    doc.roundedRect(108, startY, columnWidth, cardHeight, 4, 4, 'F');
+    doc.roundedRect(14, startY, cardWidth, cardHeight, 4, 4, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(leftTitle, 14 + cardPadding, startY + cardPadding + 2);
-    doc.text('Atendido por', 108 + cardPadding, startY + cardPadding + 2);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text(customerLines, 14 + cardPadding, startY + cardPadding + 10, { lineHeightFactor: 1.4 });
-    doc.text(emitterLines, 108 + cardPadding, startY + cardPadding + 10, { lineHeightFactor: 1.4 });
+    doc.text(customerLines, 14 + cardPadding, startY + cardPadding + 9, { lineHeightFactor: 1.4 });
 
-    return startY + cardHeight + 12;
+    if (emitterLines.length && emitterLines[0]) {
+        doc.setTextColor(...(theme.textSecondary || DEFAULT_THEME.textSecondary));
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('Atendido por', emitterX, startY + cardPadding + 2);
+        doc.setFont('helvetica', 'normal');
+        doc.text(emitterLines, emitterX, startY + cardPadding + 7, { lineHeightFactor: 1.4 });
+        setBodyTextColor(doc, theme);
+    }
+
+    return startY + cardHeight + 8;
 };
 
 const drawModificationSummary = (doc, theme, { startY, docType, docData, currency }) => {
@@ -282,7 +287,7 @@ const resolveSku = (item) => {
     return match ? String(match).trim() : '-';
 };
 
-const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax }) => {
+const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax, withNotes }) => {
     if (!items.length) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
@@ -290,24 +295,29 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
         return startY + 16;
     }
 
+    // Modelo DGII: Cant. | Descripción | Precio | ITBIS | Valor. El código va debajo de la descripción, en pequeño.
+    const skus = items.map((item) => { const sku = resolveSku(item); return sku === '-' ? null : sku; });
     const tableRows = items.map((item) => {
         // Compatibilidad con estructura Firebase y PostgreSQL
         const name = item.name || item.productName || item.product?.name || '-';
         const { unit: price, amount } = docLine(item, pricesIncludeTax);
-        const qty = item.quantity ? qtyText(item) : 0;
-        const notes = item.customizationNotes || item.description || item.notes || '—';
-        return [
-            resolveSku(item),
-            name,
-            notes,
-            qty,
-            formatCurrency(price, currency),
-            formatCurrency(amount, currency),
-        ];
+        const itbis = round2(amount * (Number(item.taxRate) || 0) / 100);
+        const row = [item.quantity ? qtyText(item) : '0', name];
+        if (withNotes) row.push(item.customizationNotes || item.description || item.notes || '—');
+        row.push(formatCurrency(price, currency), formatCurrency(itbis, currency), formatCurrency(amount, currency));
+        return row;
     });
 
+    const head = ['Cant.', 'Descripción', ...(withNotes ? ['Notas'] : []), 'Precio', 'ITBIS', 'Valor'];
+    const money = { halign: 'right', cellWidth: 30 };
+    const columnStyles = withNotes
+        ? { 0: { halign: 'center', cellWidth: 18 }, 1: { cellWidth: 46 }, 2: { cellWidth: 28 }, 3: money, 4: money, 5: money }
+        : { 0: { halign: 'center', cellWidth: 18 }, 1: { cellWidth: 74 }, 2: money, 3: money, 4: money };
+    const firstMoney = withNotes ? 3 : 2;
+    const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
+
     doc.autoTable({
-        head: [['SKU', 'Artículo', 'Notas', 'Cant.', 'Precio Unit.', 'Importe']],
+        head: [head],
         body: tableRows,
         startY,
         theme: 'grid',
@@ -326,15 +336,20 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
         alternateRowStyles: {
             fillColor: theme.tableAltRow || DEFAULT_THEME.tableAltRow,
         },
-        columnStyles: {
-            0: { cellWidth: 22 },
-            1: { cellWidth: 48 },
-            2: { cellWidth: 42 },
-            3: { halign: 'center', cellWidth: 16 },
-            4: { halign: 'right', cellWidth: 27 },
-            5: { halign: 'right', cellWidth: 27 },
-        },
+        columnStyles,
         tableWidth: 182,
+        didParseCell: (d) => {
+            if (d.section === 'head') d.cell.styles.halign = d.column.index === 0 ? 'center' : d.column.index >= firstMoney ? 'right' : 'left';
+            if (d.section === 'body' && d.column.index === 1 && skus[d.row.index]) d.cell.styles.cellPadding = { top: 4, right: 4, bottom: 8, left: 4 };
+        },
+        didDrawCell: (d) => {
+            if (d.section !== 'body' || d.column.index !== 1 || !skus[d.row.index]) return;
+            doc.setFontSize(7);
+            doc.setTextColor(...muted);
+            doc.text(`Cód. ${skus[d.row.index]}`, d.cell.x + 4, d.cell.y + d.cell.height - 3);
+            doc.setFontSize(9);
+            setBodyTextColor(doc, theme);
+        },
     });
 
     return doc.lastAutoTable.finalY + 6;
@@ -366,8 +381,9 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
         { label: 'Total', value: totalAmount, highlight: true },
     );
 
-    const summaryHeight = summaryEntries.length * 9 + 22;
-    const bankHeight = bankDetails?.bankName ? 60 : 0;
+    // Compacto para que el QR del e-CF quepa en la primera página
+    const summaryHeight = summaryEntries.length * 8 + 20;
+    const bankHeight = bankDetails?.bankName ? 52 : 0;
     const boxHeight = Math.max(summaryHeight, bankHeight);
     const adjustedHeight = boxHeight || summaryHeight;
 
@@ -452,18 +468,12 @@ const drawExtraNotes = (doc, theme, { startY, docData }) => {
 const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
     if (!ecfData || !ecfData.eNcf) return startY;
 
-    const maxY = doc.internal.pageSize.height - 20;
-    let currentY = startY + 6;
-    if (currentY + 50 > maxY) {
+    const maxY = doc.internal.pageSize.height - 12;
+    let currentY = startY + 2;
+    if (currentY + 42 > maxY) {
         doc.addPage();
         currentY = 20;
     }
-
-    // Separador
-    doc.setDrawColor(...(theme.border || DEFAULT_THEME.border));
-    doc.setLineWidth(0.3);
-    doc.line(14, currentY, 196, currentY);
-    currentY += 6;
 
     // Bloque e-CF
     doc.setFillColor(245, 247, 255);
@@ -561,7 +571,7 @@ export const voucherDocData = (expense, currency = 'DOP') => {
         total,
         notes,
         customerName: expense.supplierName,
-        customerId: expense.rncCedula || expense.foreignPayment?.taxId,
+        customerRnc: expense.rncCedula || expense.foreignPayment?.taxId,
     };
 };
 
@@ -593,7 +603,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
 
     switch (docType) {
         case 'invoice':
-            docTitle = 'Factura';
+            docTitle = invoiceTitle(docData);
             docNumber = docData?.ncf?.number || savedNcf || docData?.invoiceNumber;
             if (docData?.ncf?.type === 'Sin Valor Fiscal' || (!docData?.ncf && !savedNcf)) {
                 numberLabel = 'Factura N°:';
@@ -677,6 +687,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             currency,
             pricesIncludeTax: docData?.pricesIncludeTax,
             startY: cursorY,
+            withNotes: showNotesColumn(companyProfile),
         });
 
         cursorY = drawFinancialSection(doc, theme, {
@@ -723,14 +734,14 @@ export const generateAccountStatementPDF = async ({ entries = [], companyProfile
         companyProfile,
         docTitle: 'Estado de Cuenta',
         numberLabel: 'ID Cliente:',
-        docNumber: customer?.identificationNumber || referenceInvoice.customerId || 'N/A',
+        docNumber: customerTaxId(customer, referenceInvoice) || customer?.customerCode || '',
         documentDate: new Date(),
     });
 
     cursorY = drawInfoCards(doc, theme, {
         customerDetails: {
             name: customer?.name || referenceInvoice.customerName,
-            identificationNumber: customer?.identificationNumber || referenceInvoice.customerId,
+            identificationNumber: customerTaxId(customer, referenceInvoice),
             phone: customer?.phone || referenceInvoice.customerPhone,
             email: customer?.email || referenceInvoice.customerEmail,
             address: customer?.address,
