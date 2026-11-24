@@ -79,7 +79,7 @@
     - `Decimal(14,3)` en: `Product.stock/minStock/maxStock`, `ProductVariant.stock`, `InventoryLog.quantity/previousStock/newStock` e `InvoiceItem.quantity`.
     - `InvoiceItem.packagingId String?` (relación con `ProductPackaging`, `onDelete: SetNull`), `packagingName String?` y `packagingFactor Decimal(14,3) @default(1)`.
   - **Modelo `ProductPackaging`:**
-    - campos: `id`, `companyId`, `productId` (cascade), `name`, `factor Decimal(14,3)`, `unitCode Int @default(6)` (código DGII del tipo de empaque), `barcode String?`, `salePrice Decimal(12,2)?`, `isDefaultPurchase Boolean @default(false)`, `status String @default("active")`, `createdAt` y `updatedAt`;
+    - campos: `id`, `companyId`, `productId` (cascade), `name`, `factor Decimal(14,3)`, `unitCode Int @default(6)` (código DGII del tipo de empaque), `barcode String?`, `salePrice Decimal(12,2)?`, `status String @default("active")`, `createdAt` y `updatedAt`;
     - índices en `companyId` y en `barcode`.
   - **`QUANTITY_FIELDS`:** objeto `{ product: ['stock','minStock','maxStock'], productVariant: ['stock'], inventoryLog: ['quantity','previousStock','newStock'], invoiceItem: ['quantity','packagingFactor'], productPackaging: ['factor'] }`.
   - **`resultExtension(fields) → objeto para prisma.$extends`:** cada campo listado se calcula como `Number(valor)`, y `null` sigue siendo `null`.
@@ -111,19 +111,17 @@
 **Interfaces:**
 - Consumes: `BASE_UNITS`, `PACKAGE_TYPES` y `quantityError` (Task 1); modelo `ProductPackaging` (Task 2).
 - Produces:
-  - `validatePackagings(packagings, { takenBarcodes: Set<string> }) → string | null`. Exige `name` no vacío, `factor > 0` con a lo sumo 3 decimales, `unitCode` de `PACKAGE_TYPES`, a lo sumo un `isDefaultPurchase`, y barcodes únicos entre sí y fuera de `takenBarcodes`.
+  - `validatePackagings(packagings, { takenBarcodes: Set<string> }) → string | null`. Exige `name` no vacío, `factor > 0` con a lo sumo 3 decimales, `unitCode` de `PACKAGE_TYPES`, y barcodes únicos entre sí y fuera de `takenBarcodes`.
   - El producto en `POST /api/products` y `PUT /api/products/:id` acepta:
     - `unit`: uno de los códigos de `BASE_UNITS`;
     - `allowFractions: boolean`;
-    - `packagings: [{ id?, name, factor, unitCode, barcode?, salePrice?, isDefaultPurchase? }]`. Reemplaza el conjunto: crea, actualiza y marca como `inactive` los que faltan. No borra, porque las líneas viejas los referencian.
+    - `packagings: [{ id?, name, factor, unitCode, barcode?, salePrice? }]`. Reemplaza el conjunto: crea, actualiza y marca como `inactive` los que faltan. No borra, porque las líneas viejas los referencian.
   - `GET /api/products` y `GET /api/products/:id` incluyen `packagings` activos.
   - `stock`, `minStock` y `maxStock` aceptan decimales (`z.number()`). Si el producto no permite fracciones, los ajustes de `PATCH /:id/stock` validan con `quantityError` (sin empaque).
-  - La importación masiva acepta columnas opcionales `unidad` (etiqueta o código) y `permiteFracciones` (sí/no).
 
 - [ ] **Step 1: Write the failing test** — `validatePackagings` rechaza estos casos, cada uno con su mensaje:
   - `factor` 0;
   - `factor` 1.2345;
-  - dos `isDefaultPurchase`;
   - barcode repetido dentro de la lista;
   - barcode presente en `takenBarcodes`;
   - `unitCode` 999.
@@ -218,7 +216,7 @@
 - Consumes: `BASE_UNITS`, `PACKAGE_TYPES` y `formatQty` (Task 1); contrato de la API de Task 3.
 - Produces:
   - **`ProductModal`:** select "Unidad base" con `BASE_UNITS`, interruptor "Permite fracciones (vender por peso o medida)" y la sección "Empaques" con `PackagingsEditor`.
-  - **`PackagingsEditor({ value, onChange, baseUnitAbbr, basePrice })`:** filas con nombre, tipo (`PACKAGE_TYPES`), "equivale a N {abbr}", código de barras, precio (vacío = automático, que se muestra como sugerencia) y "Empaque de compra"; botón "Agregar empaque" y quitar fila.
+  - **`PackagingsEditor({ value, onChange, baseUnitAbbr, basePrice })`:** filas con nombre, tipo (`PACKAGE_TYPES`), "equivale a N {abbr}", código de barras, precio (vacío = automático, que se muestra como sugerencia); botón "Agregar empaque" y quitar fila.
   - **Listado de productos:** existencia y mínimos se muestran con `formatQty`. Las comparaciones de "stock bajo" usan `Number`.
   - **`StockModal`:** permite decimales si el producto permite fracciones (`step` 0.01); si no, enteros.
 

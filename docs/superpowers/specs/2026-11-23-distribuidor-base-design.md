@@ -76,7 +76,7 @@ Hoy el producto tiene un precio de venta y un precio al por mayor, una "unidad" 
 - `Product.unit` (texto libre) pasa a ser la **unidad base**, con una lista cerrada en un módulo compartido: unidad, docena, libra, onza, kilogramo, gramo, metro, centímetro, pie, yarda, litro, mililitro, galón. Cada una con su abreviatura para pantalla e impresión y su código DGII de la Tabla IV (verificado). Valores actuales que no estén en la lista migran a "unidad".
 - `Product.allowFractions Boolean @default(false)`.
 - A `Decimal(14,3)`: `Product.stock`, `minStock`, `maxStock`; `ProductVariant.stock`; `InventoryLog.quantity`, `previousStock`, `newStock`; `InvoiceItem.quantity`. Las cantidades dentro del JSON `CreditNote.items` aceptan decimales.
-- Tabla nueva `ProductPackaging`: `id`, `companyId`, `productId`, `name` ("Caja de 24"), `factor Decimal(14,3) > 0` (equivalencia en unidad base), `barcode?` (único por empresa entre productos, variantes y empaques), `salePrice Decimal(12,2)?` (precio del empaque completo; si falta, `factor × precio base`), `isDefaultPurchase Boolean` (a lo sumo uno por producto), `status`.
+- Tabla nueva `ProductPackaging`: `id`, `companyId`, `productId`, `name` ("Caja de 24"), `factor Decimal(14,3) > 0` (equivalencia en unidad base), `barcode?` (único por empresa entre productos, variantes y empaques), `salePrice Decimal(12,2)?` (precio del empaque completo; si falta, `factor × precio base`), `status`. `isDefaultPurchase` (a lo sumo uno por producto) llega en el PR 3, que es quien lo usa.
 - `InvoiceItem` agrega `packagingId?` y copias inmutables `packagingName?` y `packagingFactor Decimal(14,3) @default(1)`. `quantity` es la cantidad **en la unidad vendida** (empaques si hay empaque); el inventario descuenta `quantity × packagingFactor`.
 
 **Reglas**
@@ -92,7 +92,6 @@ Hoy el producto tiene un precio de venta y un precio al por mayor, una "unidad" 
 - Recibo térmico, PDF, detalle de factura, notas e inventario muestran cantidad decimal con su unidad.
 - e-CF: `CantidadItem` con los decimales que admita la DGII y `UnidadMedida` según la unidad base o el empaque (si la Tabla IV no tiene un código para el empaque, se usa el de la unidad base, convirtiendo la cantidad y el precio unitario en consecuencia para que el monto de la línea no cambie).
 - Modo sin conexión: la cola local guarda y envía cantidades decimales y el empaque.
-- Importación desde Excel: columnas opcionales de unidad base y "permite fracciones".
 
 ### PR 2 — Precios por categoría con escalones
 
