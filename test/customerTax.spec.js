@@ -12,7 +12,7 @@ describe('identificación del cliente', () => {
     expect(customerIdError('ong', '')).toMatch(/obligatoria/);
     expect(customerIdError('empresa', '100000004')).toBeNull();
     expect(customerIdError('consumidor_final', null)).toBeNull();
-    expect(customerIdError('persona_fisica', null)).toBeNull();
+    expect(customerIdError('persona_fisica', null)).toMatch(/obligatoria/);
   });
 });
 

@@ -9,8 +9,8 @@ Las facturas impresas muestran un código largo (el id interno del cliente) dond
 1. **Identificación del cliente**
    - El PDF y el recibo leen `docData.customerRnc` (copia guardada al facturar) o `customer.rnc`; nunca el id interno. Sin identificación, la línea no se imprime.
    - El formulario de cliente carga `rnc` al editar (hoy sale vacío).
-   - Obligatoria (formulario y servidor) para empresa, gubernamental, zona franca, régimen especial, diplomático y ONG; opcional para consumidor final y persona física.
-   - Persona: cédula de 11 dígitos o pasaporte (letras y números, 6 a 20). El servidor guarda la cédula/RNC solo con dígitos y el pasaporte en mayúsculas sin espacios ni guiones.
+   - Obligatoria (formulario y servidor) para persona física (cédula o RNC), empresa, gubernamental, zona franca, régimen especial, diplomático y ONG; opcional solo para consumidor final. La etiqueta pasa a "Persona Física".
+   - Consumidor final: cédula de 11 dígitos o pasaporte (letras y números, 6 a 20). El servidor guarda la cédula/RNC solo con dígitos y el pasaporte en mayúsculas sin espacios ni guiones.
 2. **Formato DGII (Norma 06-2018, art. 7, y su modelo)**
    - Título según el comprobante: nombre del tipo e-CF (E31, E32…), "Factura de Crédito Fiscal" (B01), "Factura de Consumo" (B02), "Factura Gubernamental" (B15), "Factura de Régimen Especial" (B14); sin comprobante, "Factura".
    - Cliente: "RNC/Cédula" y "Nombre o razón social", más teléfono y dirección si existen; sin "N/A".

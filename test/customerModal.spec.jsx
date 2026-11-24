@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import CustomerModal from '../src/components/modals/CustomerModal';
 
-const LABELS = ['Consumidor final', 'Persona física (crédito fiscal)', 'Empresa', 'Gubernamental', 'Zona franca', 'Régimen especial', 'Diplomático / organismo internacional', 'ONG / sin fines de lucro'];
+const LABELS = ['Consumidor final', 'Persona Física', 'Empresa', 'Gubernamental', 'Zona franca', 'Régimen especial', 'Diplomático / organismo internacional', 'ONG / sin fines de lucro'];
 
 describe('CustomerModal tipo de contribuyente', () => {
     it('lista los 8 tipos', () => {
@@ -85,6 +85,27 @@ describe('CustomerModal tipo de contribuyente', () => {
         fireEvent.change(screen.getByLabelText('Nombre Completo / Razón Social'), { target: { value: 'Juan' } });
         fireEvent.click(screen.getByText('Guardar Cliente'));
         await waitFor(() => expect(onSave).toHaveBeenCalled());
+    });
+
+    it('persona física sin cédula ni RNC no se guarda', async () => {
+        const onSave = vi.fn();
+        render(<CustomerModal customer={{}} onClose={() => {}} onSave={onSave} />);
+        fireEvent.change(screen.getByLabelText('Nombre Completo / Razón Social'), { target: { value: 'Pedro' } });
+        fireEvent.change(screen.getByLabelText('Tipo de cliente'), { target: { value: 'persona_fisica' } });
+        fireEvent.click(screen.getByText('Guardar Cliente'));
+        await waitFor(() => expect(screen.getByText('Requerido')).toBeTruthy());
+        expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it('persona física acepta RNC de 9 dígitos', async () => {
+        const onSave = vi.fn();
+        render(<CustomerModal customer={{}} onClose={() => {}} onSave={onSave} />);
+        fireEvent.change(screen.getByLabelText('Nombre Completo / Razón Social'), { target: { value: 'Pedro' } });
+        fireEvent.change(screen.getByLabelText('Tipo de cliente'), { target: { value: 'persona_fisica' } });
+        fireEvent.change(screen.getByLabelText(/^Cédula \/ RNC/), { target: { value: '100000004' } });
+        fireEvent.click(screen.getByText('Guardar Cliente'));
+        await waitFor(() => expect(onSave).toHaveBeenCalled());
+        expect(onSave.mock.calls[0][0].identificationNumber).toBe('100000004');
     });
 
     it('al editar muestra el RNC guardado', () => {

@@ -3,7 +3,7 @@
 
 export const TAXPAYER_TYPES = [
   { value: 'consumidor_final', label: 'Consumidor final', exemptible: false },
-  { value: 'persona_fisica', label: 'Persona física (crédito fiscal)', exemptible: false },
+  { value: 'persona_fisica', label: 'Persona Física', exemptible: false },
   { value: 'empresa', label: 'Empresa', exemptible: false },
   { value: 'gubernamental', label: 'Gubernamental', exemptible: false },
   { value: 'zona_franca', label: 'Zona franca', exemptible: true },

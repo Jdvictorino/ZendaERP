@@ -1,8 +1,8 @@
 import { TAXPAYER_TYPES } from './tax.js';
 import { httpError } from './ncfService.js';
 
-// Tipos que siempre facturan con RNC; consumidor final y persona física pueden ir sin identificación
-export const ID_REQUIRED_TYPES = ['empresa', 'gubernamental', 'zona_franca', 'regimen_especial', 'diplomatico', 'ong'];
+// Tipos que reciben comprobante fiscal: llevan RNC (la persona física, cédula o RNC). Solo el consumidor final puede ir sin identificación
+export const ID_REQUIRED_TYPES = ['persona_fisica', 'empresa', 'gubernamental', 'zona_franca', 'regimen_especial', 'diplomatico', 'ong'];
 
 // Cédula/RNC: solo dígitos. Pasaporte (tiene letras): mayúsculas sin espacios ni guiones. Vacío: null.
 export function normalizeCustomerId(value) {
@@ -14,7 +14,7 @@ export function normalizeCustomerId(value) {
 
 export function customerIdError(taxpayerType, rnc) {
   return ID_REQUIRED_TYPES.includes(taxpayerType) && !rnc
-    ? 'La identificación (RNC) es obligatoria para este tipo de cliente.'
+    ? 'La identificación (cédula o RNC) es obligatoria para este tipo de cliente.'
     : null;
 }
 

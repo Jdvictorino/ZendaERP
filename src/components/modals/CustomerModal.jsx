@@ -7,8 +7,9 @@ import { TAXPAYER_TYPES } from '../../utils/tax.js';
 
 // Valores del selector viejo (mismo mapa que backend/src/services/customerTax.js)
 const LEGACY_TYPES = { Persona: 'consumidor_final', Empresa: 'empresa', 'Zona Franca': 'zona_franca', Gubernamental: 'gubernamental', ONG: 'ong' };
-const CEDULA_TYPES = ['consumidor_final', 'persona_fisica'];
-// Mismo criterio que backend/src/services/customerTax.js: los demás tipos facturan siempre con RNC
+// Mismo criterio que backend/src/services/customerTax.js: solo el consumidor final puede ir sin identificación
+// (cédula o pasaporte); la persona física lleva cédula o RNC y los demás tipos, RNC.
+const CEDULA_TYPES = ['consumidor_final'];
 const hasLetters = (v = '') => /[a-z]/i.test(v);
 const passportOf = (v = '') => v.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 20);
 
@@ -75,7 +76,8 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
         }
     };
         const idTypeLabel = useMemo(() => {
-            return CEDULA_TYPES.includes(formData.taxpayerType) ? 'Cédula / Pasaporte' : 'RNC';
+            if (CEDULA_TYPES.includes(formData.taxpayerType)) return 'Cédula / Pasaporte';
+            return formData.taxpayerType === 'persona_fisica' ? 'Cédula / RNC' : 'RNC';
         }, [formData.taxpayerType]);
         const exemptible = TAXPAYER_TYPES.find(t => t.value === formData.taxpayerType)?.exemptible;
 
@@ -89,6 +91,10 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 if (hasLetters(idValue)) {
                     if (passportOf(idValue).length < 6) errs.identificationNumber = 'Pasaporte inválido';
                 } else if (onlyDigits(idValue) && !validateCedula(idValue)) errs.identificationNumber = 'Cédula inválida';
+            } else if (formData.taxpayerType === 'persona_fisica') {
+                const d = onlyDigits(idValue);
+                if (!d) errs.identificationNumber = 'Requerido';
+                else if (d.length === 11 ? !validateCedula(d) : d.length === 9 ? !validateRNC(d) : true) errs.identificationNumber = 'Use una cédula (11 dígitos) o un RNC (9) válidos';
             } else {
                 const rnc = onlyDigits(idValue);
                 if (!rnc) errs.identificationNumber = 'Requerido';
@@ -136,6 +142,9 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                         if (d.length > 3 && d.length <= 10) masked = `${d.slice(0,3)}-${d.slice(3)}`;
                         if (d.length > 10) masked = `${d.slice(0,3)}-${d.slice(3,10)}-${d.slice(10)}`;
                         setFormData(prev => ({ ...prev, identificationNumber: masked }));
+                    } else if (formData.taxpayerType === 'persona_fisica') {
+                        // Cédula (11) o RNC (9): solo dígitos
+                        setFormData(prev => ({ ...prev, identificationNumber: onlyDigits(val).slice(0, 11) }));
                     } else {
                         // Empresa, Zona Franca, Gubernamental, ONG: RNC sin máscara (hasta 9 dígitos)
                         const d = onlyDigits(val).slice(0, 9);
