@@ -5,7 +5,7 @@ import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { assertSameCompany } from '../services/ownership.js';
 import { BASE_UNITS, quantityError, roundQty } from '../services/units.js';
-import { savePackagings } from '../services/packagings.js';
+import { savePackagings, assertBarcodeNotInPackagings } from '../services/packagings.js';
 
 const router = Router();
 
@@ -31,12 +31,20 @@ const packagingSchema = z.object({
   barcode: z.string().optional().nullable(),
   salePrice: z.preprocess(toNumber, z.number().min(0).optional().nullable())
 });
+const activePackagings = { where: { status: 'active' }, orderBy: { factor: 'asc' } };
 const productInclude = {
   category: { select: { id: true, name: true } },
   supplier: { select: { id: true, name: true } },
-  packagings: { where: { status: 'active' }, orderBy: { factor: 'asc' } }
+  packagings: activePackagings
 };
-const activePackagings = { where: { status: 'active' }, orderBy: { factor: 'asc' } };
+
+// Un producto sin fracciones solo maneja cantidades enteras
+const assertWholeQuantities = (allowFractions, data) => {
+  if (allowFractions) return;
+  if (['stock', 'minStock', 'maxStock'].some((k) => data[k] != null && !Number.isInteger(data[k]))) {
+    throw Object.assign(new Error('Este producto se vende solo en cantidades enteras.'), { status: 400 });
+  }
+};
 
 // Schema base de validación (flexible para aceptar datos del frontend)
 const productSchemaBase = z.object({
@@ -207,6 +215,7 @@ router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
     const { packagings, ...data } = productSchema.parse(req.body);
     await assertSameCompany(prisma, req.companyId, data);
+    assertWholeQuantities(data.allowFractions, data);
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
         data: {
@@ -230,7 +239,8 @@ router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
         });
       }
 
-      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: created.id, packagings });
+      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: created.id, packagings, productBarcode: data.barcode });
+      await assertBarcodeNotInPackagings(tx, req.companyId, data.barcode);
       return tx.product.findUnique({ where: { id: created.id }, include: productInclude });
     });
 
@@ -257,6 +267,7 @@ router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) =>
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
+    assertWholeQuantities(data.allowFractions ?? existing.allowFractions, data);
     const product = await prisma.$transaction(async (tx) => {
       // Si cambia el stock, registrar el movimiento
       if (data.stock !== undefined && data.stock !== existing.stock) {
@@ -275,7 +286,8 @@ router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) =>
 
       await tx.product.update({ where: { id: req.params.id }, data });
       // Sin `packagings` en el cuerpo no se tocan los empaques existentes
-      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: existing.id, packagings });
+      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: existing.id, packagings, productBarcode: data.barcode });
+      await assertBarcodeNotInPackagings(tx, req.companyId, data.barcode);
       return tx.product.findUnique({ where: { id: existing.id }, include: productInclude });
     });
 
@@ -329,10 +341,8 @@ router.patch('/:id/stock', authorize(...rolesFor('products')), async (req, res, 
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    if (!product.allowFractions) {
-      const qtyError = quantityError({ quantity: qty, allowFractions: false, hasPackaging: false });
-      if (qtyError) return res.status(400).json({ error: qtyError });
-    }
+    const qtyError = quantityError({ quantity: qty, allowFractions: product.allowFractions, hasPackaging: false });
+    if (qtyError) return res.status(400).json({ error: qtyError });
 
     const newStock = roundQty(type === 'entrada' ? product.stock + qty : product.stock - qty);
 
@@ -606,6 +616,7 @@ router.post('/:id/variants', authorize(...rolesFor('products')), async (req, res
     }
 
     const data = variantSchema.parse(req.body);
+    await assertBarcodeNotInPackagings(prisma, req.companyId, data.barcode);
 
     const variant = await prisma.productVariant.create({
       data: {
@@ -643,6 +654,7 @@ router.put('/:productId/variants/:variantId', authorize(...rolesFor('products'))
     }
 
     const data = variantSchema.partial().parse(req.body);
+    await assertBarcodeNotInPackagings(prisma, req.companyId, data.barcode);
 
     const variant = await prisma.productVariant.update({
       where: { id: req.params.variantId },

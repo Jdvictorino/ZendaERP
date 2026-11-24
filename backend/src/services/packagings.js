@@ -8,6 +8,7 @@ export function validatePackagings(packagings, { takenBarcodes = new Set() } = {
     if (!name) return 'Cada empaque necesita un nombre';
     const factor = Number(p.factor);
     if (!Number.isFinite(factor) || factor <= 0) return `El factor del empaque "${name}" debe ser mayor que 0`;
+    if (factor >= 100000000000) return `El factor del empaque "${name}" es demasiado grande`;
     if (roundQty(factor) !== factor) return `El factor del empaque "${name}" admite como máximo 3 decimales`;
     if (!PACKAGE_TYPES.some((t) => t.dgii === Number(p.unitCode))) return `Tipo de empaque inválido en "${name}"`;
     const barcode = String(p.barcode ?? '').trim();
@@ -21,18 +22,27 @@ export function validatePackagings(packagings, { takenBarcodes = new Set() } = {
 
 const bad = (message) => Object.assign(new Error(message), { status: 400 });
 
-// Barcodes de la empresa (productos, variantes, empaques activos), salvo los del producto editado.
+// Barcodes de la empresa (productos, variantes, empaques activos). Solo se excluyen
+// los empaques del propio producto, que este guardado va a reemplazar.
 async function takenBarcodes(tx, companyId, productId) {
-  const notSelf = productId ? { NOT: { id: productId } } : {};
   const [products, variants, packs] = await Promise.all([
-    tx.product.findMany({ where: { companyId, ...notSelf }, select: { barcode: true } }),
-    tx.productVariant.findMany({ where: { product: { companyId, ...notSelf } }, select: { barcode: true } }),
+    tx.product.findMany({ where: { companyId }, select: { barcode: true } }),
+    tx.productVariant.findMany({ where: { product: { companyId } }, select: { barcode: true } }),
     tx.productPackaging.findMany({
-      where: { companyId, status: 'active', ...(productId ? { NOT: { productId } } : {}) },
+      where: { companyId, status: 'active', NOT: { productId } },
       select: { barcode: true }
     })
   ]);
   return new Set([...products, ...variants, ...packs].map((r) => r.barcode?.trim()).filter(Boolean));
+}
+
+// Un producto o variante no puede usar el barcode de un empaque activo de la empresa.
+export async function assertBarcodeNotInPackagings(tx, companyId, barcode) {
+  const code = String(barcode ?? '').trim();
+  if (!code) return;
+  if (await tx.productPackaging.count({ where: { companyId, status: 'active', barcode: code } })) {
+    throw bad(`El código de barras ${code} ya lo usa un empaque`);
+  }
 }
 
 /**
@@ -40,8 +50,11 @@ async function takenBarcodes(tx, companyId, productId) {
  * como inactive los que faltan (no se borran: las líneas de factura los referencian).
  * Debe llamarse dentro de una transacción.
  */
-export async function savePackagings(tx, { companyId, productId, packagings }) {
-  const error = validatePackagings(packagings, { takenBarcodes: await takenBarcodes(tx, companyId, productId) });
+export async function savePackagings(tx, { companyId, productId, packagings, productBarcode }) {
+  const taken = await takenBarcodes(tx, companyId, productId);
+  const own = String(productBarcode ?? '').trim();
+  if (own) taken.add(own); // el barcode que trae el cuerpo del producto
+  const error = validatePackagings(packagings, { takenBarcodes: taken });
   if (error) throw bad(error);
 
   const current = await tx.productPackaging.findMany({ where: { productId }, select: { id: true } });
