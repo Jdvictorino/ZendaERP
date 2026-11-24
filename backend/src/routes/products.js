@@ -4,6 +4,8 @@ import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { assertSameCompany } from '../services/ownership.js';
+import { BASE_UNITS, quantityError, roundQty } from '../services/units.js';
+import { savePackagings } from '../services/packagings.js';
 
 const router = Router();
 
@@ -17,6 +19,24 @@ const toNumber = (val) => {
   const num = Number(val);
   return isNaN(num) ? undefined : num;
 };
+
+const UNIT_CODES = BASE_UNITS.map((u) => u.code);
+// Apps viejas mandan texto libre: un código desconocido pasa a 'unidad' en vez de dar 400
+const toUnit = (val) => (val === undefined ? undefined : UNIT_CODES.includes(val) ? val : 'unidad');
+const packagingSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string(),
+  factor: z.coerce.number(),
+  unitCode: z.coerce.number().int(),
+  barcode: z.string().optional().nullable(),
+  salePrice: z.preprocess(toNumber, z.number().min(0).optional().nullable())
+});
+const productInclude = {
+  category: { select: { id: true, name: true } },
+  supplier: { select: { id: true, name: true } },
+  packagings: { where: { status: 'active' }, orderBy: { factor: 'asc' } }
+};
+const activePackagings = { where: { status: 'active' }, orderBy: { factor: 'asc' } };
 
 // Schema base de validación (flexible para aceptar datos del frontend)
 const productSchemaBase = z.object({
@@ -32,12 +52,14 @@ const productSchemaBase = z.object({
   purchasePrice: z.preprocess(toNumber, z.number().min(0).optional()),
   salePrice: z.preprocess(toNumber, z.number().min(0).default(0)),
   wholesalePrice: z.preprocess(toNumber, z.number().min(0).optional().nullable()),
-  stock: z.preprocess(toNumber, z.number().int().default(0)),
+  stock: z.preprocess(toNumber, z.number().default(0)),
   // Aceptar ambos nombres (frontend usa stockThreshold, DB usa minStock)
-  minStock: z.preprocess(toNumber, z.number().int().optional()),
-  stockThreshold: z.preprocess(toNumber, z.number().int().optional()),
-  maxStock: z.preprocess(toNumber, z.number().int().optional().nullable()),
-  unit: z.string().default('unidad'),
+  minStock: z.preprocess(toNumber, z.number().optional()),
+  stockThreshold: z.preprocess(toNumber, z.number().optional()),
+  maxStock: z.preprocess(toNumber, z.number().optional().nullable()),
+  unit: z.preprocess(toUnit, z.enum(UNIT_CODES).default('unidad')),
+  allowFractions: z.preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean().default(false)),
+  packagings: z.array(packagingSchema).optional(),
   taxRate: z.preprocess(toNumber, z.number().min(0).max(100).default(18)),
   taxStatus: z.string().optional(), // Frontend envía taxStatus
   isTaxable: z.preprocess((val) => val === true || val === 'true', z.boolean().default(true)),
@@ -120,7 +142,8 @@ router.get('/', async (req, res, next) => {
         include: {
           category: { select: { id: true, name: true } },
           supplier: { select: { id: true, name: true } },
-          variants: true
+          variants: true,
+          packagings: activePackagings
         },
         orderBy: { name: 'asc' },
         skip: take ? (parseInt(page) - 1) * take : undefined,
@@ -158,6 +181,7 @@ router.get('/:id', async (req, res, next) => {
         category: true,
         supplier: true,
         variants: true,
+        packagings: activePackagings,
         inventoryLogs: {
           orderBy: { createdAt: 'desc' },
           take: 50
@@ -181,33 +205,34 @@ router.get('/:id', async (req, res, next) => {
  */
 router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
-    const data = productSchema.parse(req.body);
+    const { packagings, ...data } = productSchema.parse(req.body);
     await assertSameCompany(prisma, req.companyId, data);
-    const product = await prisma.product.create({
-      data: {
-        ...data,
-        companyId: req.companyId
-      },
-      include: {
-        category: { select: { id: true, name: true } },
-        supplier: { select: { id: true, name: true } }
-      }
-    });
-
-    // Registrar en inventario si hay stock inicial
-    if (data.stock > 0) {
-      await prisma.inventoryLog.create({
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
         data: {
-          productId: product.id,
-          userId: req.user.id,
-          type: 'entrada',
-          quantity: data.stock,
-          previousStock: 0,
-          newStock: data.stock,
-          reason: 'Stock inicial'
+          ...data,
+          companyId: req.companyId
         }
       });
-    }
+
+      // Registrar en inventario si hay stock inicial
+      if (data.stock > 0) {
+        await tx.inventoryLog.create({
+          data: {
+            productId: created.id,
+            userId: req.user.id,
+            type: 'entrada',
+            quantity: data.stock,
+            previousStock: 0,
+            newStock: data.stock,
+            reason: 'Stock inicial'
+          }
+        });
+      }
+
+      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: created.id, packagings });
+      return tx.product.findUnique({ where: { id: created.id }, include: productInclude });
+    });
 
     res.status(201).json(mapProductForFrontend(product));
   } catch (error) {
@@ -221,7 +246,7 @@ router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
  */
 router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
-    const data = updateProductSchema.parse(req.body);
+    const { packagings, ...data } = updateProductSchema.parse(req.body);
     await assertSameCompany(prisma, req.companyId, data);
     // Verificar que existe y pertenece a la empresa
     const existing = await prisma.product.findFirst({
@@ -232,28 +257,26 @@ router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) =>
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    // Si cambia el stock, registrar el movimiento
-    if (data.stock !== undefined && data.stock !== existing.stock) {
-      await prisma.inventoryLog.create({
-        data: {
-          productId: existing.id,
-          userId: req.user.id,
-          type: data.stock > existing.stock ? 'entrada' : 'salida',
-          quantity: Math.abs(data.stock - existing.stock),
-          previousStock: existing.stock,
-          newStock: data.stock,
-          reason: 'Ajuste manual de inventario'
-        }
-      });
-    }
-
-    const product = await prisma.product.update({
-      where: { id: req.params.id },
-      data,
-      include: {
-        category: { select: { id: true, name: true } },
-        supplier: { select: { id: true, name: true } }
+    const product = await prisma.$transaction(async (tx) => {
+      // Si cambia el stock, registrar el movimiento
+      if (data.stock !== undefined && data.stock !== existing.stock) {
+        await tx.inventoryLog.create({
+          data: {
+            productId: existing.id,
+            userId: req.user.id,
+            type: data.stock > existing.stock ? 'entrada' : 'salida',
+            quantity: roundQty(Math.abs(data.stock - existing.stock)),
+            previousStock: existing.stock,
+            newStock: data.stock,
+            reason: 'Ajuste manual de inventario'
+          }
+        });
       }
+
+      await tx.product.update({ where: { id: req.params.id }, data });
+      // Sin `packagings` en el cuerpo no se tocan los empaques existentes
+      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: existing.id, packagings });
+      return tx.product.findUnique({ where: { id: existing.id }, include: productInclude });
     });
 
     res.json(mapProductForFrontend(product));
@@ -306,9 +329,12 @@ router.patch('/:id/stock', authorize(...rolesFor('products')), async (req, res, 
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    const newStock = type === 'entrada' 
-      ? product.stock + qty 
-      : product.stock - qty;
+    if (!product.allowFractions) {
+      const qtyError = quantityError({ quantity: qty, allowFractions: false, hasPackaging: false });
+      if (qtyError) return res.status(400).json({ error: qtyError });
+    }
+
+    const newStock = roundQty(type === 'entrada' ? product.stock + qty : product.stock - qty);
 
     if (newStock < 0) {
       return res.status(400).json({ error: 'Stock insuficiente' });
