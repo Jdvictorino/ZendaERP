@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import Button from '../ui/Button.jsx';
+import { formatQty, unitOf } from '../../utils/units.js';
 
 const StockModal = ({ product, onClose, onSave }) => {
     const [amount, setAmount] = useState(1);
@@ -26,7 +27,7 @@ const StockModal = ({ product, onClose, onSave }) => {
                     <button onClick={onClose}  aria-label="Cerrar" className="modal-close"><X size={18} /></button>
                 </div>
                 <p className="text-ink-soft dark:text-gray-300 mb-2">Producto: <strong>{product.name}</strong></p>
-                <p className="text-ink-soft dark:text-gray-300 mb-4">Stock actual: <span className="font-mono font-bold text-brand-600">{product.stock ?? 0}</span></p>
+                <p className="text-ink-soft dark:text-gray-300 mb-4">Stock actual: <span className="font-mono font-bold text-brand-600">{formatQty(product.stock ?? 0, product.allowFractions ? unitOf(product.unit).abbr : '')}</span></p>
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">
                         <label className="block text-ink-soft dark:text-gray-300 mb-1">Cantidad a Añadir</label>
@@ -36,7 +37,8 @@ const StockModal = ({ product, onClose, onSave }) => {
                             onChange={e => setAmount(e.target.value)} 
                             className="input-base w-full" 
                             required 
-                            min="1" 
+                            min={product.allowFractions ? '0.01' : '1'}
+                            step={product.allowFractions ? '0.01' : '1'}
                         />
                         <p className="text-xs text-ink-muted mt-1">Use números negativos para restar stock</p>
                     </div>

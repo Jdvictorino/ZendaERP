@@ -14,6 +14,7 @@ import { productRate } from '../utils/productRate.js';
 import { round2 } from '../utils/tax.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import ProductModal from '../components/modals/ProductModal.jsx';
+import { formatQty, unitOf } from '../utils/units.js';
 import StockModal from '../components/modals/StockModal.jsx';
 import ConfirmationModal from '../components/modals/ConfirmationModal.jsx';
 import InventoryLogModal from '../components/modals/InventoryLogModal.jsx';
@@ -178,7 +179,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
             setEditingProduct(null);
         } catch (err) {
             playErrorSound();
-            toast.error('No se pudo guardar el producto.');
+            toast.error(err.status === 400 && err.message ? err.message : 'No se pudo guardar el producto.');
             console.error('Error guardando producto:', err);
         }
     };
@@ -286,7 +287,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
     
     const filteredProducts = (products || []).filter(p => {
         const statusMatch = showInactive ? p.status === 'inactive' : p.status !== 'inactive';
-        const lowStockMatch = filterLowStock ? (p.stock <= (p.minStock || 0)) : true;
+        const lowStockMatch = filterLowStock ? (Number(p.stock) <= Number(p.minStock || 0)) : true;
         const term = q.trim().toLowerCase();
         const textMatch = !term || [p.name, p.sku, p.barcode, p.code, p.category].some(v => v && String(v).toLowerCase().includes(term));
         return statusMatch && lowStockMatch && textMatch;
@@ -376,8 +377,8 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                                             <td className="px-4 py-3 text-sm text-ink-muted dark:text-gray-400">{product.code || product.barcode}</td>
                                             <td className="px-4 py-3 text-right text-sm font-medium dark:text-gray-100">{formatCurrency(product.salePrice || 0, currency)}<div className="text-xs font-normal text-ink-muted">{productRate(product) > 0 ? `Con ITBIS: ${formatCurrency(round2((product.salePrice || 0) * (1 + productRate(product) / 100)), currency)}` : 'Exento'}</div></td>
                                             <td className="px-4 py-3 text-right">
-                                                <span className={badgeClass(product.stock <= (product.minStock || 0) ? 'danger' : 'success')}>
-                                                    {product.stock || 0}
+                                                <span className={badgeClass(Number(product.stock) <= Number(product.minStock || 0) ? 'danger' : 'success')}>
+                                                    {formatQty(product.stock || 0, product.allowFractions ? unitOf(product.unit).abbr : '')}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
@@ -434,8 +435,8 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                                                     <span className="text-xs font-mono text-ink-muted bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                         {product.sku || product.code || 'S/C'}
                                                     </span>
-                                                    <span className={badgeClass(product.stock <= (product.minStock || 0) ? 'danger' : 'success')}>
-                                                        Stock: {product.stock || 0}
+                                                    <span className={badgeClass(Number(product.stock) <= Number(product.minStock || 0) ? 'danger' : 'success')}>
+                                                        Stock: {formatQty(product.stock || 0, product.allowFractions ? unitOf(product.unit).abbr : '')}
                                                     </span>
                                                 </div>
                                             </div>
