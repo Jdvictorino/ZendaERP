@@ -4,6 +4,7 @@
  */
 import { Transformer } from 'dgii-ecf';
 import { lineAmounts, netUnitPrice, round2 } from './tax.js';
+import { unitOf } from './units.js';
 
 // Mapeo de tipos e-CF a código numérico DGII
 const ECF_TYPE_CODES = {
@@ -195,8 +196,8 @@ function buildItems(invoiceItems) {
       IndicadorFacturacion: String(getIndicadorFacturacion(item.taxRate)),
       NombreItem: item.productName || '',
       IndicadorBienoServicio: '1', // 1=Bien, 2=Servicio
-      CantidadItem: String(quantity),
-      UnidadMedida: '43', // Tabla IV del Formato e-CF: 43 = Unidad (1 es Barril)
+      CantidadItem: String(round2(quantity)), // a lo sumo 2 decimales, sin ceros sobrantes
+      UnidadMedida: String(item.unitCode ?? item.packaging?.unitCode ?? unitOf(item.product?.unit).dgii), // Tabla IV del Formato e-CF: 43 = Unidad (1 es Barril)
       PrecioUnitarioItem: item.unitPrice.toFixed(2),
       ...(adjust > 0 ? { DescuentoMonto: monto, TablaSubDescuento: { SubDescuento: { TipoSubDescuento: '$', MontoSubDescuento: monto } } } : {}),
       ...(adjust < 0 ? { RecargoMonto: monto, TablaSubRecargo: { SubRecargo: { TipoSubRecargo: '$', MontoSubRecargo: monto } } } : {}),
@@ -258,7 +259,7 @@ function scaleToTotal(lines, target, reason = 'Ajuste') {
     return [{ productName: reason, quantity: 1, taxRate: 0, discountPercent: 0, unitPrice: round2(target) }];
   }
   const factor = target / withTax;
-  const out = lines.map((l) => ({ productName: l.productName, quantity: Number(l.quantity), taxRate: rate(l), discountPercent: 0, unitPrice: Number(l.unitPrice), storedBase: round2(l.net * factor) }));
+  const out = lines.map((l) => ({ productName: l.productName, quantity: Number(l.quantity), unitCode: l.packaging?.unitCode ?? l.unitCode ?? unitOf(l.product?.unit).dgii, taxRate: rate(l), discountPercent: 0, unitPrice: Number(l.unitPrice), storedBase: round2(l.net * factor) }));
   const gross = (l, base = l.storedBase) => base + round2((base * l.taxRate) / 100);
   const bySize = [...out].sort((a, b) => b.storedBase - a.storedBase);
   const largest = bySize[0];
@@ -310,7 +311,7 @@ export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, 
   const source = lines?.length ? lines : originalInvoice.items || [];
   const unit = (i) => netUnitPrice({ unitPrice: Number(i.unitPrice), taxRate: Number(i.taxRate || 0) }, !!originalInvoice.pricesIncludeTax);
   const amount = parseFloat(note.amount);
-  const items = scaleToTotal(source.map((i) => ({ ...i, unitPrice: unit(i), net: unit(i) * (1 - parseFloat(i.discountPercent || 0) / 100) * parseInt(i.quantity) })), amount, note.reason || 'Ajuste');
+  const items = scaleToTotal(source.map((i) => ({ ...i, unitPrice: unit(i), net: unit(i) * (1 - parseFloat(i.discountPercent || 0) / 100) * Number(i.quantity) })), amount, note.reason || 'Ajuste');
 
   // Las líneas ya van sin ITBIS: no se normalizan de nuevo
   const ecfData = buildEcfFromInvoice({ ...originalInvoice, pricesIncludeTax: false, discountAmount: 0, date: noteDate, items }, company, tipoEcf, eNcf, sequence);

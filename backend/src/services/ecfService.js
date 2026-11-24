@@ -104,7 +104,7 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
   // 1. Obtener factura con items y empresa
   const invoice = await prisma.invoice.findUnique({
     where: { id: invoiceId },
-    include: { items: true, customer: true, company: true },
+    include: { items: { include: { packaging: true, product: { select: { unit: true } } } }, customer: true, company: true },
   });
 
   if (!invoice) throw new Error('Factura no encontrada');

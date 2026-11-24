@@ -637,7 +637,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: { include: { product: { select: { allowFractions: true } } } }, creditNotes: { select: { amount: true, items: true } } }
+      include: { items: { include: { packaging: true, product: { select: { allowFractions: true, unit: true } } } }, creditNotes: { select: { amount: true, items: true } } }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
@@ -711,7 +711,7 @@ router.post('/:id/debit-note', authorize('admin', 'manager'), async (req, res, n
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true }
+      include: { items: { include: { packaging: true, product: { select: { unit: true } } } } }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
