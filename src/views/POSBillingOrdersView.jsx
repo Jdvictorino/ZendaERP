@@ -237,13 +237,14 @@ function LineDesc({ row, onDesc, className = '' }) {
 
 // Cantidad de la línea: ± suman 1; las líneas que admiten fracciones (unidad base) también se escriben.
 function QtyControl({ row, onQty, onQtySet, btnCls, size }) {
-  const unit = row.packagingId ? row.packagingName : row.unitAbbr;
+  // Con empaque solo el número: el selector y la descripción ya dicen "Saco de 100 lb"
+  const unit = row.packagingId ? null : row.unitAbbr;
   return (
     <div className="flex items-center gap-1.5">
       <button aria-label="Disminuir cantidad" className={btnCls} onClick={() => onQty(row.id, -1)}><Minus size={size} /></button>
       {row.allowFractions && !row.packagingId
         ? <input aria-label="Cantidad" className="input-base h-8 w-20 px-2 text-center tabular-nums" type="number" min="0.01" step="0.01" value={row.qty} onChange={e => onQtySet(row.id, e.target.value)} />
-        : <span className="text-sm font-semibold min-w-6 whitespace-nowrap text-center tabular-nums">{formatQty(row.qty, row.packagingName || row.unitAbbr)}</span>}
+        : <span className="text-sm font-semibold min-w-6 whitespace-nowrap text-center tabular-nums">{formatQty(row.qty, unit)}</span>}
       <button aria-label="Aumentar cantidad" className={btnCls} onClick={() => onQty(row.id, 1)}><Plus size={size} /></button>
       {row.allowFractions && !row.packagingId && unit ? <span className="text-xs text-ink-muted">{unit}</span> : null}
     </div>
