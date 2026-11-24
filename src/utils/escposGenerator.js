@@ -17,7 +17,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
 
     // Emisor
     const address = companyProfile?.address;
-    const addressLine = typeof address === 'string' ? address : [address?.street, address?.sector, address?.city].filter(Boolean).join(', ');
+    const addressLine = typeof address === 'string' ? address : [address?.street, address?.sector, address?.city, address?.province].filter(Boolean).join(', ');
     const emitterHtml = [
         companyProfile?.name ? `<div class="center bold text-lg">${esc(companyProfile.name.toUpperCase())}</div>` : '',
         companyProfile?.rnc ? `<div class="center">RNC ${esc(companyProfile.rnc)}</div>` : '',

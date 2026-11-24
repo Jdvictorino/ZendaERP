@@ -121,7 +121,8 @@ export default function RegistrationReviewModal({ adminData = {}, companyData = 
                                 <Section title="Dirección de la empresa" description="Ubicación fiscal" columns={2}>
                                     <Field label="Calle" value={companyAddress.street} />
                                     <Field label="Sector" value={companyAddress.sector} />
-                                    <Field label="Ciudad" value={companyAddress.city} />
+                                    <Field label="Municipio / ciudad" value={companyAddress.city} />
+                                    <Field label="Provincia" value={companyAddress.province} />
                                     <Field label="Código postal" value={companyAddress.zipCode} />
                                     <Field label="País" value={companyAddress.country} />
                                 </Section>

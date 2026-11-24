@@ -133,8 +133,9 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
     if (companyProfile.rnc) {
         addWrappedLine(`RNC: ${companyProfile.rnc}`);
     }
-    const { street, sector, city, zipCode, country } = companyProfile.address || {};
-    const addressParts = [street, sector, city, zipCode, country].filter(Boolean).join(', ');
+    const { street, sector, city, province, zipCode, country } = companyProfile.address || {};
+    // DGII: dirección, municipio y provincia del emisor
+    const addressParts = [street, sector, city, province, zipCode, country].filter(Boolean).join(', ');
     addWrappedLine(addressParts);
 
     const contactParts = [companyProfile.phone, companyProfile.email].filter(Boolean).join(' | ');
@@ -290,7 +291,7 @@ const resolveSku = (item) => {
     return match ? String(match).trim() : '-';
 };
 
-const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax, withNotes, unitWords }) => {
+const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax, withNotes, unitWords, topMargin = 20, bottomReserve = 20, onNewPage, rowPages = [] }) => {
     if (!items.length) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
@@ -338,7 +339,9 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
         body: tableRows,
         startY,
         theme: 'grid',
-        margin: { left: 14, right: 14 },
+        // Paginación (Informe Técnico e-CF 18.2): el encabezado se repite en cada página y abajo queda espacio para el pie
+        margin: { left: 14, right: 14, top: topMargin, bottom: bottomReserve },
+        didDrawPage: (d) => { if (d.pageNumber > 1) onNewPage?.(); },
         styles: {
             fontSize: 9,
             cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
@@ -360,6 +363,7 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
             if (d.section === 'body' && d.column.index === 1 && skus[d.row.index]) d.cell.styles.cellPadding = { top: 4, right: 4, bottom: 8, left: 4 };
         },
         didDrawCell: (d) => {
+            if (d.section === 'body' && d.column.index === 0) rowPages[d.row.index] = doc.internal.getCurrentPageInfo().pageNumber;
             if (d.section !== 'body' || d.column.index !== 1 || !skus[d.row.index]) return;
             doc.setFontSize(7);
             doc.setTextColor(...muted);
@@ -372,7 +376,8 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
     return doc.lastAutoTable.finalY + 6;
 };
 
-const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, startY }) => {
+const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, startY: firstY, newPage }) => {
+    let startY = firstY;
     const cardWidth = 86;
     const summaryX = bankDetails?.bankName ? 110 : 14;
     
@@ -404,6 +409,7 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
     const bankHeight = bankDetails?.bankName ? 52 : 0;
     const boxHeight = Math.max(summaryHeight, bankHeight);
     const adjustedHeight = boxHeight || summaryHeight;
+    if (newPage && startY + adjustedHeight > doc.internal.pageSize.height - 14) startY = newPage();
 
     if (bankDetails?.bankName) {
         doc.setFillColor(...(theme.subtleBg || DEFAULT_THEME.subtleBg));
@@ -458,7 +464,7 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
     return startY + adjustedHeight;
 };
 
-const drawExtraNotes = (doc, theme, { startY, docData }) => {
+const drawExtraNotes = (doc, theme, { startY, docData, newPage }) => {
     const notes = docData?.notes || docData?.termsAndConditions || docData?.observations;
     if (!notes) {
         return startY;
@@ -467,8 +473,8 @@ const drawExtraNotes = (doc, theme, { startY, docData }) => {
     const maxY = doc.internal.pageSize.height - 20;
     let currentY = startY;
     if (currentY + 30 > maxY) {
-        doc.addPage();
-        currentY = 20;
+        if (newPage) currentY = newPage();
+        else { doc.addPage(); currentY = 20; }
     }
 
     doc.setFont('helvetica', 'bold');
@@ -486,14 +492,14 @@ const drawExtraNotes = (doc, theme, { startY, docData }) => {
 // Informe Técnico e-CF 18.2.3: el QR va abajo a la izquierda, a 2 cm o más del borde de la hoja, de 22 mm o más
 const QR_X = 21;
 
-const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
+const drawEcfFooter = (doc, theme, { startY, ecfData, newPage }) => {
     if (!ecfData || !ecfData.eNcf) return startY;
 
     const maxY = doc.internal.pageSize.height - 12;
     let currentY = startY + 2;
     if (currentY + 42 > maxY) {
-        doc.addPage();
-        currentY = 20;
+        if (newPage) currentY = newPage();
+        else { doc.addPage(); currentY = 20; }
     }
 
     // Bloque e-CF
@@ -537,6 +543,62 @@ const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
 
     setBodyTextColor(doc, theme);
     return currentY + 44;
+};
+
+// Paginación (Informe Técnico e-CF 18.2.3): con más de una página, cada una lleva "Página X de N"; las que no son la
+// última llevan sus subtotales (gravado, exento, ITBIS y monto total de la página) y la información de consulta del e-CF.
+const drawPageFooters = (doc, theme, { docData, currency, rowPages }) => {
+    const pages = doc.internal.getNumberOfPages();
+    if (pages < 2) return;
+    const height = doc.internal.pageSize.height;
+    const items = docData?.items || [];
+    const ecf = docData?.ecfData;
+    const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
+
+    for (let page = 1; page <= pages; page += 1) {
+        doc.setPage(page);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...muted);
+        doc.text(`Página ${page} de ${pages}`, 196, height - 6, { align: 'right' });
+        setBodyTextColor(doc, theme);
+        if (page === pages) continue;
+
+        const onPage = items.filter((_, i) => rowPages[i] === page);
+        if (!onPage.length) continue;
+        let gravado = 0; let exento = 0; let itbis = 0;
+        onPage.forEach((item) => {
+            const { amount } = docLine(item, docData?.pricesIncludeTax);
+            const rate = Number(item.taxRate) || 0;
+            if (rate > 0) { gravado += amount; itbis += round2(amount * rate / 100); } else exento += amount;
+        });
+        const lines = [
+            ['Subtotal gravado página', gravado],
+            ['Subtotal exento página', exento],
+            ['Subtotal ITBIS página', itbis],
+            ['Monto total página', gravado + exento + itbis],
+        ];
+        const top = height - (ecf?.qrCodeUrl ? 40 : 30);
+        lines.forEach(([label, value], i) => {
+            doc.setFont('helvetica', i === lines.length - 1 ? 'bold' : 'normal');
+            doc.text(label, 120, top + i * 5);
+            doc.text(formatCurrency(round2(value), currency), 196, top + i * 5, { align: 'right' });
+        });
+
+        if (ecf?.qrCodeUrl) {
+            // QR de 22 mm (mínimo DGII) a 2 cm del borde, con su código de seguridad y fecha de firma
+            const size = 22;
+            const qrTop = height - 40;
+            const modules = qrModules(ecf.qrCodeUrl);
+            const cell = size / modules.length;
+            doc.setFillColor(0, 0, 0);
+            modules.forEach((row, y) => row.forEach((on, x) => { if (on) doc.rect(QR_X + x * cell, qrTop + y * cell, cell, cell, 'F'); }));
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.text(`Código de seguridad: ${ecf.securityCode || ''}`, QR_X + size + 4, qrTop + 8);
+            if (ecf.signedAt) doc.text(`Fecha de firma digital: ${ecf.signedAt}`, QR_X + size + 4, qrTop + 13);
+        }
+    }
 };
 
 const handleActionOutput = (doc, action, filename) => {
@@ -678,15 +740,12 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
 
     if (numberLabel === 'NCF:' && String(docNumber || '').startsWith('E')) numberLabel = 'e-NCF:';
 
-    let cursorY = drawDocumentHeader(doc, theme, {
-        companyProfile,
-        docTitle,
-        numberLabel,
-        docNumber,
-        documentDate,
-        validUntil,
-        modification: modificationInfo(docType, docData),
-    });
+    const headerArgs = { companyProfile, docTitle, numberLabel, docNumber, documentDate, validUntil, modification: modificationInfo(docType, docData) };
+    // Página nueva con el encabezado repetido (DGII: el encabezado va en cada página)
+    const newPage = () => { doc.addPage(); return drawDocumentHeader(doc, theme, headerArgs); };
+    let cursorY = drawDocumentHeader(doc, theme, headerArgs);
+    const headerBottom = cursorY;
+    const rowPages = [];
 
     cursorY = drawInfoCards(doc, theme, {
         customerDetails,
@@ -711,6 +770,10 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             startY: cursorY,
             withNotes: showNotesColumn(companyProfile),
             unitWords: isEcfDoc(docData),
+            topMargin: headerBottom,
+            bottomReserve: docData?.ecfData?.qrCodeUrl ? 44 : 30,
+            onNewPage: () => drawDocumentHeader(doc, theme, headerArgs),
+            rowPages,
         });
 
         cursorY = drawFinancialSection(doc, theme, {
@@ -718,12 +781,14 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             currency,
             bankDetails: docType === 'purchase-voucher' ? null : companyProfile?.bankDetails,
             startY: cursorY + 4,
+            newPage,
         });
     }
 
     cursorY = drawExtraNotes(doc, theme, {
         startY: cursorY + 8,
         docData,
+        newPage,
     });
 
     // e-CF: Representación Impresa con QR de validación
@@ -731,8 +796,11 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         cursorY = drawEcfFooter(doc, theme, {
             startY: cursorY,
             ecfData: docData.ecfData,
+            newPage,
         });
     }
+
+    drawPageFooters(doc, theme, { docData, currency, rowPages });
 
     return handleActionOutput(doc, action, `${docType}-${docNumber || 'documento'}.pdf`);
 };

@@ -703,12 +703,26 @@ exports[`RegistrationReviewModal snapshot > renders admin and company data corre
                     <p
                       class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
-                      Ciudad
+                      Municipio / ciudad
                     </p>
                     <p
                       class="text-sm font-medium text-ink break-words"
                     >
                       Santo Domingo
+                    </p>
+                  </div>
+                  <div
+                    class="space-y-1"
+                  >
+                    <p
+                      class="text-xs font-semibold uppercase tracking-wide text-ink-muted"
+                    >
+                      Provincia
+                    </p>
+                    <p
+                      class="text-sm font-medium text-ink break-words"
+                    >
+                      —
                     </p>
                   </div>
                   <div
