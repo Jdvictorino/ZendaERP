@@ -228,34 +228,37 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
 }
 
 function LineDesc({ row, onDesc, className = '' }) {
-  if (row.originalId) return <span className={className}>{row.desc}</span>;
+  if (row.originalId) return <span className={className}>{row.baseDesc || row.desc}</span>;
   return (
     <input aria-label="Descripción del artículo" className="input-base h-8" placeholder="Descripción del artículo"
       value={row.desc} onChange={e => onDesc(row.id, e.target.value)} />
   );
 }
 
-// Cantidad de la línea: ± suman 1; las líneas que admiten fracciones (unidad base) también se escriben.
-function QtyControl({ row, onQty, onQtySet, btnCls, size }) {
-  // Con empaque solo el número: el selector y la descripción ya dicen "Saco de 100 lb"
-  const unit = row.packagingId ? null : row.unitAbbr;
+// Cantidad + unidad en un solo control (como la UdM de las líneas de venta en un ERP):
+// ± suman 1; en la unidad base con fracciones la cantidad también se escribe; la unidad va a la derecha.
+function QtyControl({ row, onQty, onQtySet, onUnit, btnCls, size }) {
+  const fractional = row.allowFractions && !row.packagingId;
   return (
     <div className="flex items-center gap-1.5">
       <button aria-label="Disminuir cantidad" className={btnCls} onClick={() => onQty(row.id, -1)}><Minus size={size} /></button>
-      {row.allowFractions && !row.packagingId
-        ? <input aria-label="Cantidad" className="input-base h-8 w-20 px-2 text-center tabular-nums" type="number" min="0.01" step="0.01" value={row.qty} onChange={e => onQtySet(row.id, e.target.value)} />
-        : <span className="text-sm font-semibold min-w-6 whitespace-nowrap text-center tabular-nums">{formatQty(row.qty, unit)}</span>}
+      {fractional
+        ? <input aria-label="Cantidad" className="input-base h-8 w-16 px-1.5 text-center tabular-nums" type="number" min="0.01" step="0.01" value={row.qty} onChange={e => onQtySet(row.id, e.target.value)} />
+        : <span className="text-sm font-semibold min-w-6 text-center tabular-nums">{formatQty(row.qty)}</span>}
       <button aria-label="Aumentar cantidad" className={btnCls} onClick={() => onQty(row.id, 1)}><Plus size={size} /></button>
-      {row.allowFractions && !row.packagingId && unit ? <span className="text-xs text-ink-muted">{unit}</span> : null}
+      <UnitSelect row={row} onUnit={onUnit} />
     </div>
   );
 }
 
+// Varias unidades (base + empaques): selector compacto. Una sola: su abreviatura como texto.
 function UnitSelect({ row, onUnit }) {
-  if ((row.options?.length || 0) < 2) return null;
+  if ((row.options?.length || 0) < 2) {
+    return row.unitAbbr ? <span className="text-xs text-ink-muted whitespace-nowrap">{row.unitAbbr}</span> : null;
+  }
   return (
-    <select aria-label="Unidad" className="input-base h-8 mt-1" value={row.packagingId || ''} onChange={e => onUnit(row.id, e.target.value)}>
-      {row.options.map(o => <option key={o.packagingId || 'base'} value={o.packagingId || ''}>{o.packagingName || row.unitLabel || 'Unidad'}</option>)}
+    <select aria-label="Unidad de venta" className="input-base h-8 w-auto max-w-[9.25rem] py-0 pl-2 pr-7 text-xs leading-none" value={row.packagingId || ''} onChange={e => onUnit(row.id, e.target.value)}>
+      {row.options.map(o => <option key={o.packagingId || 'base'} value={o.packagingId || ''}>{o.packagingName || row.unitAbbr || row.unitLabel || 'Unidad'}</option>)}
     </select>
   );
 }
@@ -269,12 +272,13 @@ function MobileGridCard({ row, exempt, onQty, onQtySet, onUnit, onPrice, onDelet
     <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-line">
       <div className="flex-1 min-w-0">
         <LineDesc row={row} onDesc={onDesc} className="block text-sm font-semibold text-ink truncate" />
-        <p className="text-xs text-ink-muted mt-0.5 font-mono">{row.code || '—'}</p>
-        <UnitSelect row={row} onUnit={onUnit} />
-        <div className="flex items-center gap-3 mt-2">
-          <QtyControl row={row} onQty={onQty} onQtySet={onQtySet} btnCls={qtyBtnCls} size={14} />
-          <span className="text-xs text-ink-muted">×</span>
-          <input aria-label="Precio unitario" className="input-base w-24 h-8 text-right tabular-nums" type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} />
+        {row.code && row.code !== '-' && <p className="text-xs text-ink-muted mt-0.5 font-mono">{row.code}</p>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-2">
+          <QtyControl row={row} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} btnCls={qtyBtnCls} size={14} />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-muted">×</span>
+            <input aria-label="Precio unitario" className="input-base w-24 h-8 text-right tabular-nums" type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} />
+          </div>
         </div>
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -292,13 +296,15 @@ function GridRow({ row, index, exempt, onQty, onQtySet, onUnit, onDisc, onPrice,
   return (
     <tr className="border-b border-line hover:bg-surface-muted/60 transition-colors group">
       <td className="px-3 py-2 text-center text-xs text-ink-muted tabular-nums">{index + 1}</td>
-      <td className="px-3 py-2 text-sm font-medium text-ink"><LineDesc row={row} onDesc={onDesc} /><UnitSelect row={row} onUnit={onUnit} /></td>
-      <td className="px-3 py-2 text-xs text-ink-muted font-mono">{row.code}</td>
-      <td className="px-3 py-2">
-        <QtyControl row={row} onQty={onQty} onQtySet={onQtySet} size={12} btnCls="w-7 h-7 flex justify-center items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-surface-muted" />
+      <td className="px-3 py-2 text-sm font-medium text-ink">
+        <LineDesc row={row} onDesc={onDesc} />
+        {row.code && row.code !== '-' && <p className="text-xs text-ink-muted font-mono font-normal mt-0.5">{row.code}</p>}
       </td>
-      <td className="px-3 py-2"><input aria-label="Descuento de la línea (%)" className={`${cellInput} w-16`} type="number" min="0" max="100" value={row.disc} onChange={e => onDisc(row.id, e.target.value)} /></td>
-      <td className="px-3 py-2 text-right"><input aria-label="Precio unitario" className={`${cellInput} w-24`} type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} /></td>
+      <td className="px-3 py-2">
+        <QtyControl row={row} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} size={12} btnCls="w-7 h-7 flex justify-center items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-surface-muted" />
+      </td>
+      <td className="px-3 py-2"><input aria-label="Descuento de la línea (%)" className={`${cellInput} w-14`} type="number" min="0" max="100" value={row.disc} onChange={e => onDisc(row.id, e.target.value)} /></td>
+      <td className="px-3 py-2 text-right"><input aria-label="Precio unitario" className={`${cellInput} w-[5.5rem]`} type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} /></td>
       <td className="px-3 py-2 text-right text-xs text-ink-muted tabular-nums">{!exempt && rateOf(row) > 0 ? fmt(itbis) : 'Exento'}</td>
       <td className="px-3 py-2 text-right text-sm font-semibold text-ink tabular-nums">{fmt(total)}</td>
       <td className="px-3 py-2 text-center"><button aria-label="Quitar línea" className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onDelete(row.id)}><Trash2 size={16} /></button></td>
@@ -324,18 +330,17 @@ function DataGrid({ rows, exempt, onQty, onQtySet, onUnit, onDisc, onPrice, onDe
             <tr className="bg-surface-muted border-b border-line sticky top-0 z-10">
               <th className={`${thCls} w-[40px] text-center`}>#</th>
               <th className={thCls}>Producto / servicio</th>
-              <th className={`${thCls} w-[110px]`}>Código</th>
-              <th className={`${thCls} w-[120px]`}>Cant.</th>
-              <th className={`${thCls} w-[90px]`}>Desc. %</th>
-              <th className={`${thCls} w-[120px] text-right`}>Precio sin ITBIS</th>
-              <th className={`${thCls} w-[100px] text-right`}>ITBIS</th>
-              <th className={`${thCls} w-[120px] text-right`}>Total</th>
+              <th className={`${thCls} w-[220px]`}>Cant.</th>
+              <th className={`${thCls} w-[64px]`}>Desc. %</th>
+              <th className={`${thCls} w-[104px] text-right`}>Precio sin ITBIS</th>
+              <th className={`${thCls} w-[70px] text-right`}>ITBIS</th>
+              <th className={`${thCls} w-[110px] text-right`}>Total</th>
               <th className={`${thCls} w-[50px]`}><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan="9" className="p-0">{empty}</td></tr>
+              <tr><td colSpan="8" className="p-0">{empty}</td></tr>
             ) : rows.map((r, i) => (
               <GridRow key={r.id} row={r} index={i} exempt={exempt} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} />
             ))}
