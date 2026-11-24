@@ -126,8 +126,10 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
     const customerDetails = useMemo(() => (customers || []).find(c => c.id === invoice.customerId), [customers, invoice.customerId]);
     // Anular y emitir notas es de gerencia (el servidor también lo exige); el cajero solo factura
     const canManage = isMasterUser || ['admin', 'manager'].includes(currentUserProfile?.role);
-    const associatedCreditNote = useMemo(() => (creditNotes || []).find(cn => cn.originalInvoiceId === invoice.id), [creditNotes, invoice.id]);
-    const associatedDebitNote = useMemo(() => (debitNotes || []).find(dn => dn.originalInvoiceId === invoice.id), [debitNotes, invoice.id]);
+    // originalNcf: la nota impresa indica el comprobante que modifica (DGII)
+    const withOriginalNcf = (note) => note && { ...note, originalNcf: invoice.ncfNumber };
+    const associatedCreditNote = useMemo(() => withOriginalNcf((creditNotes || []).find(cn => cn.originalInvoiceId === invoice.id)), [creditNotes, invoice.id, invoice.ncfNumber]);
+    const associatedDebitNote = useMemo(() => withOriginalNcf((debitNotes || []).find(dn => dn.originalInvoiceId === invoice.id)), [debitNotes, invoice.id, invoice.ncfNumber]);
 
     const emitterInfoForPDF = invoice.emitterInfo || (currentUserProfile ? {
         fullName: `${currentUserProfile.firstName} ${currentUserProfile.lastName}`,

@@ -2,7 +2,7 @@ import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 import { withEcfPrintData, qrModules } from './ecfPrint.js';
-import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, showNotesColumn } from './docLines.js';
+import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, showNotesColumn, isEcfDoc, lineDiscount, modificationInfo, baseSplit } from './docLines.js';
 import { round2 } from './tax.js';
 
 let pdfLibrariesPromise = null;
@@ -98,9 +98,14 @@ const setBodyTextColor = (doc, theme) => {
     doc.setTextColor(...(theme.textPrimary || DEFAULT_THEME.textPrimary));
 };
 
-const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate, validUntil }) => {
+const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate, validUntil, modification }) => {
     // Encabezado blanco: texto oscuro sobre el papel y una línea fina debajo (sin banda de color)
-    const headerHeight = 48;
+    const rightLines = [
+        validUntil ? `Válido hasta: ${String(validUntil).slice(0, 10).split('-').reverse().join('/')}` : '',
+        modification?.ncf ? `${String(modification.ncf).startsWith('E') ? 'e-NCF' : 'NCF'} modificado: ${modification.ncf}` : '',
+        modification ? modification.label : '',
+    ].filter(Boolean);
+    const headerHeight = Math.max(48, 38 + rightLines.length * 6);
     const ink = theme.textPrimary || DEFAULT_THEME.textPrimary;
     const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
 
@@ -153,10 +158,8 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
         doc.text(`${numberLabel} ${docNumber || 'N/A'}`, 196, 26, { align: 'right' });
     }
     doc.text(`Fecha: ${formatDate(documentDate)}`, 196, 32, { align: 'right' });
-    // Norma General 06-2018: el comprobante muestra hasta cuándo es válida su secuencia (fecha guardada sin hora)
-    if (validUntil) {
-        doc.text(`Válido hasta: ${String(validUntil).slice(0, 10).split('-').reverse().join('/')}`, 196, 38, { align: 'right' });
-    }
+    // Norma General 06-2018: vencimiento de la secuencia. Notas: comprobante modificado y código de modificación en palabras.
+    rightLines.forEach((line, i) => doc.text(line, 196, 38 + i * 6, { align: 'right' }));
 
     setBodyTextColor(doc, theme);
     doc.setDrawColor(...ink);
@@ -287,7 +290,7 @@ const resolveSku = (item) => {
     return match ? String(match).trim() : '-';
 };
 
-const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax, withNotes }) => {
+const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax, withNotes, unitWords }) => {
     if (!items.length) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
@@ -295,25 +298,39 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
         return startY + 16;
     }
 
-    // Modelo DGII: Cant. | Descripción | Precio | ITBIS | Valor. El código va debajo de la descripción, en pequeño.
+    // Modelo DGII (Informe Técnico e-CF, 18.2.2): Cant. | [E] Descripción | Precio | [Desc.] | ITBIS | Valor.
+    // "E" a la izquierda de los exentos; el código va debajo de la descripción, en pequeño.
     const skus = items.map((item) => { const sku = resolveSku(item); return sku === '-' ? null : sku; });
-    const tableRows = items.map((item) => {
+    const discounts = items.map((item) => lineDiscount(item, pricesIncludeTax));
+    const withDiscount = discounts.some((d) => d > 0);
+    const tableRows = items.map((item, i) => {
         // Compatibilidad con estructura Firebase y PostgreSQL
         const name = item.name || item.productName || item.product?.name || '-';
         const { unit: price, amount } = docLine(item, pricesIncludeTax);
-        const itbis = round2(amount * (Number(item.taxRate) || 0) / 100);
-        const row = [item.quantity ? qtyText(item) : '0', name];
+        const rate = Number(item.taxRate) || 0;
+        const itbis = round2(amount * rate / 100);
+        const row = [item.quantity ? qtyText(item, { words: unitWords }) : '0', rate === 0 ? `E  ${name}` : name];
         if (withNotes) row.push(item.customizationNotes || item.description || item.notes || '—');
-        row.push(formatCurrency(price, currency), formatCurrency(itbis, currency), formatCurrency(amount, currency));
+        row.push(formatCurrency(price, currency));
+        if (withDiscount) row.push(discounts[i] > 0 ? formatCurrency(-discounts[i], currency) : '—');
+        row.push(formatCurrency(itbis, currency), formatCurrency(amount, currency));
         return row;
     });
 
-    const head = ['Cant.', 'Descripción', ...(withNotes ? ['Notas'] : []), 'Precio', 'ITBIS', 'Valor'];
-    const money = { halign: 'right', cellWidth: 30 };
-    const columnStyles = withNotes
-        ? { 0: { halign: 'center', cellWidth: 18 }, 1: { cellWidth: 46 }, 2: { cellWidth: 28 }, 3: money, 4: money, 5: money }
-        : { 0: { halign: 'center', cellWidth: 18 }, 1: { cellWidth: 74 }, 2: money, 3: money, 4: money };
+    const head = ['Cant.', 'Descripción', ...(withNotes ? ['Notas'] : []), 'Precio', ...(withDiscount ? ['Desc.'] : []), 'ITBIS', 'Valor'];
+    const qtyWidth = unitWords ? 24 : 18;
+    const moneyWidth = withDiscount ? 28 : 30;
+    const moneyCols = withDiscount ? 4 : 3;
     const firstMoney = withNotes ? 3 : 2;
+    const columnStyles = {
+        0: { halign: 'center', cellWidth: qtyWidth },
+        1: { cellWidth: 182 - qtyWidth - (withNotes ? 28 : 0) - moneyWidth * moneyCols },
+        ...(withNotes ? { 2: { cellWidth: 28 } } : {}),
+    };
+    // Montos con menos relleno lateral para que "RD$4,500.00" no se parta en dos líneas
+    for (let c = firstMoney; c < firstMoney + moneyCols; c += 1) {
+        columnStyles[c] = { halign: 'right', cellWidth: moneyWidth, cellPadding: { top: 4, right: 3, bottom: 4, left: 2 } };
+    }
     const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
 
     doc.autoTable({
@@ -361,8 +378,9 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
     
     // Compatibilidad Firebase y PostgreSQL
     const coupon = docTotals(docData); // con cupón: suma de las líneas (incluye lo exento) y la parte del cupón en la base
-    const taxableAmount = coupon?.subtotal ?? docData.montoGravado ?? docData.subtotal ?? 0;
-    const exemptAmount = coupon ? 0 : docData.montoExento ?? 0;
+    const split = baseSplit(docData);
+    const taxableAmount = coupon?.subtotal ?? split.gravado;
+    const exemptAmount = coupon ? 0 : split.exento;
     const taxAmount = docData.itbis ?? docData.taxAmount ?? 0;
     const totalAmount = docData.total ?? 0;
     const discAmount = coupon?.discount ?? docData.discountAmount ?? 0;
@@ -465,6 +483,9 @@ const drawExtraNotes = (doc, theme, { startY, docData }) => {
     return currentY + 14 + text.length * 5;
 };
 
+// Informe Técnico e-CF 18.2.3: el QR va abajo a la izquierda, a 2 cm o más del borde de la hoja, de 22 mm o más
+const QR_X = 21;
+
 const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
     if (!ecfData || !ecfData.eNcf) return startY;
 
@@ -484,14 +505,14 @@ const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
         const modules = qrModules(ecfData.qrCodeUrl);
         const cell = 32 / modules.length;
         doc.setFillColor(255, 255, 255);
-        doc.rect(18, currentY + 4, 32, 32, 'F');
+        doc.rect(QR_X, currentY + 4, 32, 32, 'F');
         doc.setFillColor(0, 0, 0);
         modules.forEach((row, y) => row.forEach((on, x) => {
-            if (on) doc.rect(18 + x * cell, currentY + 4 + y * cell, cell, cell, 'F');
+            if (on) doc.rect(QR_X + x * cell, currentY + 4 + y * cell, cell, cell, 'F');
         }));
     }
 
-    const textX = ecfData.qrCodeUrl ? 56 : 22;
+    const textX = ecfData.qrCodeUrl ? QR_X + 38 : 22;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
@@ -617,7 +638,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             documentDate = docData?.billedDate || docData?.date;
             break;
         case 'credit-note':
-            docTitle = 'Nota de Crédito';
+            docTitle = isEcfDoc(docData) ? invoiceTitle(docData) : 'Nota de Crédito';
             docNumber = savedNcf || docData?.ncf || docData?.creditNoteNumber;
             if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
@@ -630,7 +651,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             isModificationDocument = true;
             break;
         case 'debit-note':
-            docTitle = 'Nota de Débito';
+            docTitle = isEcfDoc(docData) ? invoiceTitle(docData) : 'Nota de Débito';
             docNumber = savedNcf || docData?.ncf || docData?.debitNoteNumber;
             if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
@@ -664,6 +685,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         docNumber,
         documentDate,
         validUntil,
+        modification: modificationInfo(docType, docData),
     });
 
     cursorY = drawInfoCards(doc, theme, {
@@ -688,6 +710,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             pricesIncludeTax: docData?.pricesIncludeTax,
             startY: cursorY,
             withNotes: showNotesColumn(companyProfile),
+            unitWords: isEcfDoc(docData),
         });
 
         cursorY = drawFinancialSection(doc, theme, {

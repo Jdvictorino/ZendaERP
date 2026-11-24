@@ -77,6 +77,7 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
                 ...creditNote,
                 creditNoteNumber: creditNote.id,
                 originalInvoiceNumber: invoice.invoiceNumber || invoice.orderNumber,
+                originalNcf: invoice.ncfNumber,
                 customerName: invoice.customerName,
                 noteType,
                 date: new Date()

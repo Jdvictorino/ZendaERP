@@ -9,7 +9,7 @@ const vieja = { pricesIncludeTax: true, items: [{ productName: 'A', quantity: 1,
 describe('montos en documentos', () => {
   it('factura nueva: precio unitario sin ITBIS y total guardado', () => {
     const html = generateThermalReceiptHTML(nueva, 'invoice', profile, null, null);
-    expect(html).toContain('2 x');
+    expect(html).toContain('<span class="qty">2</span> x 100.00');
     expect(html).toMatch(/100.00/);
     expect(html).toMatch(/236.00/);
   });
@@ -43,13 +43,10 @@ describe('cupón: Subtotal − Descuento + ITBIS = Total', () => {
   });
   it('el ticket cuadra con las líneas: 100.00 − 10.00 + 16.20 = 106.20', () => {
     const html = generateThermalReceiptHTML(conCupon, 'invoice', profile, null, null);
-    const num = (label) => Number(html.match(new RegExp(`>${label}:</span><span>-?[^0-9]*([0-9.,]+)`))[1].replace(/,/g, ''));
-    expect([num('SUBTOTAL'), num('DESCUENTO'), num('ITBIS'), num('TOTAL')]).toEqual([100, 10, 16.2, 106.2]);
-    expect(Math.round((num('SUBTOTAL') - num('DESCUENTO') + num('ITBIS')) * 100) / 100).toBe(num('TOTAL'));
-    expect(html).toMatch(/SUBTOTAL:<\/span><span>[^<]*100\.00/);
-    expect(html).toMatch(/DESCUENTO:<\/span><span>-[^<]*10\.00/);
-    expect(html).toMatch(/ITBIS:<\/span><span>[^<]*16\.20/);
-    expect(html).toMatch(/TOTAL:<\/span><span>[^<]*106\.20/);
+    const num = (label) => Number(html.match(new RegExp(`<span>${label}</span><span>-?[^0-9]*([0-9.,]+)`))[1].replace(/,/g, ''));
+    expect([num('Subtotal'), num('Descuento'), num('ITBIS'), num('TOTAL')]).toEqual([100, 10, 16.2, 106.2]);
+    expect(Math.round((num('Subtotal') - num('Descuento') + num('ITBIS')) * 100) / 100).toBe(num('TOTAL'));
+    expect(html).toMatch(/<span>Descuento<\/span><span>-10\.00/);
   });
 });
 
@@ -60,18 +57,18 @@ describe('cantidades con unidad', () => {
   });
   it('con empaque la cantidad es solo el número (el empaque va en la descripción)', () => {
     const html = generateThermalReceiptHTML(doc({ quantity: 2, packagingName: 'Caja de 24' }), 'invoice', profile, null, null);
-    expect(html).toContain('<td>2</td>');
+    expect(html).toContain('<span class="qty">2</span>');
     expect(html).not.toContain('2 Caja de 24');
   });
   it('producto por unidad se imprime "3 ud."', () => {
     expect(generateThermalReceiptHTML(doc({ quantity: 3, product: { unit: 'unidad' } }), 'invoice', profile, null, null)).toContain('3 ud.');
   });
-  it('0.5 lb imprime la línea "cantidad x precio unitario"', () => {
-    expect(generateThermalReceiptHTML(doc({ quantity: 0.5, product: { unit: 'libra', allowFractions: true } }), 'invoice', profile, null, null)).toMatch(/0\.5 x /);
+  it('cada línea lleva el precio por unidad debajo', () => {
+    expect(generateThermalReceiptHTML(doc({ quantity: 0.5, product: { unit: 'libra', allowFractions: true } }), 'invoice', profile, null, null)).toMatch(/<span class="qty">0\.5 lb<\/span> x 100\.00/);
   });
   it('línea vieja { quantity: 3 } sigue mostrando 3 solo', () => {
     const html = generateThermalReceiptHTML(doc({ quantity: 3 }), 'invoice', profile, null, null);
-    expect(html).toContain('<td>3</td>');
+    expect(html).toContain('<span class="qty">3</span>');
     expect(html).not.toMatch(/3 und/);
   });
 });

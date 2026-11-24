@@ -294,8 +294,11 @@ router.get('/documents/:id', async (req, res, next) => {
     // Representación impresa: e-NCF, código de seguridad, fecha de firma, vencimiento de la secuencia y QR
     const fechaHoraFirma = xmlTag(document.xmlSigned, 'FechaHoraFirma');
     const fechaVencimientoSecuencia = xmlTag(document.xmlSigned, 'FechaVencimientoSecuencia');
+    // Notas (E33/E34): comprobante modificado y código de modificación, como se firmaron
+    const ncfModificado = xmlTag(document.xmlSigned, 'NCFModificado');
+    const codigoModificacion = xmlTag(document.xmlSigned, 'CodigoModificacion');
 
-    res.json({ ...document, qrCodeUrl, fechaHoraFirma, fechaVencimientoSecuencia });
+    res.json({ ...document, qrCodeUrl, fechaHoraFirma, fechaVencimientoSecuencia, ncfModificado, codigoModificacion });
   } catch (error) {
     next(error);
   }

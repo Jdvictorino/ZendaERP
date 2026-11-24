@@ -27,3 +27,15 @@ Las facturas impresas muestran un código largo (el id interno del cliente) dond
 ## Fuera de alcance
 - La marca "original: cliente / copia: vendedor" (para talonarios impresos).
 - Sucursal y nombre comercial: la empresa no tiene esos datos hoy.
+
+## Segunda parte: Representación Impresa del e-CF (Informe Técnico e-CF v1.0, sección 18) y ticket
+
+Aprobado por el dueño el 2026-11-24.
+
+- **Indicador "E"** a la izquierda de la descripción de cada artículo exento (tasa 0), en PDF y ticket.
+- **Descuento por línea**: si alguna línea tiene descuento, el PDF agrega la columna "Desc." (monto) y el ticket lo muestra bajo la línea.
+- **QR del PDF** a 20 mm o más del borde izquierdo de la hoja (mínimo DGII), tamaño 32 mm.
+- **Notas de crédito y débito**: arriba a la derecha, "e-NCF modificado" y el código de modificación en palabras. Se toma del XML firmado (`CodigoModificacion`, `NCFModificado`); en papel, "Anula el NCF modificado" si la nota es "Anulación de Factura", si no "Corrige montos del NCF modificado".
+- **Unidad en palabras solo en e-CF** (comprobante que empieza por E): "1.5 libras", "3 unidades". En lo demás sigue la abreviatura.
+- **Ticket 80 mm**: título por comprobante, e-NCF, vencimiento y fecha; cliente solo si existe (consumo sin cliente lo omite); líneas CANT · [E] DESCRIPCIÓN · VALOR sin "RD$", con "precio c/u", ITBIS y descuento en la segunda línea; subtotal gravado, subtotal exento, descuento, ITBIS y TOTAL con "RD$"; pago y cambio; QR, código de seguridad y firma digital; "Atendido por" con nombre y número de empleado.
+- **Fuera de alcance:** municipio y provincia del emisor (la dirección de la empresa no tiene esos campos) y paginación de facturas de varias páginas.

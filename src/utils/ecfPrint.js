@@ -23,6 +23,8 @@ export async function withEcfPrintData(docData) {
                 qrCodeUrl: doc.qrCodeUrl,
                 signedAt: doc.fechaHoraFirma,
                 sequenceExpiresAt: doc.fechaVencimientoSecuencia,
+                modifiedNcf: doc.ncfModificado || null,
+                modificationCode: doc.codigoModificacion || null,
             },
         };
     } catch {
