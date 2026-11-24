@@ -28,6 +28,7 @@ export function catalogEntries(products) {
         const packEntries = packs.map((k) => ({
           ...b,
           id: `${b.id}#${k.id}`,
+          productId: b.productId || b.id,
           packagingId: k.id,
           packagingName: k.name,
           factor: Number(k.factor),
@@ -35,7 +36,7 @@ export function catalogEntries(products) {
           salePrice: k.salePrice != null ? Number(k.salePrice) : round2(Number(k.factor) * Number(b.salePrice)),
           name: `${b.name} — ${k.name}`,
         }));
-        const base = { ...b, packagingId: null, packagingName: null, factor: 1, unitAbbr };
+        const base = { ...b, productId: b.productId || b.id, packagingId: null, packagingName: null, factor: 1, unitAbbr };
         const options = [
           { packagingId: null, packagingName: null, factor: 1, salePrice: Number(b.salePrice) || 0, id: b.id },
           ...packEntries.map((e) => ({ packagingId: e.packagingId, packagingName: e.packagingName, factor: e.factor, salePrice: e.salePrice, id: e.id })),

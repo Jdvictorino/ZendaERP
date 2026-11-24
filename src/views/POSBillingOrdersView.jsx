@@ -243,9 +243,9 @@ function QtyControl({ row, onQty, onQtySet, btnCls, size }) {
       <button aria-label="Disminuir cantidad" className={btnCls} onClick={() => onQty(row.id, -1)}><Minus size={size} /></button>
       {row.allowFractions && !row.packagingId
         ? <input aria-label="Cantidad" className="input-base h-8 w-20 px-2 text-center tabular-nums" type="number" min="0.01" step="0.01" value={row.qty} onChange={e => onQtySet(row.id, e.target.value)} />
-        : <span className="text-sm font-semibold min-w-6 text-center tabular-nums">{row.qty}</span>}
+        : <span className="text-sm font-semibold min-w-6 whitespace-nowrap text-center tabular-nums">{formatQty(row.qty, row.packagingName || row.unitAbbr)}</span>}
       <button aria-label="Aumentar cantidad" className={btnCls} onClick={() => onQty(row.id, 1)}><Plus size={size} /></button>
-      {(row.packagingId || row.allowFractions) && unit ? <span className="text-xs text-ink-muted">{unit}</span> : null}
+      {row.allowFractions && !row.packagingId && unit ? <span className="text-xs text-ink-muted">{unit}</span> : null}
     </div>
   );
 }
@@ -668,14 +668,20 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const onQty = (id, d) => setRows(r => r.map(x => x.id === id ? { ...x, qty: Math.max(1, roundQty(x.qty + d)) } : x));
   const onQtySet = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, qty: parseFloat(v) || 0 } : x));
   // Cambiar la unidad de la línea reemplaza empaque, factor y precio; un empaque lleva cantidad entera.
-  const onUnit = (id, packagingId) => setRows(r => r.map(x => {
-    if (x.id !== id) return x;
-    const o = x.options.find(k => (k.packagingId || '') === packagingId);
-    if (!o) return x;
-    return { ...x, key: o.id, packagingId: o.packagingId, packagingName: o.packagingName, factor: o.factor, price: o.salePrice,
-      desc: o.packagingName ? `${x.baseDesc} — ${o.packagingName}` : x.baseDesc,
-      qty: o.packagingId ? Math.max(1, Math.round(x.qty)) : x.qty };
-  }));
+  const onUnit = (id, packagingId) => setRows(r => {
+    const cur = r.find(x => x.id === id);
+    const o = cur?.options.find(k => (k.packagingId || '') === packagingId);
+    if (!o) return r;
+    const qty = o.packagingId ? Math.max(1, Math.round(cur.qty)) : cur.qty;
+    const sw = { ...cur, key: o.id, packagingId: o.packagingId, packagingName: o.packagingName, factor: o.factor, price: o.salePrice,
+      desc: o.packagingName ? `${cur.baseDesc} — ${o.packagingName}` : cur.baseDesc, qty };
+    // si ya hay otra línea igual (misma unidad), se suman en la primera
+    const twin = r.find(x => x.id !== id && x.key === o.id);
+    if (!twin) return r.map(x => x.id === id ? sw : x);
+    const firstId = r.indexOf(twin) < r.indexOf(cur) ? twin.id : id;
+    return r.filter(x => x.id === firstId || (x.id !== id && x.id !== twin.id))
+      .map(x => x.id === firstId ? { ...sw, id: firstId, qty: roundQty(twin.qty + qty) } : x);
+  });
   const onDisc = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, disc: Math.min(100, Math.max(0, parseFloat(v) || 0)) } : x));
   const onPrice = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, price: Math.max(0, parseFloat(v) || 0) } : x));
   const onDelete = (id) => setRows(r => r.filter(x => x.id !== id));
