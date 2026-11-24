@@ -2,7 +2,7 @@
 // Unidades base, tipos de empaque (códigos de la Tabla IV de la DGII) y regla de cantidad de una línea.
 
 export const BASE_UNITS = [
-  { code: 'unidad', label: 'Unidad', abbr: 'und', dgii: 43 },
+  { code: 'unidad', label: 'Unidad', abbr: 'ud.', dgii: 43 },
   { code: 'docena', label: 'Docena', abbr: 'doc', dgii: 13 },
   { code: 'libra', label: 'Libra', abbr: 'lb', dgii: 23 },
   { code: 'onza', label: 'Onza', abbr: 'oz', dgii: 61 },

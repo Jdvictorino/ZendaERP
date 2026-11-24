@@ -6,7 +6,7 @@ import { PACKAGE_TYPES, roundQty } from '../../utils/units.js';
 const money = (n) => n.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Lista controlada de empaques de un producto. Precio vacío = automático (base × equivalencia).
-const PackagingsEditor = ({ value = [], onChange, baseUnitAbbr = 'und', basePrice = 0 }) => {
+const PackagingsEditor = ({ value = [], onChange, baseUnitAbbr = 'ud.', basePrice = 0 }) => {
     const setRow = (i, patch) => onChange(value.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
     return (

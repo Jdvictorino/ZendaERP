@@ -1,11 +1,12 @@
 import { netUnitPrice, round2 } from './tax.js';
 import { formatQty, unitOf } from './units.js';
 
-// Cantidad impresa de una línea: con unidad/empaque solo si lo tiene (facturas viejas y ventas por unidad se ven como siempre)
+// Cantidad impresa: número + unidad base ("1.5 lb", "3 ud."). Con empaque solo el número: la descripción ya dice "Saco de 100 lb".
+// Líneas viejas sin producto ni empaque: solo el número, como siempre.
 export function qtyText(item) {
     const q = Number(item.quantity) || 0;
-    const pack = item.packagingName || (item.product?.unit && item.product.unit !== 'unidad' ? unitOf(item.product.unit).abbr : null);
-    return pack || !Number.isInteger(q) ? formatQty(q, pack || unitOf(item.product?.unit).abbr) : String(item.quantity ?? q);
+    if (item.packagingName || !item.product?.unit) return formatQty(q);
+    return formatQty(q, unitOf(item.product.unit).abbr);
 }
 
 // Precio unitario sin ITBIS e importe (base) de una línea de documento.

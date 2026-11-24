@@ -23,7 +23,7 @@ describe.each([['servidor', server], ['app', app]])('units (%s)', (_n, u) => {
 
   it('formatQty', () => {
     expect(u.formatQty(1.5, 'lb')).toBe('1.5 lb');
-    expect(u.formatQty(2, 'und')).toBe('2 und');
+    expect(u.formatQty(2, 'ud.')).toBe('2 ud.');
     expect(u.formatQty(2, '')).toBe('2');
   });
 

@@ -58,8 +58,13 @@ describe('cantidades con unidad', () => {
   it('2.25 de un producto en libras se imprime "2.25 lb"', () => {
     expect(generateThermalReceiptHTML(doc({ quantity: 2.25, packagingName: null, product: { unit: 'libra', allowFractions: true } }), 'invoice', profile, null, null)).toContain('2.25 lb');
   });
-  it('con empaque se imprime el nombre del empaque', () => {
-    expect(generateThermalReceiptHTML(doc({ quantity: 2, packagingName: 'Caja de 24' }), 'invoice', profile, null, null)).toContain('2 Caja de 24');
+  it('con empaque la cantidad es solo el número (el empaque va en la descripción)', () => {
+    const html = generateThermalReceiptHTML(doc({ quantity: 2, packagingName: 'Caja de 24' }), 'invoice', profile, null, null);
+    expect(html).toContain('<td>2</td>');
+    expect(html).not.toContain('2 Caja de 24');
+  });
+  it('producto por unidad se imprime "3 ud."', () => {
+    expect(generateThermalReceiptHTML(doc({ quantity: 3, product: { unit: 'unidad' } }), 'invoice', profile, null, null)).toContain('3 ud.');
   });
   it('0.5 lb imprime la línea "cantidad x precio unitario"', () => {
     expect(generateThermalReceiptHTML(doc({ quantity: 0.5, product: { unit: 'libra', allowFractions: true } }), 'invoice', profile, null, null)).toMatch(/0\.5 x /);
