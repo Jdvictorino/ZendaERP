@@ -9,10 +9,11 @@ export const BUSINESS_TYPES = [
   { group: 'Modo Tienda: venta en mostrador', options: [
     ['restaurante', 'Restaurante / Comida rápida'], ['food_truck', 'Food truck'], ['cafeteria', 'Cafetería / Repostería'],
     ['tienda_regalos', 'Tienda de regalos / artículos personalizados'], ['libreria', 'Librería'], ['floristeria', 'Floristería'],
+    ['salon', 'Salón de belleza / Estética'], ['barberia', 'Barbería'],
   ] },
   { group: 'Modo Distribuidor: pedidos, crédito y entregas', options: [
     ['distribuidora', 'Distribuidora / Mayorista'], ['ferreteria', 'Ferretería'], ['farmacia', 'Farmacia'],
-    ['salon', 'Salón de belleza / Estética'], ['supermercado', 'Supermercado / Minimarket'],
+    ['supermercado', 'Supermercado / Minimarket'],
     ['tecnologia', 'Tecnología / Electrónica'], ['otro', 'Otra actividad'],
   ] },
 ];
