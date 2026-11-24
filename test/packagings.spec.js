@@ -19,6 +19,13 @@ describe('validatePackagings', () => {
     expect(validatePackagings(list, { takenBarcodes: taken })).toEqual(expect.any(String));
   });
 
+  it('un producto sin fracciones rechaza un factor no entero; con fracciones lo acepta', () => {
+    const media = { ...caja, factor: 2.5 };
+    expect(validatePackagings([media], { allowFractions: false })).toBe('Este producto no permite fracciones: la equivalencia del empaque debe ser un número entero.');
+    expect(validatePackagings([media], { allowFractions: true })).toBeNull();
+    expect(validatePackagings([caja], { allowFractions: false })).toBeNull();
+  });
+
   it('permite varios empaques sin barcode', () => {
     const sin = { name: 'Saco', factor: 50, unitCode: 46 };
     expect(validatePackagings([sin, { ...sin, name: 'Saco 2' }])).toBeNull();
@@ -64,6 +71,10 @@ describe('savePackagings', () => {
     await expect(run(tx, [caja24])).rejects.toMatchObject({ status: 400 });
     await expect(run(fakeTx({ variants: [{ barcode: '111' }] }), [caja24])).rejects.toMatchObject({ status: 400 });
     await expect(run(fakeTx(), [caja24], { productBarcode: ' 111 ' })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('savePackagings pasa allowFractions: false y responde 400 con factor no entero', async () => {
+    await expect(run(fakeTx(), [{ ...caja24, factor: 2.5 }], { allowFractions: false })).rejects.toMatchObject({ status: 400 });
   });
 
   it('no trata como tomados los barcodes de sus propios empaques', async () => {

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { baseQuantity, roundQty } from '../../utils/units.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Card, { CardBody, CardHeader } from '../ui/Card.jsx';
 import { ShoppingCart, TrendingUp, TrendingDown, Download, Package } from 'lucide-react';
@@ -15,7 +16,7 @@ export default function CostoDeVentas({ invoices = [], expenses = [], products =
     const directCost = invoices.reduce((sum, inv) => {
       return sum + (inv.items || []).reduce((s, item) => {
         const cost = Number(item.costPrice || 0);
-        return s + (cost * (item.quantity || 1));
+        return s + (cost * baseQuantity({ quantity: item.quantity || 1, factor: item.packagingFactor ?? 1 }));
       }, 0);
     }, 0);
 
@@ -44,9 +45,9 @@ export default function CostoDeVentas({ invoices = [], expenses = [], products =
     const grossMarginPct = netSales > 0 ? ((grossProfit / netSales) * 100) : 0;
 
     // Unidades vendidas
-    const unitsSold = invoices.reduce((s, inv) =>
-      s + (inv.items || []).reduce((us, item) => us + (item.quantity || 1), 0), 0
-    );
+    const unitsSold = roundQty(invoices.reduce((s, inv) =>
+      s + (inv.items || []).reduce((us, item) => us + baseQuantity({ quantity: item.quantity || 1, factor: item.packagingFactor ?? 1 }), 0), 0
+    ));
 
     // Costo promedio por unidad
     const avgCostPerUnit = unitsSold > 0 ? cogs / unitsSold : 0;

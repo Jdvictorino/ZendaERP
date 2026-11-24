@@ -11,6 +11,7 @@ import Button from '../components/ui/Button.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
 import { loadScript } from '../utils/loadScript.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import { baseQuantity, roundQty } from '../utils/units.js';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
 import FilterBar, { DateRangeField, FilterField } from '../components/ui/FilterBar.jsx';
 
@@ -202,12 +203,13 @@ const ReportsViewSQL = ({ companyProfile }) => {
 
             (inv.items || []).forEach(item => {
                 const qty = num(item.quantity);
+                const baseQty = baseQuantity({ quantity: qty, factor: item.packagingFactor ?? 1 });
                 const lineRevenue = item.subtotal != null ? num(item.subtotal) : num(item.unitPrice ?? item.price) * qty;
-                items += qty;
-                cost += unitCost(item.productId) * qty;
+                items = roundQty(items + baseQty);
+                cost += unitCost(item.productId) * baseQty;
                 const name = item.productName || item.name || productsMap.get(item.productId)?.name || 'Producto';
                 productRevenue.set(name, (productRevenue.get(name) || 0) + lineRevenue);
-                productUnits.set(name, (productUnits.get(name) || 0) + qty);
+                productUnits.set(name, roundQty((productUnits.get(name) || 0) + baseQty));
             });
 
             const seller = inv.emitterInfo?.fullName || 'Sin asignar';
@@ -329,10 +331,11 @@ const ReportsViewSQL = ({ companyProfile }) => {
 
             (inv.items || []).forEach(item => {
                 const qty = num(item.quantity);
+                const baseQty = baseQuantity({ quantity: qty, factor: item.packagingFactor ?? 1 });
                 const name = item.productName || item.name || 'Producto';
                 const lineRevenue = item.subtotal != null ? num(item.subtotal) : num(item.unitPrice ?? item.price) * qty;
                 const p = profit.get(name) || { units: 0, revenue: 0, cost: 0 };
-                p.units += qty; p.revenue += lineRevenue; p.cost += unitCost(item.productId) * qty;
+                p.units = roundQty(p.units + baseQty); p.revenue += lineRevenue; p.cost += unitCost(item.productId) * baseQty;
                 profit.set(name, p);
             });
         });

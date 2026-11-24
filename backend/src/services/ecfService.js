@@ -375,7 +375,7 @@ export async function syncInvoiceWithEcf(ecfDocumentId) {
     data: received
       ? { isBilled: true, billedDate: invoice.billedDate || new Date(), invoiceNumber: invoice.orderNumber, ncfNumber: doc.eNcf, ncfType: doc.tipoEcf }
       : { isBilled: false, billedDate: null, ncfNumber: null, ncfType: null, ncfExpiresAt: null },
-    include: { items: true, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } },
+    include: { items: { include: { product: { select: { id: true, name: true, code: true, sku: true, unit: true, allowFractions: true } } } }, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } },
   });
 }
 

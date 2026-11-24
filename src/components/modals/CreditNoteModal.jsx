@@ -6,7 +6,7 @@ import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Button from '../ui/Button.jsx';
-import { roundQty } from '../../utils/units.js';
+import { roundQty, formatQty, unitOf } from '../../utils/units.js';
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -129,7 +129,7 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
                                             <span className="min-w-0">
                                                 <span className="block truncate text-ink">{item.productName}</span>
                                                 <span className="text-xs text-ink-muted">
-                                                    {left > 0 ? `Puede devolver hasta ${left}` : 'Ya devuelto completo'}
+                                                    {left > 0 ? `Puede devolver hasta ${formatQty(left, item.packagingName || unitOf(item.product?.unit).abbr)}` : 'Ya devuelto completo'}
                                                 </span>
                                             </span>
                                             <input

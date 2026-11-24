@@ -239,7 +239,7 @@ router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
         });
       }
 
-      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: created.id, packagings, productBarcode: data.barcode });
+      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: created.id, packagings, productBarcode: data.barcode, allowFractions: data.allowFractions });
       await assertBarcodeNotInPackagings(tx, req.companyId, data.barcode);
       return tx.product.findUnique({ where: { id: created.id }, include: productInclude });
     });
@@ -286,7 +286,7 @@ router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) =>
 
       await tx.product.update({ where: { id: req.params.id }, data });
       // Sin `packagings` en el cuerpo no se tocan los empaques existentes
-      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: existing.id, packagings, productBarcode: data.barcode });
+      if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: existing.id, packagings, productBarcode: data.barcode, allowFractions: data.allowFractions ?? existing.allowFractions });
       await assertBarcodeNotInPackagings(tx, req.companyId, data.barcode);
       return tx.product.findUnique({ where: { id: existing.id }, include: productInclude });
     });

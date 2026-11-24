@@ -206,7 +206,7 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
                   <span className="text-sm font-semibold text-ink">{p.name}</span>
                   {i === highlightIdx && <Check size={14} className="text-brand-600" />}
                 </div>
-                <span className="text-xs text-ink-muted dark:text-gray-400">{p.sku || p.code || p.barcode || '-'} — {fmt(p.salePrice || p.price)} · Existencia: {p.stock ?? 0}</span>
+                <span className="text-xs text-ink-muted dark:text-gray-400">{p.sku || p.code || p.barcode || '-'} — {fmt(p.salePrice || p.price)} · Existencia: {formatQty(p.stock ?? 0, p.unitAbbr)}</span>
               </div>
             ))}
           </div>

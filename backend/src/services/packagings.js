@@ -1,7 +1,7 @@
 import { PACKAGE_TYPES, roundQty } from './units.js';
 
 // Devuelve el primer error de la lista de empaques, o null si es válida.
-export function validatePackagings(packagings, { takenBarcodes = new Set() } = {}) {
+export function validatePackagings(packagings, { takenBarcodes = new Set(), allowFractions = true } = {}) {
   const seen = new Set();
   for (const p of packagings) {
     const name = String(p.name ?? '').trim();
@@ -10,6 +10,7 @@ export function validatePackagings(packagings, { takenBarcodes = new Set() } = {
     if (!Number.isFinite(factor) || factor <= 0) return `El factor del empaque "${name}" debe ser mayor que 0`;
     if (factor >= 100000000000) return `El factor del empaque "${name}" es demasiado grande`;
     if (roundQty(factor) !== factor) return `El factor del empaque "${name}" admite como máximo 3 decimales`;
+    if (!allowFractions && !Number.isInteger(factor)) return 'Este producto no permite fracciones: la equivalencia del empaque debe ser un número entero.';
     if (!PACKAGE_TYPES.some((t) => t.dgii === Number(p.unitCode))) return `Tipo de empaque inválido en "${name}"`;
     const barcode = String(p.barcode ?? '').trim();
     if (!barcode) continue;
@@ -50,11 +51,11 @@ export async function assertBarcodeNotInPackagings(tx, companyId, barcode) {
  * como inactive los que faltan (no se borran: las líneas de factura los referencian).
  * Debe llamarse dentro de una transacción.
  */
-export async function savePackagings(tx, { companyId, productId, packagings, productBarcode }) {
+export async function savePackagings(tx, { companyId, productId, packagings, productBarcode, allowFractions = true }) {
   const taken = await takenBarcodes(tx, companyId, productId);
   const own = String(productBarcode ?? '').trim();
   if (own) taken.add(own); // el barcode que trae el cuerpo del producto
-  const error = validatePackagings(packagings, { takenBarcodes: taken });
+  const error = validatePackagings(packagings, { takenBarcodes: taken, allowFractions });
   if (error) throw bad(error);
 
   const current = await tx.productPackaging.findMany({ where: { productId }, select: { id: true } });

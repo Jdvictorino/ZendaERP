@@ -12,7 +12,7 @@ import { requireApproval } from '../services/approvals.js';
 import { priceInvoiceLines } from '../services/invoiceAmounts.js';
 import { discountedAmounts } from '../services/ecfXmlBuilder.js';
 import { isTaxExempt, todayRD, voucherError } from '../services/tax.js';
-import { baseQuantity, quantityError, roundQty } from '../services/units.js';
+import { baseQuantity, quantityError, roundQty, formatQty, unitOf } from '../services/units.js';
 import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
@@ -36,11 +36,11 @@ export async function takeStock(tx, companyId, { productId, variantId, quantity:
     : await tx.product.updateMany({ where: { id: productId, companyId, stock: { gte: quantity } }, data: { stock: { decrement: quantity } } });
   if (count > 0) return;
   const found = variantId
-    ? await tx.productVariant.findFirst({ where: { id: variantId, productId, product: { companyId } }, select: { name: true, stock: true, product: { select: { name: true } } } })
-    : await tx.product.findFirst({ where: { id: productId, companyId }, select: { name: true, stock: true } });
+    ? await tx.productVariant.findFirst({ where: { id: variantId, productId, product: { companyId } }, select: { name: true, stock: true, product: { select: { name: true, unit: true } } } })
+    : await tx.product.findFirst({ where: { id: productId, companyId }, select: { name: true, stock: true, unit: true } });
   if (!found) throw httpError(409, 'Uno de los productos del pedido no existe.');
   const name = variantId ? `${found.product.name} (${found.name})` : found.name;
-  throw httpError(409, `Stock insuficiente para "${name}". Disponible: ${found.stock}, pedido: ${quantity}.`);
+  throw httpError(409, `Stock insuficiente para "${name}". Disponible: ${formatQty(found.stock, unitOf(variantId ? found.product.unit : found.unit).abbr)}, pedido: ${formatQty(quantity, unitOf(variantId ? found.product.unit : found.unit).abbr)} (en la unidad base del producto).`);
 }
 
 // Comprobante de una nota: el mismo tipo de la factura que modifica. Una factura electrónica se modifica con e-CF
@@ -488,7 +488,7 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
 
     const results = await prisma.$transaction([
       ...noteUpdates,
-      prisma.invoice.update({ where: { id: invoice.id }, data: updateData, include: { items: true } })
+      prisma.invoice.update({ where: { id: invoice.id }, data: updateData, include: { items: { include: { product: { select: { id: true, name: true, code: true, sku: true, unit: true, allowFractions: true } } } } } })
     ]);
 
     res.json(results[results.length - 1]);

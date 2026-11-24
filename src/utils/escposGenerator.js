@@ -82,7 +82,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
             itemsHtml += `
                 <tr>
                     <td>${qtyText(item)}</td>
-                    <td style="padding-left: 4px;">${itemName}${qty > 1 ? `<br>${qty} x ${formatCurrency(unit, currency)}` : ''}</td>
+                    <td style="padding-left: 4px;">${itemName}${qty !== 1 ? `<br>${qty} x ${formatCurrency(unit, currency)}` : ''}</td>
                     <td class="text-right">${formatCurrency(itemTotal, currency)}</td>
                 </tr>
             `;
