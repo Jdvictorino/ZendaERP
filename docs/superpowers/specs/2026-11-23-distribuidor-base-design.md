@@ -33,7 +33,7 @@ Hoy el producto tiene un precio de venta y un precio al por mayor, una "unidad" 
 
 1. Cantidades decimales (3 decimales) en existencias, movimientos, líneas de factura, devoluciones y compras.
 2. Unidad base por producto, de una lista cerrada, y empaques con equivalencia, código de barras y precio propios.
-3. Precios por categoría de cliente, por producto o empaque, con escalones por cantidad; el precio al por mayor actual migra a la categoría "Mayorista".
+3. Precios por categoría de cliente, por producto o empaque, con escalones por cantidad; el precio al por mayor actual se puede pasar a la categoría "Mayorista" cuando cada empresa lo decida.
 4. Órdenes de compra con recepción parcial, actualización de inventario y del último costo, factura del suplidor que crea el gasto 606 ya lleno, y sugerencia de reabastecimiento.
 
 ## No objetivos (en este proyecto)
@@ -57,9 +57,15 @@ Hoy el producto tiene un precio de venta y un precio al por mayor, una "unidad" 
 - e-CF: `CantidadItem` y `UnidadMedida` deben cumplir el Formato e-CF v1.0 de la DGII. **Hay que verificar en el PDF oficial** cuántos decimales admite `CantidadItem` y los códigos de la Tabla IV (unidades de medida); cómo leer los PDF de la DGII está en `docs` y en la memoria del proyecto (dgii.gov.do responde 403 a curl). Hoy el código envía `UnidadMedida: '43'` comentado como "Unidad". Si `CantidadItem` admite menos de 3 decimales, la cantidad vendida por línea se limita a los decimales que admita el e-CF.
 - Cada migración va precedida de un respaldo (`backup.sh`, renombrado `zenda_db_<fecha>_antes-vX.Y.Z.sql.gz`) y se ensaya antes contra una copia local del último respaldo si hay Docker disponible.
 - Las apps instaladas de versiones anteriores siguen llamando a la API: el servidor nuevo debe aceptar facturas sin empaque ni cantidades decimales (comportamiento actual) y las respuestas pueden traer campos nuevos que las apps viejas ignoran.
+- **Compatibilidad de las apps instaladas**: al pasar a decimal, `stock`, `minStock`, `maxStock`, `ProductVariant.stock`, `InventoryLog.*` e `InvoiceItem.quantity` se siguen enviando en la API como **números JSON** (no como texto), para que las versiones viejas comparen y sumen bien. *(Decisión del constructor tras la revisión.)*
 - Permisos por vista con `rolesFor` (`backend/src/permissions.js`); roles existentes: admin, manager, supervisor, cashier, driver, accountant, viewer.
 
 ## Diseño
+
+### Alcance por pantalla y variantes *(decisiones del constructor tras la revisión)*
+
+- **Pantallas de venta**: empaques, fracciones y precios por categoría se implementan en la pantalla del modo Distribuidor (`POSBillingOrdersView.jsx`), que es la que usan colmados, supermercados, ferreterías, farmacias y distribuidoras según `authService`. La pantalla del modo Tienda (`OrdersViewSQL.jsx`, restaurantes y tiendas de regalos) sigue vendiendo por unidad entera como hoy; solo se ajusta para mostrar bien cantidades decimales en documentos ya emitidos. Compras está disponible para todas las empresas.
+- **Variantes**: empaques y precios por categoría se definen a nivel de producto y valen para todas sus variantes; el precio por categoría reemplaza el precio de la variante. Las líneas de orden de compra llevan `variantId?` y la recepción suma a la existencia de la variante cuando lo hay (igual que la venta descuenta hoy). La sugerencia de compra cubre productos sin variantes; las variantes no tienen mínimo/máximo propio hasta el proyecto 3 y se listan aparte como "revisar a mano".
 
 ### PR 1 — Unidades, empaques y fracciones
 
@@ -91,7 +97,9 @@ Hoy el producto tiene un precio de venta y un precio al por mayor, una "unidad" 
 **Datos**
 
 - Tabla nueva `CategoryPrice`: `id`, `companyId`, `category` (nombre de la categoría tal como está en `settings.customerCategories`), `productId`, `packagingId?`, `minQuantity Decimal(14,3) @default(1)`, `price Decimal(12,2)` (sin ITBIS). Único por (`companyId`, `category`, `productId`, `packagingId`, `minQuantity`).
-- Migración de datos: por cada producto con `wholesalePrice` > 0, una fila en la categoría "Mayorista" con `minQuantity` 1; si la empresa no tiene esa categoría, se agrega a `settings.customerCategories`. `wholesalePrice` deja de leerse.
+- **El precio al por mayor no se migra solo** *(recomendación aceptada para aprobación)*. Hoy ninguna pantalla lo usa: solo es un precio que el servidor acepta sin PIN, y a los clientes Mayorista se les cobra precio normal menos el % de la categoría. Migrarlo cambiaría sus totales.
+  - Hasta que la empresa decida, `checkLinePrice` sigue aceptando `wholesalePrice` sin PIN como hoy.
+  - En Configuración → Clientes y Precios, un botón "Usar los precios al por mayor como precios de la categoría Mayorista" crea, por cada producto con `wholesalePrice` > 0, una fila en "Mayorista" con `minQuantity` 1 (agrega la categoría si no existe), pide confirmación explicando que cambia lo que pagan esos clientes, y es idempotente.
 
 **Regla de precio (módulo puro compartido entre app y servidor, con prueba que compara las dos copias como `tax.js`)**
 
@@ -102,7 +110,9 @@ Hoy el producto tiene un precio de venta y un precio al por mayor, una "unidad" 
 
 Cliente sin categoría → "Sin categoría". La caja recalcula el precio al cambiar la cantidad, el empaque o el cliente.
 
-**Servidor**: `checkLinePrice` acepta el precio que resuelve la regla para ese cliente y cantidad, o el precio base; cualquier otro precio, o un descuento por encima del permitido, pide PIN como hoy. Cupones y descuentos se aplican sobre el precio de la línea como hoy.
+**Descuento de la categoría por línea** *(consecuencia de la decisión del dueño)*: hoy la caja aplica un % a todo el carrito. Pasa a ser por línea: las líneas con precio propio de la categoría llevan 0 % sugerido y las demás el % de la categoría.
+
+**Servidor**: `checkLinePrice` acepta el precio que resuelve la regla para ese cliente y cantidad, o el precio base. En una línea con precio propio de la categoría, el descuento permitido sin PIN es el mayor entre el tope general y el descuento propio del cliente, **sin** el % de la categoría (así no se suma por la puerta de atrás). Cualquier otro precio o descuento mayor pide PIN como hoy. Cupones se aplican sobre el total como hoy.
 
 **App**
 
@@ -117,15 +127,16 @@ Cliente sin categoría → "Sin categoría". La caja recalcula el precio al camb
 - `PurchaseOrderItem`: `productId`, `packagingId?`, `packagingName`, `packagingFactor`, `quantity Decimal(14,3)`, `receivedQuantity Decimal(14,3) @default(0)`, `unitCost Decimal(12,2)` (por empaque, sin ITBIS), `taxRate`.
 - `PurchaseReceipt`: `purchaseOrderId`, `userId`, `receivedAt`, `items Json` (`[{ itemId, quantity }]`), `notes?`.
 - `Expense.purchaseOrderId?` para enlazar la factura del suplidor; una orden puede tener varias facturas.
+- `PurchaseOrderItem.invoicedQuantity Decimal(14,3) @default(0)`: lo ya facturado por el suplidor, para no contar dos veces en el 606.
 
 **Flujo**
 
 - Crear y editar en borrador; enviar al suplidor en PDF o por correo (servicio de correo existente); cancelar solo si no tiene recepciones.
 - Recibir (total o parcial) en una transacción: por cada línea, `stock += cantidad × factor`, movimiento `entrada` con referencia a la recepción, `costPrice` del producto = `unitCost / factor` (último costo), `receivedQuantity` acumulado; no se puede recibir más de lo pendiente. Estado pasa a parcial o recibida.
-- "Registrar factura del suplidor" desde la orden abre el formulario de gasto (606) ya lleno con suplidor, RNC, montos de bienes e ITBIS de lo recibido; el usuario escribe el NCF y confirma. El gasto queda enlazado a la orden.
+- "Registrar factura del suplidor" desde la orden abre el formulario de gasto (606) ya lleno con suplidor, RNC, montos de bienes e ITBIS de **lo recibido y aún no facturado** (`receivedQuantity − invoicedQuantity` por línea); el usuario puede ajustar cantidades, escribe el NCF y confirma. Al guardar, el gasto queda enlazado a la orden y suma a `invoicedQuantity`.
 - **Sugerencia de compra**: productos activos con `minStock > 0` y `stock ≤ minStock`, agrupados por `supplierId` (los que no tienen suplidor aparecen aparte y piden elegirlo). Cantidad sugerida en unidad base = (`maxStock` o, si falta, `2 × minStock`) − existencia − lo pendiente de recibir en órdenes abiertas, convertida al empaque de compra por defecto y redondeada hacia arriba. El usuario ajusta y confirma; se crea un borrador por suplidor.
 
-**App**: vista nueva "Compras" (lista con filtros por estado y suplidor, formulario de orden, modal de recepción, pestaña de sugerencias). Permiso nuevo `purchases` para admin, manager y supervisor; el contador ve las órdenes en modo lectura.
+**App**: vista nueva "Compras" (lista con filtros por estado y suplidor, formulario de orden, modal de recepción, pestaña de sugerencias). Permisos *(decisión del constructor tras la revisión)*: `purchases` (crear, enviar, recibir, cancelar) para admin, manager y supervisor; `purchases-view` (ver órdenes y recepciones) además para accountant. Registrar la factura del suplidor usa el permiso existente `finance-expenses` (admin, manager, accountant): el supervisor recibe, el contador registra el 606.
 
 ## Pruebas mínimas
 
@@ -135,7 +146,7 @@ Cliente sin categoría → "Sin categoría". La caja recalcula el precio al camb
 - Recepción parcial: existencia, último costo, estado y bloqueo de sobre-recepción.
 - Sugerencia de compra con pendientes y empaque de compra.
 - e-CF: línea con empaque y línea fraccionaria generan cantidad, unidad y monto correctos; factura entera de hoy produce el mismo XML que antes.
-- Migración: precios al por mayor pasan a "Mayorista" y las cantidades enteras quedan iguales.
+- Migración: las cantidades enteras quedan iguales. El botón de precios al por mayor crea las filas de "Mayorista" una sola vez y no duplica al pulsarlo de nuevo.
 
 ## Queda a criterio de quien construye
 
