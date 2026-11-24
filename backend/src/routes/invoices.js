@@ -77,6 +77,29 @@ export function unreturnedLines(items, creditNotes) {
   return items.map((i) => ({ ...i, quantity: roundQty(i.quantity - (done[i.id] || 0)) })).filter((i) => i.quantity > 0);
 }
 
+// Valida cada línea contra el catálogo y la completa (empaque, ITBIS). Muta las líneas; devuelve { error } o { needsApproval }.
+export function validateInvoiceLines(items, productsById, maxDiscount) {
+  let needsApproval = false;
+  for (const item of items) {
+    const product = item.productId ? productsById.get(item.productId) : null;
+    if (item.productId && !product) return { error: 'Uno de los productos del pedido no existe.' };
+    const variant = item.variantId ? product?.variants.find((v) => v.id === item.variantId) : null;
+    if (item.packagingId && !product) return { error: 'El empaque no pertenece al producto.' };
+    const packaging = item.packagingId ? product.packagings.find((k) => k.id === item.packagingId) : null;
+    if (item.packagingId && !packaging) return { error: 'El empaque no pertenece al producto.' };
+    const qtyError = quantityError({ quantity: item.quantity, allowFractions: !!product?.allowFractions, hasPackaging: !!packaging });
+    if (qtyError) return { error: qtyError };
+    item.packagingId = packaging?.id ?? null;
+    item.packagingName = packaging?.name ?? null;
+    item.packagingFactor = packaging ? Number(packaging.factor) : 1;
+    const check = checkLinePrice(item, product, variant, maxDiscount, packaging);
+    if (check.error) return { error: check.error };
+    item.taxRate = check.taxRate;
+    needsApproval ||= check.needsApproval;
+  }
+  return { needsApproval };
+}
+
 const invoiceItemSchema = z.object({
   productId: z.string().uuid().optional(),
   variantId: z.string().uuid().optional().nullable(),
@@ -216,26 +239,9 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
     const productIds = [...new Set(data.items.map((i) => i.productId).filter(Boolean))];
     const products = await prisma.product.findMany({ where: { id: { in: productIds }, companyId: req.companyId }, include: { variants: true, packagings: { where: { status: 'active' } } } });
     const byId = new Map(products.map((p) => [p.id, p]));
-    let needsApproval = false;
-    for (const item of data.items) {
-      const product = item.productId ? byId.get(item.productId) : null;
-      if (item.productId && !product) return res.status(400).json({ error: 'Uno de los productos del pedido no existe.' });
-      const variant = item.variantId ? product?.variants.find((v) => v.id === item.variantId) : null;
-      if (item.packagingId && !product) return res.status(400).json({ error: 'El empaque no pertenece al producto.' });
-      const packaging = item.packagingId ? product.packagings.find((k) => k.id === item.packagingId) : null;
-      if (item.packagingId && !packaging) return res.status(400).json({ error: 'El empaque no pertenece al producto.' });
-      if (product) {
-        const qtyError = quantityError({ quantity: item.quantity, allowFractions: product.allowFractions, hasPackaging: !!packaging });
-        if (qtyError) return res.status(400).json({ error: qtyError });
-      }
-      item.packagingId = packaging?.id ?? null;
-      item.packagingName = packaging?.name ?? null;
-      item.packagingFactor = packaging ? Number(packaging.factor) : 1;
-      const check = checkLinePrice(item, product, variant, maxDiscount, packaging);
-      if (check.error) return res.status(400).json({ error: check.error });
-      item.taxRate = check.taxRate;
-      needsApproval ||= check.needsApproval;
-    }
+    const checked = validateInvoiceLines(data.items, byId, maxDiscount);
+    if (checked.error) return res.status(400).json({ error: checked.error });
+    const { needsApproval } = checked;
 
     // Apps nuevas mandan precios sin ITBIS; las 1.1.x no mandan la marca y siguen con ITBIS incluido
     const pricesExcludeTax = data.pricesExcludeTax === true;
@@ -631,7 +637,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true, creditNotes: { select: { amount: true, items: true } } }
+      include: { items: { include: { product: { select: { allowFractions: true } } } }, creditNotes: { select: { amount: true, items: true } } }
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
@@ -654,7 +660,8 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
       const item = invoice.items.find((i) => i.id === r.itemId);
       const quantity = Number(r.quantity);
       if (!item || !(quantity > 0)) return res.status(400).json({ error: 'Uno de los artículos a devolver no es de esta factura.' });
-      if (Math.abs(quantity * 100 - Math.round(quantity * 100)) > 1e-6) return res.status(400).json({ error: 'La cantidad a devolver admite como máximo 2 decimales.' });
+      const qtyError = quantityError({ quantity, allowFractions: !!item.product?.allowFractions, hasPackaging: !!item.packagingId });
+      if (qtyError) return res.status(400).json({ error: qtyError });
       const left = roundQty(item.quantity - (returned[item.id] || 0));
       if (quantity > left) return res.status(400).json({ error: `De "${item.productName}" solo quedan ${left} por devolver.` });
       returned[item.id] = roundQty((returned[item.id] || 0) + quantity);

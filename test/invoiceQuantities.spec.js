@@ -7,7 +7,7 @@ vi.mock('../backend/src/middleware/auth.js', () => ({ authenticate: (q, s, n) =>
 vi.mock('../backend/src/routes/alerts.js', () => ({ createAlert: vi.fn() }));
 vi.mock('../backend/src/services/ecfService.js', () => ({ ECF_RECEIVED: ['enviado', 'aceptado'] }));
 
-const { takeStock, restoreStock, unreturnedLines } = await import('../backend/src/routes/invoices.js');
+const { takeStock, restoreStock, unreturnedLines, validateInvoiceLines } = await import('../backend/src/routes/invoices.js');
 const { checkLinePrice } = await import('../backend/src/services/pricing.js');
 
 function fakeTx(stock = 100) {
@@ -72,8 +72,35 @@ describe('checkLinePrice con empaque', () => {
     expect(checkLinePrice(item(1200), product, null, 5, pk).needsApproval).toBe(false);
     expect(checkLinePrice(item(50), product, null, 5, pk).needsApproval).toBe(true);
   });
-  it('suma el ajuste de la variante', () => {
+  it('con variante: factor × precio efectivo de la variante', () => {
     const pk = { factor: 24, salePrice: null };
-    expect(checkLinePrice(item(1210), product, { priceAdjustment: 10, salePrice: 0 }, 5, pk).needsApproval).toBe(false);
+    expect(checkLinePrice(item(1440), product, { priceAdjustment: 10, salePrice: 0 }, 5, pk).needsApproval).toBe(false);
+    expect(checkLinePrice(item(1210), product, { priceAdjustment: 10, salePrice: 0 }, 5, pk).needsApproval).toBe(true);
+    expect(checkLinePrice(item(1800), product, { priceAdjustment: 0, salePrice: 75 }, 5, pk).needsApproval).toBe(false);
+  });
+});
+
+describe('validateInvoiceLines', () => {
+  const pk = { id: 'k1', name: 'Caja', factor: 24, salePrice: null };
+  const prod = (o) => ({ id: 'p1', salePrice: 50, wholesalePrice: null, isTaxable: true, taxRate: 18, allowFractions: false, variants: [], packagings: [pk], ...o });
+  const run = (item, product = prod()) => validateInvoiceLines([{ unitPrice: 50, discountPercent: 0, taxRate: 18, quantity: 1, ...item }], new Map([[product.id, product]]), 5);
+  it('empaque de otro producto o sin producto: 400', () => {
+    expect(run({ productId: 'p1', packagingId: 'otro' }).error).toBe('El empaque no pertenece al producto.');
+    expect(run({ packagingId: 'k1' }).error).toBe('El empaque no pertenece al producto.');
+  });
+  it('1.5 en producto entero o en línea libre se rechaza', () => {
+    expect(run({ productId: 'p1', quantity: 1.5 }).error).toEqual(expect.any(String));
+    expect(run({ quantity: 1.5 }).error).toEqual(expect.any(String));
+    expect(run({ productId: 'p1', quantity: 1.5 }, prod({ allowFractions: true })).error).toBeUndefined();
+  });
+  it('app 1.1.x: cantidad 3 sin empaque pasa con factor 1', () => {
+    const items = [{ productId: 'p1', quantity: 3, unitPrice: 50, discountPercent: 0, taxRate: 18 }];
+    expect(validateInvoiceLines(items, new Map([['p1', prod()]]), 5)).toEqual({ needsApproval: false });
+    expect(items[0]).toMatchObject({ packagingId: null, packagingFactor: 1 });
+  });
+  it('con empaque guarda copia del nombre y factor', () => {
+    const items = [{ productId: 'p1', packagingId: 'k1', quantity: 2, unitPrice: 1200, discountPercent: 0, taxRate: 18 }];
+    expect(validateInvoiceLines(items, new Map([['p1', prod()]]), 5)).toEqual({ needsApproval: false });
+    expect(items[0]).toMatchObject({ packagingName: 'Caja', packagingFactor: 24 });
   });
 });

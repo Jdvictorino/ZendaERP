@@ -12,6 +12,7 @@ describe.each([['servidor', server], ['app', app]])('units (%s)', (_n, u) => {
     expect(q(0, true, false)).toEqual(expect.any(String));
     expect(q(-1, true, false)).toEqual(expect.any(String));
     expect(q(3, false, true)).toBeNull();
+    expect(q(1e-9, true, false)).toBe('La cantidad debe ser mayor que cero.');
   });
 
   it('baseQuantity y roundQty', () => {

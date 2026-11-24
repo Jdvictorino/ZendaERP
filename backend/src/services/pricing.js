@@ -13,9 +13,11 @@ export function checkLinePrice(item, product, variant, maxDiscount, packaging = 
   }
   // con variante solo valen su precio efectivo (el mismo del POS) y el mayorista; el precio suelto del producto no
   const wholesale = product.wholesalePrice != null ? Number(product.wholesalePrice) : null;
-  // con empaque vale su precio propio, o factor × precio base; la variante suma su ajuste en ambos casos
+  // con empaque: salePrice propio, o factor × precio efectivo por unidad (el de la variante si la hay).
+  // shortcut: wholesalePrice no aplica a líneas con empaque en este PR.
+  const unitList = variant && Number(variant.salePrice) > 0 ? Number(variant.salePrice) : Number(product.salePrice) + Number(variant?.priceAdjustment || 0);
   const lists = packaging
-    ? [(packaging.salePrice != null ? Number(packaging.salePrice) : round2(Number(packaging.factor) * Number(product.salePrice))) + (variant ? Number(variant.priceAdjustment || 0) : 0)]
+    ? [packaging.salePrice != null ? Number(packaging.salePrice) : round2(Number(packaging.factor) * unitList)]
     : variant
     ? [Number(variant.salePrice) > 0 ? Number(variant.salePrice) : Number(product.salePrice) + Number(variant.priceAdjustment || 0), ...(wholesale > 0 ? [wholesale] : [])]
     : [Number(product.salePrice), ...(wholesale != null ? [wholesale] : [])];

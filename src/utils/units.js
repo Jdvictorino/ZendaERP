@@ -43,7 +43,7 @@ export const baseQuantity = ({ quantity, factor = 1 }) => roundQty(Number(quanti
 // Cantidad de una línea: > 0, a lo sumo 2 decimales; fracciones solo en unidad base de un producto que las permite.
 export function quantityError({ quantity, allowFractions, hasPackaging }) {
   const q = Number(quantity);
-  if (!Number.isFinite(q) || q <= 0) return 'La cantidad debe ser mayor que cero.';
+  if (!Number.isFinite(q) || q <= 0 || Math.round(q * 100) === 0) return 'La cantidad debe ser mayor que cero.';
   if (Math.abs(q * 100 - Math.round(q * 100)) > 1e-6) return 'Usa como máximo 2 decimales.';
   if (Number.isInteger(q)) return null;
   if (hasPackaging) return 'Los empaques se venden en cantidades enteras.';
