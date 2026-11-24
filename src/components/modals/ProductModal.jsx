@@ -8,6 +8,8 @@ import api from '../../api/client.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { productRate } from '../../utils/productRate.js';
 import { round2 } from '../../utils/tax.js';
+import { BASE_UNITS, unitOf } from '../../utils/units.js';
+import PackagingsEditor from '../products/PackagingsEditor.jsx';
 
 // --- Componente: Modal para Gestionar Categorías ---
 const ManageCategoriesModal = ({ onClose, categories, handleDeleteCategory, isMasterUser }) => (
@@ -37,8 +39,10 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
         name: '', salePrice: 0, purchasePrice: 0, stock: 0, stockThreshold: 5,
         code: '', imageUrl: '', supplierId: '', supplierName: '',
         categoryId: '', categoryName: '',
-        taxStatus: 'Gravado (18%)'
+        taxStatus: 'Gravado (18%)', unit: 'unidad', allowFractions: false
     });
+    const [packagings, setPackagings] = useState([]);
+    const [packagingsTouched, setPackagingsTouched] = useState(false);
     const [showAddSupplier, setShowAddSupplier] = useState(false);
     const [showAddCategory, setShowAddCategory] = useState(false);
     const [showManageCategories, setShowManageCategories] = useState(false);
@@ -58,7 +62,10 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                 supplierName: product.supplierName || '', categoryId: product.categoryId || '',
                 categoryName: product.categoryName || '',
                 taxStatus: product.taxStatus || 'Gravado (18%)',
+                unit: product.unit || 'unidad', allowFractions: !!product.allowFractions,
             });
+            setPackagings((product.packagings || []).map(k => ({ ...k, salePrice: k.salePrice ?? '' })));
+            setPackagingsTouched(false);
         }
     }, [product]);
 
@@ -94,6 +101,14 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
         setIsLoading(true);
         try {
             const { id, ...dataToSave } = formData;
+            // Solo se mandan los empaques si se tocaron o el producto es nuevo: editar otro campo no los reescribe.
+            if (packagingsTouched || !product?.id) {
+                dataToSave.packagings = packagings.map(({ id: pid, name, factor, unitCode, barcode, salePrice }) => ({
+                    ...(pid ? { id: pid } : {}), name: String(name).trim(), factor: Number(factor), unitCode,
+                    barcode: String(barcode ?? '').trim(),
+                    salePrice: salePrice === '' || salePrice == null ? null : Number(salePrice),
+                }));
+            }
             await onSave(dataToSave);
         } finally {
             setIsLoading(false);
@@ -173,12 +188,29 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-ink-soft mb-1">Stock Inicial</label>
-                                <input type="number" name="stock" value={formData.stock} onChange={handleChange} className="input-base" required min="0" />
+                                <input type="number" name="stock" value={formData.stock} onChange={handleChange} className="input-base" required min="0" step={formData.allowFractions ? '0.01' : '1'} />
                             </div>
                             <div>
                                 <label className="block text-ink-soft mb-1">Alerta Stock Mínimo</label>
-                                <input type="number" name="stockThreshold" value={formData.stockThreshold} onChange={handleChange} className="input-base" required min="0" />
+                                <input type="number" name="stockThreshold" value={formData.stockThreshold} onChange={handleChange} className="input-base" required min="0" step={formData.allowFractions ? '0.01' : '1'} />
                             </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="unit" className="block text-ink-soft mb-1">Unidad base</label>
+                            <select id="unit" name="unit" value={formData.unit} onChange={handleChange} className="input-base">
+                                {BASE_UNITS.map(u => <option key={u.code} value={u.code}>{u.label} ({u.abbr})</option>)}
+                            </select>
+                            <label className="flex items-center gap-2 mt-2 text-ink-soft">
+                                <input type="checkbox" checked={formData.allowFractions} onChange={(e) => setFormData(prev => ({ ...prev, allowFractions: e.target.checked }))} />
+                                Permite fracciones (vender por peso o medida)
+                            </label>
+                        </div>
+
+                        <div>
+                            <h4 className="block text-ink-soft mb-1">Empaques</h4>
+                            <PackagingsEditor value={packagings} onChange={(v) => { setPackagings(v); setPackagingsTouched(true); }}
+                                baseUnitAbbr={unitOf(formData.unit).abbr} basePrice={Number(formData.salePrice) || 0} />
                         </div>
                         
                         <div>

@@ -2,7 +2,8 @@ import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 import { withEcfPrintData, qrModules } from './ecfPrint.js';
-import { docLine, docTotals } from './docLines.js';
+import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, showNotesColumn, isEcfDoc, lineDiscount, modificationInfo, baseSplit } from './docLines.js';
+import { round2 } from './tax.js';
 
 let pdfLibrariesPromise = null;
 
@@ -97,9 +98,14 @@ const setBodyTextColor = (doc, theme) => {
     doc.setTextColor(...(theme.textPrimary || DEFAULT_THEME.textPrimary));
 };
 
-const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate, validUntil }) => {
+const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberLabel, docNumber, documentDate, validUntil, modification }) => {
     // Encabezado blanco: texto oscuro sobre el papel y una línea fina debajo (sin banda de color)
-    const headerHeight = 48;
+    const rightLines = [
+        validUntil ? `Válido hasta: ${String(validUntil).slice(0, 10).split('-').reverse().join('/')}` : '',
+        modification?.ncf ? `${String(modification.ncf).startsWith('E') ? 'e-NCF' : 'NCF'} modificado: ${modification.ncf}` : '',
+        modification ? modification.label : '',
+    ].filter(Boolean);
+    const headerHeight = Math.max(48, 38 + rightLines.length * 6);
     const ink = theme.textPrimary || DEFAULT_THEME.textPrimary;
     const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
 
@@ -127,8 +133,9 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
     if (companyProfile.rnc) {
         addWrappedLine(`RNC: ${companyProfile.rnc}`);
     }
-    const { street, sector, city, zipCode, country } = companyProfile.address || {};
-    const addressParts = [street, sector, city, zipCode, country].filter(Boolean).join(', ');
+    const { street, sector, city, province, zipCode, country } = companyProfile.address || {};
+    // DGII: dirección, municipio y provincia del emisor
+    const addressParts = [street, sector, city, province, zipCode, country].filter(Boolean).join(', ');
     addWrappedLine(addressParts);
 
     const contactParts = [companyProfile.phone, companyProfile.email].filter(Boolean).join(' | ');
@@ -152,10 +159,8 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
         doc.text(`${numberLabel} ${docNumber || 'N/A'}`, 196, 26, { align: 'right' });
     }
     doc.text(`Fecha: ${formatDate(documentDate)}`, 196, 32, { align: 'right' });
-    // Norma General 06-2018: el comprobante muestra hasta cuándo es válida su secuencia (fecha guardada sin hora)
-    if (validUntil) {
-        doc.text(`Válido hasta: ${String(validUntil).slice(0, 10).split('-').reverse().join('/')}`, 196, 38, { align: 'right' });
-    }
+    // Norma General 06-2018: vencimiento de la secuencia. Notas: comprobante modificado y código de modificación en palabras.
+    rightLines.forEach((line, i) => doc.text(line, 196, 38 + i * 6, { align: 'right' }));
 
     setBodyTextColor(doc, theme);
     doc.setDrawColor(...ink);
@@ -165,22 +170,22 @@ const drawDocumentHeader = (doc, theme, { companyProfile = {}, docTitle, numberL
     return headerHeight + 6;
 };
 
-const buildCustomerLines = (doc, customerDetails, docData) => {
-    const idLabel = customerDetails?.type === 'Empresa' ? 'RNC/Cédula:' : 'Cédula/Pasaporte:';
+// Datos del cliente como pide la DGII: RNC/Cédula y nombre o razón social; el resto solo si existe
+const buildCustomerLines = (doc, customerDetails, docData, width) => {
+    const taxId = customerTaxId(customerDetails, docData);
+    const phone = customerDetails?.phone || docData?.customerPhone;
+    const email = customerDetails?.email || docData?.customerEmail;
+    const rawAddress = customerDetails?.address || docData?.customerAddress;
+    const address = rawAddress && typeof rawAddress === 'object' ? Object.values(rawAddress).filter(Boolean).join(', ') : rawAddress;
     const lines = [
-        customerDetails?.name || docData?.customerName || 'Consumidor Final',
-        `${idLabel} ${customerDetails?.identificationNumber || docData?.customerId || 'N/A'}`,
-        `Tel: ${customerDetails?.phone || docData?.customerPhone || 'N/A'}`,
-        `Email: ${customerDetails?.email || docData?.customerEmail || 'N/A'}`,
-    ];
+        taxId ? `RNC/Cédula: ${taxId}` : '',
+        `Nombre o razón social: ${customerDetails?.name || docData?.customerName || 'Consumidor final'}`,
+        phone ? `Tel.: ${phone}` : '',
+        email ? `Correo: ${email}` : '',
+        address ? `Dirección: ${address}` : '',
+    ].filter(Boolean);
 
-    if (customerDetails?.address) {
-        lines.push(`Dirección: ${customerDetails.address}`);
-    } else if (docData?.customerAddress) {
-        lines.push(`Dirección: ${docData.customerAddress}`);
-    }
-
-    return doc.splitTextToSize(lines.filter(Boolean), 80);
+    return doc.splitTextToSize(lines, width);
 };
 
 const buildEmitterLines = (doc, emitterInfo) => {
@@ -192,47 +197,51 @@ const buildEmitterLines = (doc, emitterInfo) => {
     const fullName = emitterInfo.fullName || 
         (emitterInfo.firstName && emitterInfo.lastName ? `${emitterInfo.firstName} ${emitterInfo.lastName}` : '') ||
         emitterInfo.name || '';
-    const position = emitterInfo.cargo || emitterInfo.role || emitterInfo.position || '';
-    const empId = emitterInfo.employeeId || emitterInfo.id || '';
-    const dept = emitterInfo.department || '';
-
+    // emitterInfo.id es el id interno del usuario: no se imprime
     const lines = [
         fullName,
-        position ? `Puesto: ${position}` : '',
-        empId ? `ID empleado: ${empId}` : '',
-        dept ? `Departamento: ${dept}` : '',
+        emitterInfo.employeeId ? `Empleado N.º ${emitterInfo.employeeId}` : '',
     ].filter(Boolean);
 
-    return doc.splitTextToSize(lines.length ? lines : [''], 80);
+    return doc.splitTextToSize(lines.length ? lines : [''], 48);
 };
 
+// Cliente a la izquierda (parte inferior del encabezado, art. 7 Norma 06-2018); "Atendido por" pequeño a la derecha
 const drawInfoCards = (doc, theme, { customerDetails, docData, emitterInfo, startY, leftTitle = 'Cliente' }) => {
-    const cardPadding = 7;
-    const cardHeightBase = 38;
-    const columnWidth = 86;
+    const cardPadding = 6;
+    const cardWidth = 128;
+    const emitterX = 148;
 
-    const customerLines = buildCustomerLines(doc, customerDetails, docData);
-    const emitterLines = buildEmitterLines(doc, emitterInfo);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const customerLines = buildCustomerLines(doc, customerDetails, docData, cardWidth - cardPadding * 2);
+    doc.setFontSize(8);
+    const emitterLines = emitterInfo ? buildEmitterLines(doc, emitterInfo) : [];
 
-    const customerHeight = customerLines.length * 5 + cardPadding * 2;
-    const emitterHeight = emitterLines.length * 5 + cardPadding * 2;
-    const cardHeight = Math.max(cardHeightBase, customerHeight, emitterHeight);
+    const cardHeight = Math.max(24, customerLines.length * 5 + cardPadding * 2 + 6);
 
     doc.setFillColor(...(theme.cardBg || DEFAULT_THEME.cardBg));
-    doc.roundedRect(14, startY, columnWidth, cardHeight, 4, 4, 'F');
-    doc.roundedRect(108, startY, columnWidth, cardHeight, 4, 4, 'F');
+    doc.roundedRect(14, startY, cardWidth, cardHeight, 4, 4, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(leftTitle, 14 + cardPadding, startY + cardPadding + 2);
-    doc.text('Atendido por', 108 + cardPadding, startY + cardPadding + 2);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text(customerLines, 14 + cardPadding, startY + cardPadding + 10, { lineHeightFactor: 1.4 });
-    doc.text(emitterLines, 108 + cardPadding, startY + cardPadding + 10, { lineHeightFactor: 1.4 });
+    doc.text(customerLines, 14 + cardPadding, startY + cardPadding + 9, { lineHeightFactor: 1.4 });
 
-    return startY + cardHeight + 12;
+    if (emitterLines.length && emitterLines[0]) {
+        doc.setTextColor(...(theme.textSecondary || DEFAULT_THEME.textSecondary));
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('Atendido por', emitterX, startY + cardPadding + 2);
+        doc.setFont('helvetica', 'normal');
+        doc.text(emitterLines, emitterX, startY + cardPadding + 7, { lineHeightFactor: 1.4 });
+        setBodyTextColor(doc, theme);
+    }
+
+    return startY + cardHeight + 8;
 };
 
 const drawModificationSummary = (doc, theme, { startY, docType, docData, currency }) => {
@@ -282,7 +291,7 @@ const resolveSku = (item) => {
     return match ? String(match).trim() : '-';
 };
 
-const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax }) => {
+const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesIncludeTax, withNotes, unitWords, topMargin = 20, bottomReserve = 20, onNewPage, rowPages = [] }) => {
     if (!items.length) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
@@ -290,28 +299,49 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
         return startY + 16;
     }
 
-    const tableRows = items.map((item) => {
+    // Modelo DGII (Informe Técnico e-CF, 18.2.2): Cant. | [E] Descripción | Precio | [Desc.] | ITBIS | Valor.
+    // "E" a la izquierda de los exentos; el código va debajo de la descripción, en pequeño.
+    const skus = items.map((item) => { const sku = resolveSku(item); return sku === '-' ? null : sku; });
+    const discounts = items.map((item) => lineDiscount(item, pricesIncludeTax));
+    const withDiscount = discounts.some((d) => d > 0);
+    const tableRows = items.map((item, i) => {
         // Compatibilidad con estructura Firebase y PostgreSQL
         const name = item.name || item.productName || item.product?.name || '-';
         const { unit: price, amount } = docLine(item, pricesIncludeTax);
-        const qty = item.quantity || 0;
-        const notes = item.customizationNotes || item.description || item.notes || '—';
-        return [
-            resolveSku(item),
-            name,
-            notes,
-            qty,
-            formatCurrency(price, currency),
-            formatCurrency(amount, currency),
-        ];
+        const rate = Number(item.taxRate) || 0;
+        const itbis = round2(amount * rate / 100);
+        const row = [item.quantity ? qtyText(item, { words: unitWords }) : '0', rate === 0 ? `E  ${name}` : name];
+        if (withNotes) row.push(item.customizationNotes || item.description || item.notes || '—');
+        row.push(formatCurrency(price, currency));
+        if (withDiscount) row.push(discounts[i] > 0 ? formatCurrency(-discounts[i], currency) : '—');
+        row.push(formatCurrency(itbis, currency), formatCurrency(amount, currency));
+        return row;
     });
 
+    const head = ['Cant.', 'Descripción', ...(withNotes ? ['Notas'] : []), 'Precio', ...(withDiscount ? ['Desc.'] : []), 'ITBIS', 'Valor'];
+    const qtyWidth = unitWords ? 24 : 18;
+    const moneyWidth = withDiscount ? 28 : 30;
+    const moneyCols = withDiscount ? 4 : 3;
+    const firstMoney = withNotes ? 3 : 2;
+    const columnStyles = {
+        0: { halign: 'center', cellWidth: qtyWidth },
+        1: { cellWidth: 182 - qtyWidth - (withNotes ? 28 : 0) - moneyWidth * moneyCols },
+        ...(withNotes ? { 2: { cellWidth: 28 } } : {}),
+    };
+    // Montos con menos relleno lateral para que "RD$4,500.00" no se parta en dos líneas
+    for (let c = firstMoney; c < firstMoney + moneyCols; c += 1) {
+        columnStyles[c] = { halign: 'right', cellWidth: moneyWidth, cellPadding: { top: 4, right: 3, bottom: 4, left: 2 } };
+    }
+    const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
+
     doc.autoTable({
-        head: [['SKU', 'Artículo', 'Notas', 'Cant.', 'Precio Unit.', 'Importe']],
+        head: [head],
         body: tableRows,
         startY,
         theme: 'grid',
-        margin: { left: 14, right: 14 },
+        // Paginación (Informe Técnico e-CF 18.2): el encabezado se repite en cada página y abajo queda espacio para el pie
+        margin: { left: 14, right: 14, top: topMargin, bottom: bottomReserve },
+        didDrawPage: (d) => { if (d.pageNumber > 1) onNewPage?.(); },
         styles: {
             fontSize: 9,
             cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
@@ -326,28 +356,36 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
         alternateRowStyles: {
             fillColor: theme.tableAltRow || DEFAULT_THEME.tableAltRow,
         },
-        columnStyles: {
-            0: { cellWidth: 22 },
-            1: { cellWidth: 48 },
-            2: { cellWidth: 42 },
-            3: { halign: 'center', cellWidth: 16 },
-            4: { halign: 'right', cellWidth: 27 },
-            5: { halign: 'right', cellWidth: 27 },
-        },
+        columnStyles,
         tableWidth: 182,
+        didParseCell: (d) => {
+            if (d.section === 'head') d.cell.styles.halign = d.column.index === 0 ? 'center' : d.column.index >= firstMoney ? 'right' : 'left';
+            if (d.section === 'body' && d.column.index === 1 && skus[d.row.index]) d.cell.styles.cellPadding = { top: 4, right: 4, bottom: 8, left: 4 };
+        },
+        didDrawCell: (d) => {
+            if (d.section === 'body' && d.column.index === 0) rowPages[d.row.index] = doc.internal.getCurrentPageInfo().pageNumber;
+            if (d.section !== 'body' || d.column.index !== 1 || !skus[d.row.index]) return;
+            doc.setFontSize(7);
+            doc.setTextColor(...muted);
+            doc.text(`Cód. ${skus[d.row.index]}`, d.cell.x + 4, d.cell.y + d.cell.height - 3);
+            doc.setFontSize(9);
+            setBodyTextColor(doc, theme);
+        },
     });
 
     return doc.lastAutoTable.finalY + 6;
 };
 
-const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, startY }) => {
+const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, startY: firstY, newPage }) => {
+    let startY = firstY;
     const cardWidth = 86;
     const summaryX = bankDetails?.bankName ? 110 : 14;
     
     // Compatibilidad Firebase y PostgreSQL
     const coupon = docTotals(docData); // con cupón: suma de las líneas (incluye lo exento) y la parte del cupón en la base
-    const taxableAmount = coupon?.subtotal ?? docData.montoGravado ?? docData.subtotal ?? 0;
-    const exemptAmount = coupon ? 0 : docData.montoExento ?? 0;
+    const split = baseSplit(docData);
+    const taxableAmount = coupon?.subtotal ?? split.gravado;
+    const exemptAmount = coupon ? 0 : split.exento;
     const taxAmount = docData.itbis ?? docData.taxAmount ?? 0;
     const totalAmount = docData.total ?? 0;
     const discAmount = coupon?.discount ?? docData.discountAmount ?? 0;
@@ -366,10 +404,12 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
         { label: 'Total', value: totalAmount, highlight: true },
     );
 
-    const summaryHeight = summaryEntries.length * 9 + 22;
-    const bankHeight = bankDetails?.bankName ? 60 : 0;
+    // Compacto para que el QR del e-CF quepa en la primera página
+    const summaryHeight = summaryEntries.length * 8 + 20;
+    const bankHeight = bankDetails?.bankName ? 52 : 0;
     const boxHeight = Math.max(summaryHeight, bankHeight);
     const adjustedHeight = boxHeight || summaryHeight;
+    if (newPage && startY + adjustedHeight > doc.internal.pageSize.height - 14) startY = newPage();
 
     if (bankDetails?.bankName) {
         doc.setFillColor(...(theme.subtleBg || DEFAULT_THEME.subtleBg));
@@ -424,7 +464,7 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
     return startY + adjustedHeight;
 };
 
-const drawExtraNotes = (doc, theme, { startY, docData }) => {
+const drawExtraNotes = (doc, theme, { startY, docData, newPage }) => {
     const notes = docData?.notes || docData?.termsAndConditions || docData?.observations;
     if (!notes) {
         return startY;
@@ -433,8 +473,8 @@ const drawExtraNotes = (doc, theme, { startY, docData }) => {
     const maxY = doc.internal.pageSize.height - 20;
     let currentY = startY;
     if (currentY + 30 > maxY) {
-        doc.addPage();
-        currentY = 20;
+        if (newPage) currentY = newPage();
+        else { doc.addPage(); currentY = 20; }
     }
 
     doc.setFont('helvetica', 'bold');
@@ -449,21 +489,18 @@ const drawExtraNotes = (doc, theme, { startY, docData }) => {
     return currentY + 14 + text.length * 5;
 };
 
-const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
+// Informe Técnico e-CF 18.2.3: el QR va abajo a la izquierda, a 2 cm o más del borde de la hoja, de 22 mm o más
+const QR_X = 21;
+
+const drawEcfFooter = (doc, theme, { startY, ecfData, newPage }) => {
     if (!ecfData || !ecfData.eNcf) return startY;
 
-    const maxY = doc.internal.pageSize.height - 20;
-    let currentY = startY + 6;
-    if (currentY + 50 > maxY) {
-        doc.addPage();
-        currentY = 20;
+    const maxY = doc.internal.pageSize.height - 12;
+    let currentY = startY + 2;
+    if (currentY + 42 > maxY) {
+        if (newPage) currentY = newPage();
+        else { doc.addPage(); currentY = 20; }
     }
-
-    // Separador
-    doc.setDrawColor(...(theme.border || DEFAULT_THEME.border));
-    doc.setLineWidth(0.3);
-    doc.line(14, currentY, 196, currentY);
-    currentY += 6;
 
     // Bloque e-CF
     doc.setFillColor(245, 247, 255);
@@ -474,14 +511,14 @@ const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
         const modules = qrModules(ecfData.qrCodeUrl);
         const cell = 32 / modules.length;
         doc.setFillColor(255, 255, 255);
-        doc.rect(18, currentY + 4, 32, 32, 'F');
+        doc.rect(QR_X, currentY + 4, 32, 32, 'F');
         doc.setFillColor(0, 0, 0);
         modules.forEach((row, y) => row.forEach((on, x) => {
-            if (on) doc.rect(18 + x * cell, currentY + 4 + y * cell, cell, cell, 'F');
+            if (on) doc.rect(QR_X + x * cell, currentY + 4 + y * cell, cell, cell, 'F');
         }));
     }
 
-    const textX = ecfData.qrCodeUrl ? 56 : 22;
+    const textX = ecfData.qrCodeUrl ? QR_X + 38 : 22;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
@@ -506,6 +543,62 @@ const drawEcfFooter = (doc, theme, { startY, ecfData }) => {
 
     setBodyTextColor(doc, theme);
     return currentY + 44;
+};
+
+// Paginación (Informe Técnico e-CF 18.2.3): con más de una página, cada una lleva "Página X de N"; las que no son la
+// última llevan sus subtotales (gravado, exento, ITBIS y monto total de la página) y la información de consulta del e-CF.
+const drawPageFooters = (doc, theme, { docData, currency, rowPages }) => {
+    const pages = doc.internal.getNumberOfPages();
+    if (pages < 2) return;
+    const height = doc.internal.pageSize.height;
+    const items = docData?.items || [];
+    const ecf = docData?.ecfData;
+    const muted = theme.textSecondary || DEFAULT_THEME.textSecondary;
+
+    for (let page = 1; page <= pages; page += 1) {
+        doc.setPage(page);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...muted);
+        doc.text(`Página ${page} de ${pages}`, 196, height - 6, { align: 'right' });
+        setBodyTextColor(doc, theme);
+        if (page === pages) continue;
+
+        const onPage = items.filter((_, i) => rowPages[i] === page);
+        if (!onPage.length) continue;
+        let gravado = 0; let exento = 0; let itbis = 0;
+        onPage.forEach((item) => {
+            const { amount } = docLine(item, docData?.pricesIncludeTax);
+            const rate = Number(item.taxRate) || 0;
+            if (rate > 0) { gravado += amount; itbis += round2(amount * rate / 100); } else exento += amount;
+        });
+        const lines = [
+            ['Subtotal gravado página', gravado],
+            ['Subtotal exento página', exento],
+            ['Subtotal ITBIS página', itbis],
+            ['Monto total página', gravado + exento + itbis],
+        ];
+        const top = height - (ecf?.qrCodeUrl ? 40 : 30);
+        lines.forEach(([label, value], i) => {
+            doc.setFont('helvetica', i === lines.length - 1 ? 'bold' : 'normal');
+            doc.text(label, 120, top + i * 5);
+            doc.text(formatCurrency(round2(value), currency), 196, top + i * 5, { align: 'right' });
+        });
+
+        if (ecf?.qrCodeUrl) {
+            // QR de 22 mm (mínimo DGII) a 2 cm del borde, con su código de seguridad y fecha de firma
+            const size = 22;
+            const qrTop = height - 40;
+            const modules = qrModules(ecf.qrCodeUrl);
+            const cell = size / modules.length;
+            doc.setFillColor(0, 0, 0);
+            modules.forEach((row, y) => row.forEach((on, x) => { if (on) doc.rect(QR_X + x * cell, qrTop + y * cell, cell, cell, 'F'); }));
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.text(`Código de seguridad: ${ecf.securityCode || ''}`, QR_X + size + 4, qrTop + 8);
+            if (ecf.signedAt) doc.text(`Fecha de firma digital: ${ecf.signedAt}`, QR_X + size + 4, qrTop + 13);
+        }
+    }
 };
 
 const handleActionOutput = (doc, action, filename) => {
@@ -561,7 +654,7 @@ export const voucherDocData = (expense, currency = 'DOP') => {
         total,
         notes,
         customerName: expense.supplierName,
-        customerId: expense.rncCedula || expense.foreignPayment?.taxId,
+        customerRnc: expense.rncCedula || expense.foreignPayment?.taxId,
     };
 };
 
@@ -593,7 +686,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
 
     switch (docType) {
         case 'invoice':
-            docTitle = 'Factura';
+            docTitle = invoiceTitle(docData);
             docNumber = docData?.ncf?.number || savedNcf || docData?.invoiceNumber;
             if (docData?.ncf?.type === 'Sin Valor Fiscal' || (!docData?.ncf && !savedNcf)) {
                 numberLabel = 'Factura N°:';
@@ -607,7 +700,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             documentDate = docData?.billedDate || docData?.date;
             break;
         case 'credit-note':
-            docTitle = 'Nota de Crédito';
+            docTitle = isEcfDoc(docData) ? invoiceTitle(docData) : 'Nota de Crédito';
             docNumber = savedNcf || docData?.ncf || docData?.creditNoteNumber;
             if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
@@ -620,7 +713,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             isModificationDocument = true;
             break;
         case 'debit-note':
-            docTitle = 'Nota de Débito';
+            docTitle = isEcfDoc(docData) ? invoiceTitle(docData) : 'Nota de Débito';
             docNumber = savedNcf || docData?.ncf || docData?.debitNoteNumber;
             if (!savedNcf && (!docData?.ncf || docData?.ncf === 'N/A')) {
                 numberLabel = 'Nota N°:';
@@ -647,14 +740,12 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
 
     if (numberLabel === 'NCF:' && String(docNumber || '').startsWith('E')) numberLabel = 'e-NCF:';
 
-    let cursorY = drawDocumentHeader(doc, theme, {
-        companyProfile,
-        docTitle,
-        numberLabel,
-        docNumber,
-        documentDate,
-        validUntil,
-    });
+    const headerArgs = { companyProfile, docTitle, numberLabel, docNumber, documentDate, validUntil, modification: modificationInfo(docType, docData) };
+    // Página nueva con el encabezado repetido (DGII: el encabezado va en cada página)
+    const newPage = () => { doc.addPage(); return drawDocumentHeader(doc, theme, headerArgs); };
+    let cursorY = drawDocumentHeader(doc, theme, headerArgs);
+    const headerBottom = cursorY;
+    const rowPages = [];
 
     cursorY = drawInfoCards(doc, theme, {
         customerDetails,
@@ -677,6 +768,12 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             currency,
             pricesIncludeTax: docData?.pricesIncludeTax,
             startY: cursorY,
+            withNotes: showNotesColumn(companyProfile),
+            unitWords: isEcfDoc(docData),
+            topMargin: headerBottom,
+            bottomReserve: docData?.ecfData?.qrCodeUrl ? 44 : 30,
+            onNewPage: () => drawDocumentHeader(doc, theme, headerArgs),
+            rowPages,
         });
 
         cursorY = drawFinancialSection(doc, theme, {
@@ -684,12 +781,14 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             currency,
             bankDetails: docType === 'purchase-voucher' ? null : companyProfile?.bankDetails,
             startY: cursorY + 4,
+            newPage,
         });
     }
 
     cursorY = drawExtraNotes(doc, theme, {
         startY: cursorY + 8,
         docData,
+        newPage,
     });
 
     // e-CF: Representación Impresa con QR de validación
@@ -697,8 +796,11 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         cursorY = drawEcfFooter(doc, theme, {
             startY: cursorY,
             ecfData: docData.ecfData,
+            newPage,
         });
     }
+
+    drawPageFooters(doc, theme, { docData, currency, rowPages });
 
     return handleActionOutput(doc, action, `${docType}-${docNumber || 'documento'}.pdf`);
 };
@@ -723,14 +825,14 @@ export const generateAccountStatementPDF = async ({ entries = [], companyProfile
         companyProfile,
         docTitle: 'Estado de Cuenta',
         numberLabel: 'ID Cliente:',
-        docNumber: customer?.identificationNumber || referenceInvoice.customerId || 'N/A',
+        docNumber: customerTaxId(customer, referenceInvoice) || customer?.customerCode || '',
         documentDate: new Date(),
     });
 
     cursorY = drawInfoCards(doc, theme, {
         customerDetails: {
             name: customer?.name || referenceInvoice.customerName,
-            identificationNumber: customer?.identificationNumber || referenceInvoice.customerId,
+            identificationNumber: customerTaxId(customer, referenceInvoice),
             phone: customer?.phone || referenceInvoice.customerPhone,
             email: customer?.email || referenceInvoice.customerEmail,
             address: customer?.address,

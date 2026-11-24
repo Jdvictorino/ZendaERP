@@ -7,7 +7,11 @@ import { TAXPAYER_TYPES } from '../../utils/tax.js';
 
 // Valores del selector viejo (mismo mapa que backend/src/services/customerTax.js)
 const LEGACY_TYPES = { Persona: 'consumidor_final', Empresa: 'empresa', 'Zona Franca': 'zona_franca', Gubernamental: 'gubernamental', ONG: 'ong' };
-const CEDULA_TYPES = ['consumidor_final', 'persona_fisica'];
+// Mismo criterio que backend/src/services/customerTax.js: solo el consumidor final puede ir sin identificación
+// (cédula o pasaporte); la persona física lleva cédula o RNC y los demás tipos, RNC.
+const CEDULA_TYPES = ['consumidor_final'];
+const hasLetters = (v = '') => /[a-z]/i.test(v);
+const passportOf = (v = '') => v.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 20);
 
 // Validación RD: Cédula (11 dígitos) y RNC (9 dígitos)
 function onlyDigits(v = '') { return (v || '').replace(/\D/g, ''); }
@@ -42,7 +46,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
             setFormData({ 
                                 name: customer.name || '', email: customer.email || '', phone: customer.phone || '', taxpayerType: customer.taxpayerType || LEGACY_TYPES[customer.type] || 'consumidor_final',
                                 exemptionNumber: customer.exemptionNumber || '', exemptionExpiresAt: (customer.exemptionExpiresAt || '').slice(0, 10),
-                                identificationNumber: customer.identificationNumber || '',
+                                identificationNumber: customer.identificationNumber || customer.rnc || '',
                                 address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana', ...(customer.address || {}) },
                                 defaultDiscount: customer.defaultDiscount || 0, logo: customer.logo || '',
                                 status: customer.status || 'active', category: customer.category || 'Retail', accountType: customer.accountType || 'contado',
@@ -72,7 +76,8 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
         }
     };
         const idTypeLabel = useMemo(() => {
-            return CEDULA_TYPES.includes(formData.taxpayerType) ? 'Cédula / Pasaporte' : 'RNC';
+            if (CEDULA_TYPES.includes(formData.taxpayerType)) return 'Cédula / Pasaporte';
+            return formData.taxpayerType === 'persona_fisica' ? 'Cédula / RNC' : 'RNC';
         }, [formData.taxpayerType]);
         const exemptible = TAXPAYER_TYPES.find(t => t.value === formData.taxpayerType)?.exemptible;
 
@@ -81,12 +86,19 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
             if (!formData.name.trim()) errs.name = 'Requerido';
             if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = 'Email inválido';
             if (formData.defaultDiscount < 0 || formData.defaultDiscount > 100) errs.defaultDiscount = '0 a 100%';
+            const idValue = formData.identificationNumber || '';
             if (CEDULA_TYPES.includes(formData.taxpayerType)) {
-                const ced = onlyDigits(formData.identificationNumber);
-                if (ced && !validateCedula(ced)) errs.identificationNumber = 'Cédula inválida';
+                if (hasLetters(idValue)) {
+                    if (passportOf(idValue).length < 6) errs.identificationNumber = 'Pasaporte inválido';
+                } else if (onlyDigits(idValue) && !validateCedula(idValue)) errs.identificationNumber = 'Cédula inválida';
+            } else if (formData.taxpayerType === 'persona_fisica') {
+                const d = onlyDigits(idValue);
+                if (!d) errs.identificationNumber = 'Requerido';
+                else if (d.length === 11 ? !validateCedula(d) : d.length === 9 ? !validateRNC(d) : true) errs.identificationNumber = 'Use una cédula (11 dígitos) o un RNC (9) válidos';
             } else {
-                const rnc = onlyDigits(formData.identificationNumber);
-                if (rnc && !validateRNC(rnc)) errs.identificationNumber = 'RNC inválido';
+                const rnc = onlyDigits(idValue);
+                if (!rnc) errs.identificationNumber = 'Requerido';
+                else if (!validateRNC(rnc)) errs.identificationNumber = 'RNC inválido';
             }
             if (formData.accountType === 'credito' && formData.creditDays < 0) errs.creditDays = 'No negativo';
             setErrors(errs);
@@ -103,7 +115,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 defaultDiscount: Number(formData.defaultDiscount || 0),
                 creditLimit: Number(formData.creditLimit || 0),
                 creditDays: parseInt(formData.creditDays || 0, 10),
-                identificationNumber: onlyDigits(formData.identificationNumber),
+                identificationNumber: hasLetters(formData.identificationNumber) ? passportOf(formData.identificationNumber) : onlyDigits(formData.identificationNumber),
                 // Normaliza status y category
                 status: formData.status || 'active',
                 category: formData.category || 'Retail',
@@ -120,13 +132,19 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 // Máscara de cédula (000-0000000-0) en vivo cuando es Persona
                 const onIdChange = (e) => {
                     let val = e.target.value || '';
-                    if (CEDULA_TYPES.includes(formData.taxpayerType)) {
+                    if (CEDULA_TYPES.includes(formData.taxpayerType) && hasLetters(val)) {
+                        // Pasaporte: letras y números, sin máscara
+                        setFormData(prev => ({ ...prev, identificationNumber: passportOf(val) }));
+                    } else if (CEDULA_TYPES.includes(formData.taxpayerType)) {
                         // Cédula: 11 dígitos con máscara
                         const d = onlyDigits(val).slice(0, 11);
                         let masked = d;
                         if (d.length > 3 && d.length <= 10) masked = `${d.slice(0,3)}-${d.slice(3)}`;
                         if (d.length > 10) masked = `${d.slice(0,3)}-${d.slice(3,10)}-${d.slice(10)}`;
                         setFormData(prev => ({ ...prev, identificationNumber: masked }));
+                    } else if (formData.taxpayerType === 'persona_fisica') {
+                        // Cédula (11) o RNC (9): solo dígitos
+                        setFormData(prev => ({ ...prev, identificationNumber: onlyDigits(val).slice(0, 11) }));
                     } else {
                         // Empresa, Zona Franca, Gubernamental, ONG: RNC sin máscara (hasta 9 dígitos)
                         const d = onlyDigits(val).slice(0, 9);
@@ -182,8 +200,8 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                                                         <div>
-                                                                            <label className="block text-ink-soft mb-1">{idTypeLabel}</label>
-                                                                            <input type="text" name="identificationNumber" value={formData.identificationNumber} onChange={onIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={errors.identificationNumber ? 'err-identificationNumber' : undefined} />
+                                                                            <label htmlFor="identificationNumber" className="block text-ink-soft mb-1">{idTypeLabel}{!CEDULA_TYPES.includes(formData.taxpayerType) && <span className="text-red-600" aria-hidden="true"> *</span>}</label>
+                                                                            <input id="identificationNumber" type="text" name="identificationNumber" value={formData.identificationNumber} onChange={onIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={errors.identificationNumber ? 'err-identificationNumber' : undefined} />
                                       {errors.identificationNumber && <p id="err-identificationNumber" className="field-error">{errors.identificationNumber}</p>}
                                     </div>
                                     <div>

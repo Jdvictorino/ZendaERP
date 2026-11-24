@@ -10,6 +10,8 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import toast from 'react-hot-toast';
+import { catalogEntries } from './pos/catalogEntries.js';
+import { baseQuantity, quantityError, formatQty, roundQty, unitOf } from '../utils/units.js';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ScannerLinkModal from '../components/modals/ScannerLinkModal.jsx';
 import CustomerModal from '../components/modals/CustomerModal.jsx';
@@ -204,7 +206,7 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
                   <span className="text-sm font-semibold text-ink">{p.name}</span>
                   {i === highlightIdx && <Check size={14} className="text-brand-600" />}
                 </div>
-                <span className="text-xs text-ink-muted dark:text-gray-400">{p.sku || p.code || p.barcode || '-'} — {fmt(p.salePrice || p.price)} · Existencia: {p.stock ?? 0}</span>
+                <span className="text-xs text-ink-muted dark:text-gray-400">{p.sku || p.code || p.barcode || '-'} — {fmt(p.salePrice || p.price)} · Existencia: {formatQty(p.stock ?? 0, p.unitAbbr)}</span>
               </div>
             ))}
           </div>
@@ -226,31 +228,57 @@ function SearchBar({ productRef, onAdd, catalog = [], barcodeScan, setBarcodeSca
 }
 
 function LineDesc({ row, onDesc, className = '' }) {
-  if (row.originalId) return <span className={className}>{row.desc}</span>;
+  if (row.originalId) return <span className={className}>{row.baseDesc || row.desc}</span>;
   return (
     <input aria-label="Descripción del artículo" className="input-base h-8" placeholder="Descripción del artículo"
       value={row.desc} onChange={e => onDesc(row.id, e.target.value)} />
   );
 }
 
+// Cantidad + unidad en un solo control (como la UdM de las líneas de venta en un ERP):
+// ± suman 1; en la unidad base con fracciones la cantidad también se escribe; la unidad va a la derecha.
+function QtyControl({ row, onQty, onQtySet, onUnit, btnCls, size }) {
+  const fractional = row.allowFractions && !row.packagingId;
+  return (
+    <div className="flex items-center gap-1.5">
+      <button aria-label="Disminuir cantidad" className={btnCls} onClick={() => onQty(row.id, -1)}><Minus size={size} /></button>
+      {fractional
+        ? <input aria-label="Cantidad" className="input-base h-8 w-16 px-1.5 text-center tabular-nums" type="number" min="0.01" step="0.01" value={row.qty} onChange={e => onQtySet(row.id, e.target.value)} />
+        : <span className="text-sm font-semibold min-w-6 text-center tabular-nums">{formatQty(row.qty)}</span>}
+      <button aria-label="Aumentar cantidad" className={btnCls} onClick={() => onQty(row.id, 1)}><Plus size={size} /></button>
+      <UnitSelect row={row} onUnit={onUnit} />
+    </div>
+  );
+}
+
+// Varias unidades (base + empaques): selector compacto. Una sola: su abreviatura como texto.
+function UnitSelect({ row, onUnit }) {
+  if ((row.options?.length || 0) < 2) {
+    return row.unitAbbr ? <span className="text-xs text-ink-muted whitespace-nowrap">{row.unitAbbr}</span> : null;
+  }
+  return (
+    <select aria-label="Unidad de venta" className="input-base h-8 w-auto max-w-[9.25rem] py-0 pl-2 pr-7 text-xs leading-none" value={row.packagingId || ''} onChange={e => onUnit(row.id, e.target.value)}>
+      {row.options.map(o => <option key={o.packagingId || 'base'} value={o.packagingId || ''}>{o.packagingName || row.unitAbbr || row.unitLabel || 'Unidad'}</option>)}
+    </select>
+  );
+}
+
 const qtyBtnCls = "w-8 h-8 flex justify-center items-center rounded-lg border border-line bg-surface text-ink-soft hover:bg-surface-muted font-semibold";
 
-function MobileGridCard({ row, exempt, onQty, onPrice, onDelete, onDesc }) {
+function MobileGridCard({ row, exempt, onQty, onQtySet, onUnit, onPrice, onDelete, onDesc }) {
   const { base, itbis } = lineAmounts({ quantity: row.qty, unitPrice: row.price, discountPercent: row.disc, taxRate: exempt ? 0 : rateOf(row) * 100 });
   const total = round2(base + itbis);
   return (
     <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-line">
       <div className="flex-1 min-w-0">
         <LineDesc row={row} onDesc={onDesc} className="block text-sm font-semibold text-ink truncate" />
-        <p className="text-xs text-ink-muted mt-0.5 font-mono">{row.code || '—'}</p>
-        <div className="flex items-center gap-3 mt-2">
-          <div className="flex items-center gap-1.5">
-            <button aria-label="Disminuir cantidad" className={qtyBtnCls} onClick={() => onQty(row.id, -1)}><Minus size={14} /></button>
-            <span className="text-sm font-semibold w-6 text-center tabular-nums">{row.qty}</span>
-            <button aria-label="Aumentar cantidad" className={qtyBtnCls} onClick={() => onQty(row.id, 1)}><Plus size={14} /></button>
+        {row.code && row.code !== '-' && <p className="text-xs text-ink-muted mt-0.5 font-mono">{row.code}</p>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-2">
+          <QtyControl row={row} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} btnCls={qtyBtnCls} size={14} />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-muted">×</span>
+            <input aria-label="Precio unitario" className="input-base w-24 h-8 text-right tabular-nums" type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} />
           </div>
-          <span className="text-xs text-ink-muted">×</span>
-          <input aria-label="Precio unitario" className="input-base w-24 h-8 text-right tabular-nums" type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} />
         </div>
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -261,24 +289,22 @@ function MobileGridCard({ row, exempt, onQty, onPrice, onDelete, onDesc }) {
   );
 }
 
-function GridRow({ row, index, exempt, onQty, onDisc, onPrice, onDelete, onDesc }) {
+function GridRow({ row, index, exempt, onQty, onQtySet, onUnit, onDisc, onPrice, onDelete, onDesc }) {
   const { base, itbis } = lineAmounts({ quantity: row.qty, unitPrice: row.price, discountPercent: row.disc, taxRate: exempt ? 0 : rateOf(row) * 100 });
   const total = round2(base + itbis);
   const cellInput = "input-base h-8 px-2 text-right tabular-nums";
   return (
     <tr className="border-b border-line hover:bg-surface-muted/60 transition-colors group">
       <td className="px-3 py-2 text-center text-xs text-ink-muted tabular-nums">{index + 1}</td>
-      <td className="px-3 py-2 text-sm font-medium text-ink"><LineDesc row={row} onDesc={onDesc} /></td>
-      <td className="px-3 py-2 text-xs text-ink-muted font-mono">{row.code}</td>
-      <td className="px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <button aria-label="Disminuir cantidad" className="w-7 h-7 flex justify-center items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-surface-muted" onClick={() => onQty(row.id, -1)}><Minus size={12} /></button>
-          <span className="text-sm font-medium w-6 text-center tabular-nums">{row.qty}</span>
-          <button aria-label="Aumentar cantidad" className="w-7 h-7 flex justify-center items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-surface-muted" onClick={() => onQty(row.id, 1)}><Plus size={12} /></button>
-        </div>
+      <td className="px-3 py-2 text-sm font-medium text-ink">
+        <LineDesc row={row} onDesc={onDesc} />
+        {row.code && row.code !== '-' && <p className="text-xs text-ink-muted font-mono font-normal mt-0.5">{row.code}</p>}
       </td>
-      <td className="px-3 py-2"><input aria-label="Descuento de la línea (%)" className={`${cellInput} w-16`} type="number" min="0" max="100" value={row.disc} onChange={e => onDisc(row.id, e.target.value)} /></td>
-      <td className="px-3 py-2 text-right"><input aria-label="Precio unitario" className={`${cellInput} w-24`} type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} /></td>
+      <td className="px-3 py-2">
+        <QtyControl row={row} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} size={12} btnCls="w-7 h-7 flex justify-center items-center rounded-md border border-line bg-surface text-ink-soft hover:bg-surface-muted" />
+      </td>
+      <td className="px-3 py-2"><input aria-label="Descuento de la línea (%)" className={`${cellInput} w-14`} type="number" min="0" max="100" value={row.disc} onChange={e => onDisc(row.id, e.target.value)} /></td>
+      <td className="px-3 py-2 text-right"><input aria-label="Precio unitario" className={`${cellInput} w-[5.5rem]`} type="number" min="0" step="0.01" value={row.price} onChange={e => onPrice(row.id, e.target.value)} /></td>
       <td className="px-3 py-2 text-right text-xs text-ink-muted tabular-nums">{!exempt && rateOf(row) > 0 ? fmt(itbis) : 'Exento'}</td>
       <td className="px-3 py-2 text-right text-sm font-semibold text-ink tabular-nums">{fmt(total)}</td>
       <td className="px-3 py-2 text-center"><button aria-label="Quitar línea" className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onDelete(row.id)}><Trash2 size={16} /></button></td>
@@ -286,7 +312,7 @@ function GridRow({ row, index, exempt, onQty, onDisc, onPrice, onDelete, onDesc 
   );
 }
 
-function DataGrid({ rows, exempt, onQty, onDisc, onPrice, onDelete, onDesc, onAddEmpty }) {
+function DataGrid({ rows, exempt, onQty, onQtySet, onUnit, onDisc, onPrice, onDelete, onDesc, onAddEmpty }) {
   const thCls = "px-3 py-2.5 text-xs font-semibold text-ink-muted uppercase tracking-wide";
   const empty = <EmptyState icon={ShoppingCart} title="Sin artículos" description="Busca un producto (F2) o escanea su código para añadirlo." />;
   return (
@@ -295,7 +321,7 @@ function DataGrid({ rows, exempt, onQty, onDisc, onPrice, onDelete, onDesc, onAd
         {/* Móvil: tarjetas */}
         <div className="lg:hidden flex flex-col gap-2 p-3">
           {rows.length === 0 ? empty : rows.map(r => (
-            <MobileGridCard key={r.id} row={r} exempt={exempt} onQty={onQty} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} />
+            <MobileGridCard key={r.id} row={r} exempt={exempt} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} />
           ))}
         </div>
         {/* Escritorio: tabla */}
@@ -304,20 +330,19 @@ function DataGrid({ rows, exempt, onQty, onDisc, onPrice, onDelete, onDesc, onAd
             <tr className="bg-surface-muted border-b border-line sticky top-0 z-10">
               <th className={`${thCls} w-[40px] text-center`}>#</th>
               <th className={thCls}>Producto / servicio</th>
-              <th className={`${thCls} w-[110px]`}>Código</th>
-              <th className={`${thCls} w-[120px]`}>Cant.</th>
-              <th className={`${thCls} w-[90px]`}>Desc. %</th>
-              <th className={`${thCls} w-[120px] text-right`}>Precio sin ITBIS</th>
-              <th className={`${thCls} w-[100px] text-right`}>ITBIS</th>
-              <th className={`${thCls} w-[120px] text-right`}>Total</th>
+              <th className={`${thCls} w-[220px]`}>Cant.</th>
+              <th className={`${thCls} w-[64px]`}>Desc. %</th>
+              <th className={`${thCls} w-[104px] text-right`}>Precio sin ITBIS</th>
+              <th className={`${thCls} w-[70px] text-right`}>ITBIS</th>
+              <th className={`${thCls} w-[110px] text-right`}>Total</th>
               <th className={`${thCls} w-[50px]`}><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan="9" className="p-0">{empty}</td></tr>
+              <tr><td colSpan="8" className="p-0">{empty}</td></tr>
             ) : rows.map((r, i) => (
-              <GridRow key={r.id} row={r} index={i} exempt={exempt} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} />
+              <GridRow key={r.id} row={r} index={i} exempt={exempt} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} />
             ))}
           </tbody>
         </table>
@@ -410,21 +435,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const { data: shiftsData, refetch: refetchShifts } = useApiCrud('/shifts');
   // Los productos inactivos (p. ej. importados sin precio) no se venden desde la caja.
   // Un producto con variantes se vende por variante: cada una aparece con su precio y su existencia.
-  const catalog = useMemo(() => (Array.isArray(pData) ? pData : [])
-    .filter((p) => p.status !== 'inactive')
-    .flatMap((p) => (p.variants?.length
-      ? p.variants.map((v) => ({
-          ...p,
-          id: `${p.id}:${v.id}`,
-          productId: p.id,
-          variantId: v.id,
-          name: `${p.name} (${v.name})`,
-          sku: v.sku || p.sku,
-          barcode: v.barcode || p.barcode,
-          salePrice: Number(v.salePrice) > 0 ? Number(v.salePrice) : Number(p.salePrice) + Number(v.priceAdjustment || 0),
-          stock: v.stock,
-        }))
-      : [p])), [pData]);
+  const catalog = useMemo(() => catalogEntries(pData), [pData]);
   const customersList = Array.isArray(cData) ? cData : [];
   const { data: iData } = useApiCrud('/invoices');
   const invoicesData = Array.isArray(iData) ? iData : (iData?.data || []);
@@ -639,6 +650,15 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
           key: p.id,
           originalId: p.productId || p.id,
           variantId: p.variantId || null,
+          baseKey: p.baseId || p.id,
+          baseDesc: p.baseName || p.name,
+          options: p.options || [],
+          packagingId: p.packagingId || null,
+          packagingName: p.packagingName || null,
+          factor: p.factor || 1,
+          allowFractions: !!p.allowFractions,
+          unitAbbr: p.unitAbbr || '',
+          unitLabel: unitOf(p.unit).label,
           desc: p.name,
           code: p.sku || p.code || p.barcode || "-",
           price: Number(p.salePrice ?? p.price) || 0,
@@ -651,7 +671,23 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     }
   };
 
-  const onQty = (id, d) => setRows(r => r.map(x => x.id === id ? { ...x, qty: Math.max(1, x.qty + d) } : x));
+  const onQty = (id, d) => setRows(r => r.map(x => x.id === id ? { ...x, qty: Math.max(1, roundQty(x.qty + d)) } : x));
+  const onQtySet = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, qty: parseFloat(v) || 0 } : x));
+  // Cambiar la unidad de la línea reemplaza empaque, factor y precio; un empaque lleva cantidad entera.
+  const onUnit = (id, packagingId) => setRows(r => {
+    const cur = r.find(x => x.id === id);
+    const o = cur?.options.find(k => (k.packagingId || '') === packagingId);
+    if (!o) return r;
+    const qty = o.packagingId ? Math.max(1, Math.round(cur.qty)) : cur.qty;
+    const sw = { ...cur, key: o.id, packagingId: o.packagingId, packagingName: o.packagingName, factor: o.factor, price: o.salePrice,
+      desc: o.packagingName ? `${cur.baseDesc} — ${o.packagingName}` : cur.baseDesc, qty };
+    // si ya hay otra línea igual (misma unidad), se suman en la primera
+    const twin = r.find(x => x.id !== id && x.key === o.id);
+    if (!twin) return r.map(x => x.id === id ? sw : x);
+    const firstId = r.indexOf(twin) < r.indexOf(cur) ? twin.id : id;
+    return r.filter(x => x.id === firstId || (x.id !== id && x.id !== twin.id))
+      .map(x => x.id === firstId ? { ...sw, id: firstId, qty: roundQty(twin.qty + qty) } : x);
+  });
   const onDisc = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, disc: Math.min(100, Math.max(0, parseFloat(v) || 0)) } : x));
   const onPrice = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, price: Math.max(0, parseFloat(v) || 0) } : x));
   const onDelete = (id) => setRows(r => r.filter(x => x.id !== id));
@@ -689,19 +725,25 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     if (!isCredit && !openShift) { toast.error('Abre un turno de caja para cobrar ventas de contado.'); return; }
 
     // No se vende más de lo que hay: se suman las líneas del mismo producto (el servidor también lo valida)
+    for (const r of rows) {
+      const qErr = quantityError({ quantity: Number(r.qty), allowFractions: !!r.allowFractions, hasPackaging: !!r.packagingId });
+      if (qErr) { toast.error(`${r.desc}: ${qErr}`); return; }
+    }
+    // se compara en unidad base: una caja de 24 descuenta 24
     const qtyByProduct = {};
-    rows.forEach(r => { if (r.key) qtyByProduct[r.key] = (qtyByProduct[r.key] || 0) + (parseInt(r.qty, 10) || 0); });
+    rows.forEach(r => { if (r.baseKey) qtyByProduct[r.baseKey] = roundQty((qtyByProduct[r.baseKey] || 0) + baseQuantity({ quantity: Number(r.qty), factor: r.factor })); });
     const short = Object.entries(qtyByProduct)
       .map(([id, qty]) => ({ product: catalog.find(p => p.id === id), qty }))
       .find(({ product, qty }) => product && (Number(product.stock) || 0) < qty);
-    if (short) { toast.error(`Stock insuficiente para "${short.product.name}". Disponible: ${Number(short.product.stock) || 0}, pedido: ${short.qty}.`); return; }
+    if (short) { const u = short.product.unitAbbr; toast.error(`Stock insuficiente para "${short.product.baseName || short.product.name}". Disponible: ${formatQty(Number(short.product.stock) || 0, u)}, pedido: ${formatQty(short.qty, u)}.`); return; }
 
     setIsSubmitting(true);
     const itemsData = rows.map(r => ({
       productId: r.originalId || undefined,
       variantId: r.variantId || null,
       productName: String(r.desc).trim(),
-      quantity: parseInt(r.qty, 10),
+      quantity: Number(r.qty),
+      packagingId: r.packagingId || null,
       unitPrice: Number(r.price) || 0, // precio de lista sin ITBIS
       // el descuento general se combina con el de la línea para que el total facturado sea el mismo que ve el cajero
       discountPercent: combinedDiscount(r.disc, globalDisc),
@@ -817,7 +859,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
               </p>
             )}
             <SearchBar productRef={productRefDesktop} onAdd={addProduct} catalog={catalog} barcodeScan={barcodeScan} setBarcodeScan={setBarcodeScan} handleBarcodeScan={handleBarcodeScan} isConnected={isConnected} linkedDeviceName={linkedDeviceName} disconnectDevice={disconnectDevice} initSession={initSession} setShowScannerModal={setShowScannerModal} />
-            <DataGrid rows={rows} exempt={exempt} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} onAddEmpty={() => addProduct(null)} />
+            <DataGrid rows={rows} exempt={exempt} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} onAddEmpty={() => addProduct(null)} />
           </div>
           <div className="flex flex-col gap-5 p-5 bg-surface border-l border-line overflow-y-auto custom-scrollbar">
             {/* Cliente */}
@@ -877,7 +919,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
           {/* Product cards */}
           <div className="px-3">
-            <DataGrid rows={rows} exempt={exempt} onQty={onQty} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} onAddEmpty={() => addProduct(null)} />
+            <DataGrid rows={rows} exempt={exempt} onQty={onQty} onQtySet={onQtySet} onUnit={onUnit} onDisc={onDisc} onPrice={onPrice} onDelete={onDelete} onDesc={onDesc} onAddEmpty={() => addProduct(null)} />
           </div>
 
           {/* Compact options row */}

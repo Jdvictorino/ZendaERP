@@ -32,6 +32,7 @@ const DebitNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customers
                 ...debitNote,
                 debitNoteNumber: debitNote.id,
                 originalInvoiceNumber: invoice.invoiceNumber || invoice.orderNumber,
+                originalNcf: invoice.ncfNumber,
                 customerName: invoice.customerName,
                 date: new Date()
             };

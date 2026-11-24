@@ -4,7 +4,7 @@ import { getCouponByCode, validateCoupon, applyCouponToCart, couponCart, redeemC
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
-import { docLine, docTotals } from '../../utils/docLines.js';
+import { docLine, docTotals, qtyText } from '../../utils/docLines.js';
 import { generateThermalReceiptHTML } from '../../utils/escposGenerator.js';
 import { withEcfPrintData } from '../../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../../utils/printer.js';
@@ -126,8 +126,10 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
     const customerDetails = useMemo(() => (customers || []).find(c => c.id === invoice.customerId), [customers, invoice.customerId]);
     // Anular y emitir notas es de gerencia (el servidor también lo exige); el cajero solo factura
     const canManage = isMasterUser || ['admin', 'manager'].includes(currentUserProfile?.role);
-    const associatedCreditNote = useMemo(() => (creditNotes || []).find(cn => cn.originalInvoiceId === invoice.id), [creditNotes, invoice.id]);
-    const associatedDebitNote = useMemo(() => (debitNotes || []).find(dn => dn.originalInvoiceId === invoice.id), [debitNotes, invoice.id]);
+    // originalNcf: la nota impresa indica el comprobante que modifica (DGII)
+    const withOriginalNcf = (note) => note && { ...note, originalNcf: invoice.ncfNumber };
+    const associatedCreditNote = useMemo(() => withOriginalNcf((creditNotes || []).find(cn => cn.originalInvoiceId === invoice.id)), [creditNotes, invoice.id, invoice.ncfNumber]);
+    const associatedDebitNote = useMemo(() => withOriginalNcf((debitNotes || []).find(dn => dn.originalInvoiceId === invoice.id)), [debitNotes, invoice.id, invoice.ncfNumber]);
 
     const emitterInfoForPDF = invoice.emitterInfo || (currentUserProfile ? {
         fullName: `${currentUserProfile.firstName} ${currentUserProfile.lastName}`,
@@ -419,7 +421,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                             return (
                             <div key={itemKey} className={`rounded-lg p-4 ${isDiscounted ? 'bg-warning-50 ring-1 ring-inset ring-warning-200 dark:bg-warning-950/30 dark:ring-warning-800' : 'bg-surface-muted'}`}>
                                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-2">
-                                            <h5 className="font-bold text-lg">{item.productName} ({item.quantity}x)</h5>
+                                            <h5 className="font-bold text-lg">{item.productName} ({/^[\d.,]+$/.test(qtyText(item)) ? `${qtyText(item)}x` : qtyText(item)})</h5>
                                             {isDiscounted ? (
                                                 <div className="text-right">
                                                     <p className="text-sm text-ink-muted line-through">{formatCurrency(docLine(item, invoice.pricesIncludeTax).amount, companyProfile.currency)}</p>

@@ -9,6 +9,7 @@ import { getInventoryAlerts } from '../utils/inventory.js';
 import { useApiCrud } from '../hooks/useApi.js';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import { baseQuantity, roundQty } from '../utils/units.js';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
 
 // Las tarjetas de indicadores usan el componente único KpiCard
@@ -137,7 +138,7 @@ const DashboardViewSQL = ({ setView, companyProfile }) => {
                 const quantity = Number(item.quantity) || 0;
                 // Ingreso = base guardada sin ITBIS (en carritos sin base: precio * cantidad)
                 const revenue = item.subtotal != null ? normalizeAmount(item.subtotal) : normalizeAmount(item.unitPrice || item.price) * quantity;
-                current.quantity += quantity;
+                current.quantity = roundQty(current.quantity + baseQuantity({ quantity, factor: item.packagingFactor ?? 1 }));
                 current.revenue += revenue;
                 map.set(key, current);
             });

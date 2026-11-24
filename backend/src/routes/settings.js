@@ -197,7 +197,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     let addressStr = null;
     if (address) {
       if (typeof address === 'object') {
-        const parts = [address.street, address.sector, address.city, address.zipCode, address.country].filter(Boolean);
+        const parts = [address.street, address.sector, address.city, address.province, address.zipCode, address.country].filter(Boolean);
         addressStr = parts.join(', ');
       } else {
         addressStr = address;

@@ -4,6 +4,7 @@ import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button.jsx';
+import { DR_PROVINCES } from '../../utils/provinces.js';
 
 const sanitizeForFirestore = (value) => {
     if (value === null) return null;
@@ -114,7 +115,14 @@ const ProfileModal = ({ profile, onClose, onSave, isMasterUser, fullPage = false
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div className="col-span-2"><label className="block text-ink-soft text-sm mb-1">Dirección</label><input type="text" name="street" value={formData.address.street} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
                                     <div><label className="block text-ink-soft text-sm mb-1">Sector</label><input type="text" name="sector" value={formData.address.sector} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
-                                    <div><label className="block text-ink-soft text-sm mb-1">Ciudad</label><input type="text" name="city" value={formData.address.city} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div><label htmlFor="company-city" className="block text-ink-soft text-sm mb-1">Municipio</label><input id="company-city" type="text" name="city" value={formData.address.city} onChange={handleAddressChange} className="input-base" readOnly={!isMasterUser} /></div>
+                                    <div>
+                                        <label htmlFor="company-province" className="block text-ink-soft text-sm mb-1">Provincia</label>
+                                        <select id="company-province" name="province" value={formData.address.province || ''} onChange={handleAddressChange} className="input-base" disabled={!isMasterUser}>
+                                            <option value="">Seleccione…</option>
+                                            {DR_PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div><label className="block text-ink-soft text-sm mb-1">Teléfono</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-base" readOnly={!isMasterUser} /></div>

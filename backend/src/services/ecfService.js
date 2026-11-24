@@ -104,7 +104,7 @@ export async function emitEcf(invoiceId, tipoEcf, companyId) {
   // 1. Obtener factura con items y empresa
   const invoice = await prisma.invoice.findUnique({
     where: { id: invoiceId },
-    include: { items: true, customer: true, company: true },
+    include: { items: { include: { packaging: true, product: { select: { unit: true } } } }, customer: true, company: true },
   });
 
   if (!invoice) throw new Error('Factura no encontrada');
@@ -375,7 +375,7 @@ export async function syncInvoiceWithEcf(ecfDocumentId) {
     data: received
       ? { isBilled: true, billedDate: invoice.billedDate || new Date(), invoiceNumber: invoice.orderNumber, ncfNumber: doc.eNcf, ncfType: doc.tipoEcf }
       : { isBilled: false, billedDate: null, ncfNumber: null, ncfType: null, ncfExpiresAt: null },
-    include: { items: true, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } },
+    include: { items: { include: { product: { select: { id: true, name: true, code: true, sku: true, unit: true, allowFractions: true } } } }, ecfDocuments: { orderBy: { createdAt: 'desc' }, take: 1 } },
   });
 }
 

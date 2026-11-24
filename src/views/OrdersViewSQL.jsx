@@ -29,6 +29,7 @@ import { useApiCrud } from '../hooks/useApi.js';
 import { useScanner } from '../context/ScannerContext.jsx';
 import { PLACEHOLDER_IMG } from '../utils/placeholderImage.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
+import { formatQty } from '../utils/units.js';
 
 const getColorClass = (colorName) => {
     const colors = {
@@ -825,7 +826,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                                             )}
                                             <div className="flex items-center gap-2 mt-1">
                                                 <button onClick={() => handleCartUpdate(item.cartId, item.quantity - 1)} aria-label="Disminuir cantidad" className="w-7 h-7 flex items-center justify-center rounded-md border border-line bg-surface hover:bg-surface-muted"><Minus size={12}/></button>
-                                                <span className="w-6 text-center text-sm tabular-nums">{item.quantity}</span>
+                                                <span className="min-w-6 text-center text-sm tabular-nums">{formatQty(item.quantity)}</span>
                                                 <button onClick={() => handleCartUpdate(item.cartId, item.quantity + 1)} aria-label="Aumentar cantidad" className="w-7 h-7 flex items-center justify-center rounded-md border border-line bg-surface hover:bg-surface-muted"><Plus size={12}/></button>
                                             </div>
                                         </div>
