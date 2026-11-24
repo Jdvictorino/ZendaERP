@@ -1,8 +1,10 @@
+import { round2 } from './tax.js';
+
 const near = (a, b) => Math.abs(Number(a) - Number(b)) <= 0.01;
 
 // Valida una línea de factura contra el catálogo: el precio debe ser uno de lista y el ITBIS el del producto.
 // Sin producto (línea libre) siempre pide autorización y solo admite 0, 16 o 18 de ITBIS.
-export function checkLinePrice(item, product, variant, maxDiscount) {
+export function checkLinePrice(item, product, variant, maxDiscount, packaging = null) {
   let needsApproval = Number(item.discountPercent) > maxDiscount;
   if (!product) {
     const taxRate = Number(item.taxRate);
@@ -11,7 +13,10 @@ export function checkLinePrice(item, product, variant, maxDiscount) {
   }
   // con variante solo valen su precio efectivo (el mismo del POS) y el mayorista; el precio suelto del producto no
   const wholesale = product.wholesalePrice != null ? Number(product.wholesalePrice) : null;
-  const lists = variant
+  // con empaque vale su precio propio, o factor × precio base; la variante suma su ajuste en ambos casos
+  const lists = packaging
+    ? [(packaging.salePrice != null ? Number(packaging.salePrice) : round2(Number(packaging.factor) * Number(product.salePrice))) + (variant ? Number(variant.priceAdjustment || 0) : 0)]
+    : variant
     ? [Number(variant.salePrice) > 0 ? Number(variant.salePrice) : Number(product.salePrice) + Number(variant.priceAdjustment || 0), ...(wholesale > 0 ? [wholesale] : [])]
     : [Number(product.salePrice), ...(wholesale != null ? [wholesale] : [])];
   if (!lists.some((p) => near(p, item.unitPrice))) needsApproval = true;
