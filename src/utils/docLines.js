@@ -1,4 +1,12 @@
 import { netUnitPrice, round2 } from './tax.js';
+import { formatQty, unitOf } from './units.js';
+
+// Cantidad impresa de una línea: con unidad/empaque solo si lo tiene (facturas viejas y ventas por unidad se ven como siempre)
+export function qtyText(item) {
+    const q = Number(item.quantity) || 0;
+    const pack = item.packagingName || (item.product?.unit && item.product.unit !== 'unidad' ? unitOf(item.product.unit).abbr : null);
+    return pack || !Number.isInteger(q) ? formatQty(q, pack || unitOf(item.product?.unit).abbr) : String(item.quantity ?? q);
+}
 
 // Precio unitario sin ITBIS e importe (base) de una línea de documento.
 // Facturas guardadas (pricesIncludeTax es booleano): la base es item.subtotal. Carritos/pedidos: precio * cantidad.

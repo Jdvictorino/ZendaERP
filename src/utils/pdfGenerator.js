@@ -2,7 +2,7 @@ import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 import { withEcfPrintData, qrModules } from './ecfPrint.js';
-import { docLine, docTotals } from './docLines.js';
+import { docLine, docTotals, qtyText } from './docLines.js';
 
 let pdfLibrariesPromise = null;
 
@@ -294,7 +294,7 @@ const drawItemsTable = (doc, theme, { items = [], currency, startY, pricesInclud
         // Compatibilidad con estructura Firebase y PostgreSQL
         const name = item.name || item.productName || item.product?.name || '-';
         const { unit: price, amount } = docLine(item, pricesIncludeTax);
-        const qty = item.quantity || 0;
+        const qty = item.quantity ? qtyText(item) : 0;
         const notes = item.customizationNotes || item.description || item.notes || '—';
         return [
             resolveSku(item),

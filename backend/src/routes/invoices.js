@@ -153,7 +153,7 @@ router.get('/', async (req, res, next) => {
           customer: { select: { id: true, name: true, rnc: true } },
           items: {
             include: {
-              product: { select: { id: true, name: true, code: true, sku: true } }
+              product: { select: { id: true, name: true, code: true, sku: true, unit: true, allowFractions: true } }
             }
           },
           ecfDocuments: LAST_RECEIVED_ECF,
@@ -198,7 +198,7 @@ router.get('/:id', async (req, res, next) => {
         user: { select: { firstName: true, lastName: true } },
         items: {
           include: {
-            product: { select: { id: true, name: true, code: true, sku: true } }
+            product: { select: { id: true, name: true, code: true, sku: true, unit: true, allowFractions: true } }
           }
         },
         creditNotes: true,
@@ -310,7 +310,7 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, code: true, sku: true } }
+              product: { select: { id: true, name: true, code: true, sku: true, unit: true, allowFractions: true } }
             }
           },
           customer: { select: { id: true, name: true } }

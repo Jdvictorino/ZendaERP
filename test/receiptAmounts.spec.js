@@ -52,3 +52,18 @@ describe('cupón: Subtotal − Descuento + ITBIS = Total', () => {
     expect(html).toMatch(/TOTAL:<\/span><span>[^<]*106\.20/);
   });
 });
+
+describe('cantidades con unidad', () => {
+  const doc = (it) => ({ ...nueva, items: [{ productName: 'Arroz', unitPrice: 100, taxRate: 18, subtotal: 225, ...it }] });
+  it('2.25 de un producto en libras se imprime "2.25 lb"', () => {
+    expect(generateThermalReceiptHTML(doc({ quantity: 2.25, packagingName: null, product: { unit: 'libra', allowFractions: true } }), 'invoice', profile, null, null)).toContain('2.25 lb');
+  });
+  it('con empaque se imprime el nombre del empaque', () => {
+    expect(generateThermalReceiptHTML(doc({ quantity: 2, packagingName: 'Caja de 24' }), 'invoice', profile, null, null)).toContain('2 Caja de 24');
+  });
+  it('línea vieja { quantity: 3 } sigue mostrando 3 solo', () => {
+    const html = generateThermalReceiptHTML(doc({ quantity: 3 }), 'invoice', profile, null, null);
+    expect(html).toContain('<td>3</td>');
+    expect(html).not.toMatch(/3 und/);
+  });
+});

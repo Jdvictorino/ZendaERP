@@ -4,7 +4,7 @@ import { getCouponByCode, validateCoupon, applyCouponToCart, couponCart, redeemC
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
-import { docLine, docTotals } from '../../utils/docLines.js';
+import { docLine, docTotals, qtyText } from '../../utils/docLines.js';
 import { generateThermalReceiptHTML } from '../../utils/escposGenerator.js';
 import { withEcfPrintData } from '../../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../../utils/printer.js';
@@ -419,7 +419,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                             return (
                             <div key={itemKey} className={`rounded-lg p-4 ${isDiscounted ? 'bg-warning-50 ring-1 ring-inset ring-warning-200 dark:bg-warning-950/30 dark:ring-warning-800' : 'bg-surface-muted'}`}>
                                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-2">
-                                            <h5 className="font-bold text-lg">{item.productName} ({item.quantity}x)</h5>
+                                            <h5 className="font-bold text-lg">{item.productName} ({/^[\d.,]+$/.test(qtyText(item)) ? `${qtyText(item)}x` : qtyText(item)})</h5>
                                             {isDiscounted ? (
                                                 <div className="text-right">
                                                     <p className="text-sm text-ink-muted line-through">{formatCurrency(docLine(item, invoice.pricesIncludeTax).amount, companyProfile.currency)}</p>

@@ -6,6 +6,7 @@ import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Button from '../ui/Button.jsx';
+import { roundQty } from '../../utils/units.js';
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -43,9 +44,13 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
         else if (itemsValue > 0) setAmount(String(Math.min(itemsValue, remaining)));
     }, [isFull, itemsValue, remaining]);
 
+    const leftOf = (item) => roundQty(item.quantity - (returnedBefore[item.id] || 0));
+    // Decimales solo en líneas sin empaque de productos fraccionables; el servidor valida igual
+    const canFraction = (item) => !item.packagingName && item.product?.allowFractions === true;
     const setQty = (item, value) => {
-        const left = item.quantity - (returnedBefore[item.id] || 0);
-        const qty = Math.max(0, Math.min(left, parseInt(value, 10) || 0));
+        const left = leftOf(item);
+        const n = canFraction(item) ? Math.round(parseFloat(value) * 100) / 100 : parseInt(value, 10);
+        const qty = Math.max(0, Math.min(left, n || 0));
         setReturnQty((prev) => ({ ...prev, [item.id]: qty }));
     };
 
@@ -118,7 +123,7 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
                             <legend className="block text-ink-soft mb-1">Artículos que vuelven a inventario</legend>
                             <div className="divide-y divide-line rounded-lg border border-line">
                                 {items.map((item) => {
-                                    const left = item.quantity - (returnedBefore[item.id] || 0);
+                                    const left = leftOf(item);
                                     return (
                                         <label key={item.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                                             <span className="min-w-0">
@@ -128,7 +133,7 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
                                                 </span>
                                             </span>
                                             <input
-                                                type="number" min="0" max={left} step="1" disabled={left <= 0}
+                                                type="number" min="0" max={left} step={canFraction(item) ? 0.01 : 1} disabled={left <= 0}
                                                 value={returnQty[item.id] || 0}
                                                 onChange={(e) => setQty(item, e.target.value)}
                                                 className="input-base w-20 text-right tabular-nums"
