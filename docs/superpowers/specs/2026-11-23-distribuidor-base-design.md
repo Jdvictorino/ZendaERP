@@ -69,6 +69,8 @@ Hoy el producto tiene un precio de venta y un precio al por mayor, una "unidad" 
 
 ### PR 1 — Unidades, empaques y fracciones
 
+*Ajustes al escribir el plan, verificados en el Formato e-CF v1.0:* `CantidadItem` admite **2 decimales**, así que la cantidad de una línea tiene a lo sumo 2 decimales (la existencia guarda 3). Las fracciones solo se venden en la unidad base; una línea con empaque lleva cantidad entera, para que la existencia nunca necesite más de 3 decimales. Cada empaque lleva su **tipo** de la Tabla IV (Caja 6, Saco 46, Paquete 31…), que va como `UnidadMedida`, en lugar de convertir la línea a la unidad base. La cola sin conexión solo guarda cobros, así que no cambia.
+
 **Datos**
 
 - `Product.unit` (texto libre) pasa a ser la **unidad base**, con una lista cerrada en un módulo compartido: unidad, docena, libra, onza, kilogramo, gramo, metro, centímetro, pie, yarda, litro, mililitro, galón. Cada una con su abreviatura para pantalla e impresión y su código DGII de la Tabla IV (verificado). Valores actuales que no estén en la lista migran a "unidad".
