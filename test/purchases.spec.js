@@ -59,3 +59,26 @@ describe('compras', () => {
     });
   });
 });
+
+import { validateOrderLines } from '../backend/src/services/purchases.js';
+describe('validateOrderLines', () => {
+  const P = {
+    a: { name: 'Agua', allowFractions: false, isTaxable: true, taxRate: '18', status: 'active', packagings: [{ id: 'k', name: 'Caja x24', factor: '24', status: 'active' }, { id: 'z', name: 'Vieja', factor: 6, status: 'inactive' }] },
+    v: { name: 'Camisa', status: 'active', hasVariants: true },
+    e: { name: 'Libro', allowFractions: true, isTaxable: false, taxRate: 18, status: 'active', packagings: [] }
+  };
+  const ok = (l) => validateOrderLines([l], P);
+  it('normaliza con empaque e ITBIS del producto', () => {
+    expect(ok({ productId: 'a', packagingId: 'k', quantity: 2, unitCost: '1200', taxRate: 0 }).lines[0])
+      .toEqual({ productId: 'a', packagingId: 'k', packagingName: 'Caja x24', packagingFactor: 24, quantity: 2, unitCost: 1200, taxRate: 18 });
+    expect(ok({ productId: 'e', quantity: 1.5, unitCost: 0 }).lines[0]).toMatchObject({ packagingFactor: 1, packagingName: null, taxRate: 0 });
+  });
+  it('rechaza lo inválido', () => {
+    expect(validateOrderLines([], P).error).toMatch(/al menos/);
+    expect(ok({ productId: 'x', quantity: 1, unitCost: 1 }).error).toMatch(/no existe/);
+    expect(ok({ productId: 'v', quantity: 1, unitCost: 1 }).error).toMatch(/variantes/);
+    expect(ok({ productId: 'a', packagingId: 'z', quantity: 1, unitCost: 1 }).error).toMatch(/empaque/);
+    expect(ok({ productId: 'a', quantity: 1.5, unitCost: 1 }).error).toMatch(/enteras/);
+    expect(ok({ productId: 'a', quantity: 1, unitCost: -1 }).error).toMatch(/costo/);
+  });
+});

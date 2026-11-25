@@ -91,3 +91,30 @@ export function purchaseSuggestions({ products, pendingByProduct = {}, lastPacka
   }
   return out;
 }
+
+// Valida y normaliza las líneas de una orden. productsById: { id: { name, allowFractions, isTaxable, taxRate, status, hasVariants, packagings: [{id, name, factor, status}] } }
+export function validateOrderLines(lines, productsById) {
+  if (!Array.isArray(lines) || !lines.length) return { error: 'Agrega al menos un producto a la orden.' };
+  const out = [];
+  for (const l of lines) {
+    const p = productsById[l.productId];
+    if (!p || p.status !== 'active') return { error: 'Uno de los productos no existe o está inactivo.' };
+    if (p.hasVariants) return { error: 'Las compras de productos con variantes se hacen a mano por ahora.' };
+    const pack = l.packagingId ? p.packagings?.find((k) => k.id === l.packagingId && k.status === 'active') : null;
+    if (l.packagingId && !pack) return { error: `El empaque de "${p.name}" no existe o está inactivo.` };
+    const qErr = quantityError({ quantity: l.quantity, allowFractions: p.allowFractions, hasPackaging: !!pack });
+    if (qErr) return { error: `${p.name}: ${qErr}` };
+    const unitCost = Number(l.unitCost);
+    if (!Number.isFinite(unitCost) || unitCost < 0) return { error: `${p.name}: el costo no puede ser negativo.` };
+    out.push({
+      productId: l.productId,
+      packagingId: pack ? pack.id : null,
+      packagingName: pack ? pack.name : null,
+      packagingFactor: pack ? Number(pack.factor) : 1,
+      quantity: Number(l.quantity),
+      unitCost,
+      taxRate: p.isTaxable ? Number(p.taxRate) : 0
+    });
+  }
+  return { lines: out, error: null };
+}
