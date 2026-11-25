@@ -23,4 +23,10 @@ describe('repriceRow', () => {
     const free = { price: 5, qty: 1, disc: 0 };
     expect(repriceRow(free, may)).toBe(free);
   });
+  it('línea de empaque usa solo el escalón de su empaque', () => {
+    const pk = [...cp, { category: 'Mayorista', packagingId: 'k1', minQuantity: 2, price: '900' }];
+    const r = { ...row, categoryPrices: pk, packagingId: 'k1', basePrice: 1000 };
+    expect(repriceRow({ ...r, qty: 1 }, may)).toMatchObject({ price: 1000, disc: 5 });
+    expect(repriceRow({ ...r, qty: 2 }, may)).toMatchObject({ price: 900, disc: 0 });
+  });
 });

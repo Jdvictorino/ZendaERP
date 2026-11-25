@@ -645,7 +645,10 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const catDiscounts = companyProfile?.pricing?.categoryDiscounts || {};
   const catKey = Object.keys(catDiscounts).find((k) => sameCategory(k, custCategory));
   const catPct = catKey ? Number(catDiscounts[catKey]) || 0 : 0;
-  const reprice = (row) => repriceRow(row, { category: custCategory, categoryDiscountPercent: catPct });
+  // ref: los manejadores de escáner guardan un addProduct viejo y deben ver el cliente actual
+  const priceCtx = useRef({});
+  priceCtx.current = { category: custCategory, categoryDiscountPercent: catPct };
+  const reprice = (row) => repriceRow(row, priceCtx.current);
   useEffect(() => { setRows(r => r.map(reprice)); }, [custCategory, catPct]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addProduct = (p) => {
@@ -691,7 +694,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     const o = cur?.options.find(k => (k.packagingId || '') === packagingId);
     if (!o) return r;
     const qty = o.packagingId ? Math.max(1, Math.round(cur.qty)) : cur.qty;
-    const sw = reprice({ ...cur, key: o.id, packagingId: o.packagingId, packagingName: o.packagingName, factor: o.factor, price: o.salePrice, basePrice: o.basePrice,
+    const sw = reprice({ ...cur, key: o.id, packagingId: o.packagingId, packagingName: o.packagingName, factor: o.factor, price: o.salePrice, basePrice: o.basePrice, manualPrice: false,
       desc: o.packagingName ? `${cur.baseDesc} — ${o.packagingName}` : cur.baseDesc, qty });
     // si ya hay otra línea igual (misma unidad), se suman en la primera
     const twin = r.find(x => x.id !== id && x.key === o.id);
