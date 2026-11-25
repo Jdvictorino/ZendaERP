@@ -334,6 +334,11 @@ export const settings = {
   updateNcf: (sequences) => put('/settings/ncf', sequences)
 };
 
+export const categoryPrices = {
+  summary: () => get('/category-prices/summary'),
+  importWholesale: () => post('/category-prices/import-wholesale', {})
+};
+
 export const alerts = {
   list: (params) => get('/alerts', params),
   create: (data) => post('/alerts', data),
