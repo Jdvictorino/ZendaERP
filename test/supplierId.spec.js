@@ -1,8 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeSupplierId as n } from '../backend/src/services/supplierId.js';
-import { formatSupplierId } from '../src/utils/supplierId.js';
+import { readFileSync } from 'node:fs';
+import * as back from '../backend/src/services/supplierId.js';
+import * as front from '../src/utils/supplierId.js';
 
-describe('normalizeSupplierId', () => {
+const { formatSupplierId, legacySupplierId } = back;
+
+for (const [name, mod] of [['backend', back], ['app', front]]) describe(`normalizeSupplierId (${name})`, () => {
+    const n = mod.normalizeSupplierId;
+    it('dígito verificador', () => {
+        for (const v of ['501050302', '531056152', '101850043', '101010632', '100000004']) expect(n('empresa', v).error).toBeNull();
+        expect(n('empresa', '100000003').error).toBe('El RNC no es válido (dígito verificador).');
+    });
     it('empresa', () => {
         expect(n('empresa', '1-00-00000-4')).toEqual({ value: '100000004', error: null });
         expect(n('empresa', '').error).toBe('El RNC es obligatorio para una empresa.');
@@ -34,4 +42,18 @@ describe('formatSupplierId', () => {
         expect(formatSupplierId('00112345678')).toBe('001-1234567-8');
         expect(formatSupplierId('12345')).toBe('12345');
     });
+});
+
+describe('legacySupplierId (apps 1.1.x sin supplierType)', () => {
+    it('infiere el tipo y no valida', () => {
+        expect(legacySupplierId('001-1234567-8')).toEqual({ supplierType: 'persona_fisica', identificationNumber: '00112345678' });
+        expect(legacySupplierId('')).toEqual({ supplierType: 'empresa', identificationNumber: null });
+        expect(legacySupplierId('123')).toEqual({ supplierType: 'empresa', identificationNumber: '123' });
+        expect(legacySupplierId('AB-12')).toEqual({ supplierType: 'empresa', identificationNumber: 'AB-12' });
+    });
+});
+
+it('las dos copias son idénticas desde la línea 2', () => {
+    const body = (p) => readFileSync(p, 'utf8').split(/\r?\n/).slice(1).join('|');
+    expect(body('src/utils/supplierId.js')).toBe(body('backend/src/services/supplierId.js'));
 });

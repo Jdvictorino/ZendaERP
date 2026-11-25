@@ -93,7 +93,9 @@ ALTER TABLE "purchase_receipts" ADD CONSTRAINT "purchase_receipts_userId_fkey" F
 ALTER TABLE "suppliers" ADD COLUMN "supplierType" TEXT NOT NULL DEFAULT 'empresa';
 
 UPDATE "suppliers" SET "supplierType" = 'persona_fisica'
-WHERE length(regexp_replace(coalesce("identificationNumber", "rnc", ''), '\D', '', 'g')) = 11;
+WHERE length(regexp_replace(coalesce(nullif("identificationNumber", ''), "rnc", ''), '\D', '', 'g')) = 11;
+
+UPDATE "suppliers" SET "supplierType" = 'exterior' WHERE "identificationNumber" ~ '[A-Za-z]';
 
 UPDATE "suppliers" SET "identificationNumber" = regexp_replace("identificationNumber", '[ -]', '', 'g')
 WHERE "identificationNumber" ~ '^[0-9 -]+$';

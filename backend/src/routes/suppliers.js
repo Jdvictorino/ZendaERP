@@ -4,7 +4,7 @@ import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
-import { normalizeSupplierId, SUPPLIER_TYPES } from '../services/supplierId.js';
+import { normalizeSupplierId, legacySupplierId, SUPPLIER_TYPES } from '../services/supplierId.js';
 import { httpError } from '../services/ncfService.js';
 
 const router = Router();
@@ -91,9 +91,15 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', authorize(...rolesFor('suppliers')), async (req, res, next) => {
   try {
     const data = supplierSchema.parse(req.body);
-    const id = normalizeSupplierId(data.supplierType, data.identificationNumber || data.rnc);
-    if (id.error) throw httpError(400, id.error);
-    data.identificationNumber = id.value;
+    const raw = data.identificationNumber || data.rnc;
+    if (req.body.supplierType === undefined) {
+      // App 1.1.x: sin tipo, no se valida
+      Object.assign(data, legacySupplierId(raw));
+    } else {
+      const id = normalizeSupplierId(data.supplierType, raw);
+      if (id.error) throw httpError(400, id.error);
+      data.identificationNumber = id.value;
+    }
     
     const supplier = await prisma.supplier.create({
       data: { ...data, companyId: req.companyId }
@@ -136,7 +142,7 @@ router.put('/:id', authorize(...rolesFor('suppliers')), async (req, res, next) =
     }
 
     // Apps viejas no mandan tipo ni identificación: no se valida
-    if (data.supplierType !== undefined || data.identificationNumber !== undefined) {
+    if (req.body.supplierType !== undefined) {
       const id = normalizeSupplierId(
         data.supplierType ?? existing.supplierType,
         data.identificationNumber !== undefined ? data.identificationNumber : (existing.identificationNumber || existing.rnc)
