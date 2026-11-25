@@ -23,22 +23,25 @@ router.get('/summary', async (req, res) => {
 router.post('/import-wholesale', authorize('admin', 'manager'), async (req, res) => {
   try {
     const companyId = req.companyId;
-    const created = await prisma.$transaction(async (tx) => {
+    const { created, customerCategories } = await prisma.$transaction(async (tx) => {
+      // Mismo bloqueo que toda escritura de settings y la emisión de NCF; además serializa el doble clic
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`ncf:${companyId}`}))::text`;
       const company = await tx.company.findUnique({ where: { id: companyId }, select: { settings: true } });
       const settings = company?.settings || {};
       const list = settings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES;
+      let categories = list;
       let category = list.find((c) => sameCategory(c, 'Mayorista'));
       if (!category) {
         category = 'Mayorista';
-        await tx.company.update({ where: { id: companyId }, data: { settings: { ...settings, customerCategories: [...list, category] } } });
+        await tx.company.update({ where: { id: companyId }, data: { settings: { ...settings, customerCategories: (categories = [...list, category]) } } });
       }
       const products = await tx.product.findMany({ where: { companyId, status: 'active', wholesalePrice: { gt: 0 } }, select: { id: true, wholesalePrice: true } });
       const existing = await tx.categoryPrice.findMany({ where: { companyId, category }, select: { productId: true, category: true, packagingId: true, minQuantity: true } });
       const rows = wholesaleRows(products, existing, category).map((r) => ({ ...r, companyId }));
       if (rows.length) await tx.categoryPrice.createMany({ data: rows });
-      return rows.length;
+      return { created: rows.length, customerCategories: categories };
     });
-    res.json({ created });
+    res.json({ created, customerCategories });
   } catch (error) {
     console.error('Error al importar precios al por mayor:', error);
     res.status(500).json({ error: 'Error al importar los precios al por mayor' });

@@ -47,18 +47,27 @@ describe('categorías por defecto', () => {
 describe('planCategoryChanges', () => {
   const plan = (o, n, e) => planCategoryChanges(o, n, e ? { apply: true, entries: e } : undefined);
   it('renombre: el destino queda y el origen sale', () => {
-    expect(plan(['A', 'B'], ['A', 'C'], [{ from: 'B', to: 'C' }])).toEqual({ renames: [{ from: 'B', to: 'C' }], removed: [] });
+    expect(plan(['A', 'B'], ['A', 'C'], [{ from: 'B', to: 'C' }])).toEqual({ renames: [{ from: 'B', to: 'C' }], merges: [], removed: [] });
   });
   it('borrado sin renombre', () => {
-    expect(plan(['A', 'B'], ['A'])).toEqual({ renames: [], removed: ['B'] });
+    expect(plan(['A', 'B'], ['A'])).toEqual({ renames: [], merges: [], removed: ['B'] });
   });
-  it('renombre en cadena: solo los que no chocan con la lista nueva', () => {
-    const r = plan(['A', 'B'], ['B', 'C'], [{ from: 'A', to: 'B' }, { from: 'B', to: 'C' }]);
-    expect(r).toEqual({ renames: [{ from: 'A', to: 'B' }], removed: [] });
+  it('cadena de una entrada por tecla: renombra y no borra', () => {
+    const chain = [{ from: 'VIP', to: 'VIP ' }, { from: 'VIP ', to: 'VIP O' }, { from: 'VIP O', to: 'VIP Or' }, { from: 'VIP Or', to: 'VIP Oro' }];
+    expect(plan(['General', 'VIP', 'Mayorista'], ['General', 'VIP Oro', 'Mayorista'], chain))
+      .toEqual({ renames: [{ from: 'VIP', to: 'VIP Oro' }], merges: [], removed: [] });
+  });
+  it('destino que ya existía: es fusión, los precios de la origen se borran', () => {
+    expect(plan(['A', 'B'], ['B'], [{ from: 'A', to: 'B' }])).toEqual({ renames: [], merges: [{ from: 'A', to: 'B' }], removed: ['A'] });
+  });
+  it('intercambio simultáneo: cada origen sigue su propia cadena', () => {
+    expect(plan(['A', 'B'], ['C', 'D'], [{ from: 'A', to: 'C' }, { from: 'B', to: 'D' }]))
+      .toEqual({ renames: [{ from: 'A', to: 'C' }, { from: 'B', to: 'D' }], merges: [], removed: [] });
   });
   it('lista nueva vacía o ausente: nada', () => {
-    expect(plan(['A'], [], [{ from: 'A', to: 'B' }])).toEqual({ renames: [], removed: [] });
-    expect(plan(['A'], undefined)).toEqual({ renames: [], removed: [] });
+    const none = { renames: [], merges: [], removed: [] };
+    expect(plan(['A'], [], [{ from: 'A', to: 'B' }])).toEqual(none);
+    expect(plan(['A'], undefined)).toEqual(none);
   });
 });
 

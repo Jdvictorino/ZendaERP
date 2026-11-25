@@ -157,13 +157,21 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     
     if (customerCategories !== undefined) {
       // Renombres y borrados de categorías: precios siempre; clientes solo si el usuario lo aceptó
-      const { renames, removed } = planCategoryChanges(
+      const { renames, merges, removed } = planCategoryChanges(
         currentSettings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES, customerCategories, _categoryMigrations);
-      for (const { from, to } of renames) {
-        if (_categoryMigrations.apply === true) await tx.customer.updateMany({ where: { companyId: user.companyId, category: from }, data: { category: to } });
-        await tx.categoryPrice.updateMany({ where: { companyId: user.companyId, category: from }, data: { category: to } });
+      const companyId = user.companyId;
+      // Ids primero: los cambios son simultáneos y no se encadenan entre sí
+      const moves = [];
+      for (const { from, to } of [...renames, ...merges]) {
+        const customers = _categoryMigrations.apply === true ? await tx.customer.findMany({ where: { companyId, category: from }, select: { id: true } }) : [];
+        const prices = renames.some((r) => r.from === from) ? await tx.categoryPrice.findMany({ where: { companyId, category: from }, select: { id: true } }) : [];
+        moves.push({ to, customers: customers.map((c) => c.id), prices: prices.map((c) => c.id) });
       }
-      if (removed.length) await tx.categoryPrice.deleteMany({ where: { companyId: user.companyId, category: { in: removed } } });
+      if (removed.length) await tx.categoryPrice.deleteMany({ where: { companyId, category: { in: removed } } });
+      for (const m of moves) {
+        if (m.customers.length) await tx.customer.updateMany({ where: { id: { in: m.customers } }, data: { category: m.to } });
+        if (m.prices.length) await tx.categoryPrice.updateMany({ where: { id: { in: m.prices } }, data: { category: m.to } });
+      }
       newSettings.customerCategories = customerCategories;
     }
     if (address !== undefined) {

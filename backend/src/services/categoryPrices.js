@@ -48,13 +48,28 @@ export async function saveCategoryPrices(tx, { companyId, productId, rows, categ
 
 const has = (list, c) => list.some((x) => sameCategory(x, c));
 
-/** Qué renombres y borrados implica pasar de la lista vieja a la nueva. Lista nueva vacía o ausente: nada. */
+/**
+ * Qué cambia al pasar de la lista vieja a la nueva. Cada categoría vieja sigue la cadena de entradas
+ * (la UI manda una por tecla) hasta su nombre final:
+ * - renames: el nombre final es nuevo y está en la lista (precios y clientes se mueven)
+ * - merges: el nombre final ya existía (solo clientes; los precios de la origen se borran)
+ * - removed: precios a borrar (categorías quitadas y orígenes de un merge)
+ * Lista nueva vacía o ausente: nada.
+ */
 export function planCategoryChanges(oldList, newList, migrations) {
-  if (!Array.isArray(newList) || !newList.length) return { renames: [], removed: [] };
+  if (!Array.isArray(newList) || !newList.length) return { renames: [], merges: [], removed: [] };
   const old = Array.isArray(oldList) ? oldList : [];
-  const renames = (migrations?.entries || []).filter((e) => e?.from && e?.to && has(newList, e.to) && !has(newList, e.from));
-  const removed = old.filter((c) => !has(newList, c) && !renames.some((r) => sameCategory(r.from, c)));
-  return { renames, removed };
+  const entries = (migrations?.entries || []).filter((e) => e?.from && e?.to);
+  const renames = [], merges = [], removed = [];
+  for (const o of old) {
+    if (has(newList, o)) continue;
+    let cur = o;
+    for (const e of entries) if (sameCategory(e.from, cur)) cur = e.to;
+    if (sameCategory(cur, o) || !has(newList, cur)) removed.push(o);
+    else if (has(old, cur)) { merges.push({ from: o, to: cur }); removed.push(o); }
+    else renames.push({ from: o, to: cur });
+  }
+  return { renames, merges, removed };
 }
 
 /** Filas base (cantidad 1, sin empaque) con el precio al por mayor de cada producto que aún no la tiene en la categoría. */
