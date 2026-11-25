@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkLinePrice, creditExceeded, allowedDiscountPercent, couponCap } from '../backend/src/services/pricing.js';
+import { anyLineFromCategory, checkLinePrice, creditExceeded, allowedDiscountPercent, couponCap } from '../backend/src/services/pricing.js';
 
 const prod = { salePrice: '150.00', wholesalePrice: '130.00', isTaxable: true, taxRate: '18.00' };
 const line = (o) => ({ unitPrice: 150, discountPercent: 0, taxRate: 18, ...o });
@@ -98,5 +98,15 @@ describe('allowedDiscountPercent sin categoría', () => {
     const pricing = { maxDiscountPercent: 5, categoryDiscounts: { VIP: 10 } };
     expect(allowedDiscountPercent(pricing, { category: 'VIP', defaultDiscount: 7 }, { withCategory: false })).toBe(7);
     expect(allowedDiscountPercent(pricing, { category: 'VIP' }, { withCategory: false })).toBe(5);
+  });
+});
+
+describe('anyLineFromCategory', () => {
+  const rows = [{ productId: 'p1', category: 'VIP', packagingId: null, minQuantity: 5, price: '100' }];
+  const item = (q) => ({ productId: 'p1', packagingId: null, quantity: q, unitPrice: 150 });
+  it('línea con escalón aplicable, bajo el escalón y sin categoría', () => {
+    expect(anyLineFromCategory([item(5)], 'vip', rows)).toBe(true);
+    expect(anyLineFromCategory([item(2)], 'vip', rows)).toBe(false);
+    expect(anyLineFromCategory([item(5)], null, rows)).toBe(false);
   });
 });

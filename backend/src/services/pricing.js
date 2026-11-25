@@ -35,6 +35,10 @@ export function checkLinePrice(item, product, variant, maxDiscount, packaging = 
   return { needsApproval, taxRate: product.isTaxable ? Number(product.taxRate) : 0, error: null };
 }
 
+// ¿Alguna línea ya salió a precio de la categoría? (entonces el % de la categoría no se suma sobre el total)
+export const anyLineFromCategory = (items, category, categoryPrices) =>
+  !!category?.trim() && items.some((i) => resolveUnitPrice({ basePrice: i.unitPrice, category, packagingId: i.packagingId ?? null, quantity: i.quantity, categoryPrices: categoryPrices.filter((r) => r.productId === i.productId) }).fromCategory);
+
 export const creditExceeded = ({ creditLimit, pendingBalance, newTotal }) =>
   Number(creditLimit) > 0 && Number(pendingBalance) + Number(newTotal) > Number(creditLimit) + 0.01;
 

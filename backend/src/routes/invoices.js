@@ -13,7 +13,7 @@ import { priceInvoiceLines } from '../services/invoiceAmounts.js';
 import { discountedAmounts } from '../services/ecfXmlBuilder.js';
 import { isTaxExempt, todayRD, voucherError } from '../services/tax.js';
 import { baseQuantity, quantityError, roundQty, formatQty, unitOf } from '../services/units.js';
-import { allowedDiscountPercent, categoryDiscount, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
+import { allowedDiscountPercent, categoryDiscount, anyLineFromCategory, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
 
@@ -437,7 +437,13 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
         invoice.customerId ? prisma.customer.findFirst({ where: { id: invoice.customerId, companyId: req.companyId } }) : null,
         body.appliedCoupon?.id ? prisma.offer.findFirst({ where: { id: String(body.appliedCoupon.id), companyId: req.companyId } }) : null
       ]);
-      const cap = Math.max(grossTotal * allowedDiscountPercent(company?.settings?.pricing, customer) / 100, couponCap(offer, grossTotal));
+      // Con líneas a precio de categoría, el % de la categoría no se suma sobre el total
+      const category = customer?.category?.trim() || null;
+      const categoryPrices = category && invoice.items.length
+        ? await prisma.categoryPrice.findMany({ where: { companyId: req.companyId, productId: { in: invoice.items.map((i) => i.productId).filter(Boolean) }, category: { equals: category, mode: 'insensitive' } } })
+        : [];
+      const withCategory = !anyLineFromCategory(invoice.items, category, categoryPrices);
+      const cap = Math.max(grossTotal * allowedDiscountPercent(company?.settings?.pricing, customer, { withCategory }) / 100, couponCap(offer, grossTotal));
       if (discount > cap + 0.01 && (await requireApproval(req, res, 'price_override')) === false) return;
       updateData.discountAmount = discount;
       updateData.total = grossTotal - discount;
