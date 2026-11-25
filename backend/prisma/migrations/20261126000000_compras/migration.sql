@@ -88,3 +88,12 @@ ALTER TABLE "purchase_receipts" ADD CONSTRAINT "purchase_receipts_purchaseOrderI
 
 -- AddForeignKey
 ALTER TABLE "purchase_receipts" ADD CONSTRAINT "purchase_receipts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Proveedores: tipo de proveedor
+ALTER TABLE "suppliers" ADD COLUMN "supplierType" TEXT NOT NULL DEFAULT 'empresa';
+
+UPDATE "suppliers" SET "supplierType" = 'persona_fisica'
+WHERE length(regexp_replace(coalesce("identificationNumber", "rnc", ''), '\D', '', 'g')) = 11;
+
+UPDATE "suppliers" SET "identificationNumber" = regexp_replace("identificationNumber", '[ -]', '', 'g')
+WHERE "identificationNumber" ~ '^[0-9 -]+$';

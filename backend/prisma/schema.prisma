@@ -170,6 +170,7 @@ model Supplier {
   name                 String
   rnc                  String?
   identificationNumber String?  // Cédula o pasaporte
+  supplierType         String   @default("empresa") // empresa | persona_fisica | informal | exterior
   contactName          String?
   phone                String?
   email                String?
