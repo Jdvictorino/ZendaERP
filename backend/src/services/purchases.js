@@ -37,7 +37,7 @@ export function planReceipt(orderItems, receiptLines, productsById = {}) {
       itemId: item.id, productId: item.productId, quantity,
       baseQuantity: roundQty(quantity * factor),
       newReceived: roundQty(received + quantity),
-      costPrice: round2(Number(item.unitCost) / factor)
+      costPrice: round2(Number(item.unitCost) / factor) // 0 = bonificación: la ruta no pisa el costo del producto
     });
   }
   if (!changes.length) return { changes, error: 'No hay nada que recibir.' };
@@ -65,6 +65,16 @@ export function planInvoice(orderItems, lines) {
   }
   if (!updates.length) return { montoBienes: 0, itbisFacturado: 0, updates, error: 'No hay nada que facturar.' };
   return { montoBienes: round2(montoBienes), itbisFacturado: round2(itbisFacturado), updates, error: null };
+}
+
+// Resta de invoicedQuantity lo que facturó un gasto ({ itemId, quantity }[]); nunca baja de 0
+export function undoInvoice(orderItems, lines) {
+  const out = [];
+  for (const l of lines) {
+    const item = orderItems.find((i) => i.id === l.itemId);
+    if (item) out.push({ itemId: item.id, newInvoiced: Math.max(0, roundQty(Number(item.invoicedQuantity) - Number(l.quantity))) });
+  }
+  return out;
 }
 
 export function purchaseSuggestions({ products, pendingByProduct = {}, lastPackagingByProduct = {} }) {

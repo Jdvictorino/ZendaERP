@@ -1,5 +1,6 @@
 -- AlterTable
-ALTER TABLE "expenses" ADD COLUMN "purchaseOrderId" TEXT;
+ALTER TABLE "expenses" ADD COLUMN "purchaseOrderId" TEXT,
+ADD COLUMN "invoiceLines" JSONB;
 
 -- CreateTable
 CREATE TABLE "purchase_orders" (

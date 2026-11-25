@@ -534,6 +534,7 @@ model Expense {
   ecfDocuments    EcfDocument[]
   purchaseOrderId String?
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  invoiceLines    Json? // [{ itemId, quantity }] facturado por este gasto, para deshacerlo
   // Pago al exterior (formato 609): { idType, taxId, country, serviceType, serviceDetail, relatedParty, documentNumber, rentaPresunta }
   foreignPayment  Json?
   

@@ -99,8 +99,12 @@ const PurchasesView = ({ companyProfile, currentUserProfile }) => {
     }, []);
     useEffect(() => { if (tab === 'suggestions' && canWrite) loadSuggestions(); }, [tab, canWrite, loadSuggestions]);
 
-    const act = async (fn, okMsg) => {
-        try { await fn(); toast.success(okMsg); setModal(null); await load(); return true; } catch (e) { toast.error(errMsg(e)); return false; }
+    const act = async (fn, okMsg, refreshProducts = false) => {
+        try {
+            await fn(); toast.success(okMsg); setModal(null); await load();
+            // la recepción cambia el costo: un borrador nuevo debe tomarlo
+            if (refreshProducts) { const r = await productsApi.list(); setProducts((Array.isArray(r) ? r : r?.data || []).filter((p) => p.status !== 'inactive' && !p.variants?.length)); }
+            return true; } catch (e) { toast.error(errMsg(e)); return false; }
     };
     // la lista trae solo el resumen; el detalle (líneas, recepciones) se pide al abrir cada modal
     const openWithDetail = async (type, o) => {
@@ -218,7 +222,7 @@ const PurchasesView = ({ companyProfile, currentUserProfile }) => {
             )}
             {modal?.type === 'receive' && (
                 <ReceiveModal isOpen onClose={() => setModal(null)} order={modal.order}
-                    onSubmit={(data) => act(() => purchaseOrders.receive(modal.order.id, data), 'Recepción registrada')} />
+                    onSubmit={(data) => act(() => purchaseOrders.receive(modal.order.id, data), 'Recepción registrada', true)} />
             )}
             {modal?.type === 'invoice' && (
                 <SupplierInvoiceModal isOpen onClose={() => setModal(null)} order={modal.order}

@@ -243,7 +243,7 @@ router.post('/:id/receive', authorize(...rolesFor('purchases')), async (req, res
         if (!exists) throw bad('Uno de los productos de la orden ya no existe.', 409);
         const added = new Prisma.Decimal(c.baseQuantity);
         // Incremento atómico: no pisa una venta que confirme a la vez
-        const { stock } = await tx.product.update({ where: { id: c.productId }, data: { stock: { increment: added }, costPrice: c.costPrice }, select: { stock: true } });
+        const { stock } = await tx.product.update({ where: { id: c.productId }, data: { stock: { increment: added }, ...(c.costPrice > 0 && { costPrice: c.costPrice }) }, select: { stock: true } });
         const newStock = new Prisma.Decimal(stock);
         const previous = newStock.minus(added);
         await tx.inventoryLog.create({
@@ -287,17 +287,19 @@ router.post('/:id/invoice', authorize(...rolesFor('finance-expenses')), async (r
         unitCost: Number(i.unitCost), taxRate: Number(i.taxRate), packagingId: i.packagingId,
         packagingFactor: i.packagingFactor == null ? 1 : Number(i.packagingFactor)
       }));
+      if (['informal', 'exterior'].includes(cur.supplier.supplierType)) throw bad('Las compras a un proveedor informal o del exterior se registran desde Gastos (B11/B17).');
       if (!cur.supplier.rnc && !cur.supplier.identificationNumber) throw bad('El suplidor no tiene RNC o cédula: agrégalo en Proveedores antes de registrar la factura.');
       const plan = planInvoice(items, data.lines);
       if (plan.error) throw bad(plan.error);
       const created = await tx.expense.create({
         data: {
           companyId: req.companyId, userId: req.user.id, supplierId: cur.supplierId,
-          supplierName: cur.supplier.name, rncCedula: cur.supplier.rnc || cur.supplier.identificationNumber,
+          supplierName: cur.supplier.name, rncCedula: cur.supplier.identificationNumber || cur.supplier.rnc,
           ncf: data.ncf, invoiceDate: new Date(data.invoiceDate),
           montoBienes: plan.montoBienes, montoServicios: 0, itbisFacturado: plan.itbisFacturado, montoFacturado: plan.montoBienes,
           expenseType: '09-COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', paymentType: data.paymentType,
-          description: `Factura de la orden de compra ${cur.number}`, purchaseOrderId: cur.id
+          description: `Factura de la orden de compra ${cur.number}`, purchaseOrderId: cur.id,
+          invoiceLines: plan.updates.map((u) => ({ itemId: u.itemId, quantity: data.lines.find((l) => l.itemId === u.itemId).quantity }))
         }
       });
       for (const u of plan.updates) await tx.purchaseOrderItem.update({ where: { id: u.itemId }, data: { invoicedQuantity: u.newInvoiced } });

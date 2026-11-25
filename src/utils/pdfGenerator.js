@@ -678,7 +678,7 @@ export const purchaseOrderDocData = (order) => {
         date: order.createdAt,
         notes: [order.notes, expected && `Fecha esperada: ${expected}`].filter(Boolean).join('\n'),
         customerName: supplier.name,
-        customerRnc: supplier.rnc || supplier.identificationNumber,
+        customerRnc: supplier.identificationNumber || supplier.rnc,
         pricesIncludeTax: false,
     };
 };

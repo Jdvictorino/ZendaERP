@@ -4,6 +4,7 @@ import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { emitExpenseEcf } from '../services/ecfService.js';
+import { undoInvoice } from '../services/purchases.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 
 const router = Router();
@@ -72,6 +73,12 @@ const sameValue = (field, saved, sent) => {
   if (typeof sent === 'number') return Math.abs(Number(saved) - sent) < 0.005;
   return (saved || '') === (sent || '');
 };
+
+// Factura de una orden de compra: solo se bloquea si cambia algo que toca el inventario o el 606 (el formulario reenvía todo al guardar)
+const LINKED_LOCKED = ['rncCedula', 'supplierName', 'montoBienes', 'montoServicios', 'itbisFacturado', 'itbisRetenido', 'montoRetencionIsr', 'propina'];
+export const linkedExpenseChanged = (existing, data) =>
+  LINKED_LOCKED.some((f) => !sameValue(f, existing[f], data[f])) ||
+  (data.supplierId !== undefined && (data.supplierId || null) !== (existing.supplierId || null));
 
 /**
  * GET /api/expenses
@@ -201,8 +208,8 @@ router.put('/:id', authorize(...rolesFor('finance-expenses')), async (req, res, 
       return res.status(404).json({ error: 'Gasto no encontrado' });
     }
 
-    if (existing.purchaseOrderId && ['montoBienes', 'montoServicios', 'itbisFacturado', 'itbisRetenido', 'montoRetencionIsr', 'propina', 'supplierId'].some((f) => data[f] !== undefined)) {
-      throw httpError(409, 'Esta factura viene de una orden de compra: corrígela desde Compras.');
+    if (existing.purchaseOrderId && linkedExpenseChanged(existing, data)) {
+      throw httpError(409, 'Los montos de una factura de compra no se editan: elimínala (gerente) y regístrala de nuevo desde Compras.');
     }
 
     if (existing.issuedVoucher) {
@@ -243,10 +250,21 @@ router.delete('/:id', authorize('admin', 'manager'), async (req, res, next) => {
       return res.status(404).json({ error: 'Gasto no encontrado' });
     }
 
-    if (existing.purchaseOrderId) throw httpError(409, 'Esta factura viene de una orden de compra: corrígela desde Compras.');
-
     if (existing.issuedVoucher) {
       throw httpError(400, `Este gasto emitió el comprobante ${existing.ncf} y no se puede eliminar: el número ya está usado ante la DGII.`);
+    }
+
+    if (existing.purchaseOrderId) {
+      if (!req.user.isAdmin && req.user.role !== 'manager') throw httpError(403, 'Solo un gerente puede eliminar una factura de compra.');
+      const lines = existing.invoiceLines;
+      if (!Array.isArray(lines)) throw httpError(409, 'Esta factura de compra no guardó sus líneas y no se puede deshacer automáticamente.');
+      await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM purchase_orders WHERE id = ${existing.purchaseOrderId} AND "companyId" = ${req.companyId} FOR UPDATE`;
+        const items = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId: existing.purchaseOrderId } });
+        for (const u of undoInvoice(items, lines)) await tx.purchaseOrderItem.update({ where: { id: u.itemId }, data: { invoicedQuantity: u.newInvoiced } });
+        await tx.expense.delete({ where: { id: existing.id } });
+      });
+      return res.json({ message: 'Factura de compra eliminada' });
     }
 
     await prisma.expense.delete({ where: { id: req.params.id } });
