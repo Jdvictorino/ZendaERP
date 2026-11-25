@@ -1,4 +1,4 @@
-import { validateCategoryPrices } from '../backend/src/services/categoryPrices.js';
+import { validateCategoryPrices, DEFAULT_CUSTOMER_CATEGORIES } from '../backend/src/services/categoryPrices.js';
 import { QUANTITY_FIELDS } from '../backend/src/services/quantityFields.js';
 
 const ctx = { categories: ['Mayorista', 'Colmado'], packagingIds: new Set(['p1']), allowFractions: false };
@@ -35,5 +35,11 @@ describe('validateCategoryPrices', () => {
 describe('QUANTITY_FIELDS', () => {
   it('incluye categoryPrice.minQuantity', () => {
     expect(QUANTITY_FIELDS.categoryPrice).toEqual(['minQuantity']);
+  });
+});
+
+describe('categorías por defecto', () => {
+  it('General, VIP y Mayorista son válidas sin configuración de la empresa', () => {
+    expect(validateCategoryPrices([{ ...row, category: 'VIP' }], { ...ctx, categories: DEFAULT_CUSTOMER_CATEGORIES })).toBeNull();
   });
 });

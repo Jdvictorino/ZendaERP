@@ -6,7 +6,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { assertSameCompany } from '../services/ownership.js';
 import { BASE_UNITS, quantityError, roundQty } from '../services/units.js';
 import { savePackagings, assertBarcodeNotInPackagings } from '../services/packagings.js';
-import { saveCategoryPrices } from '../services/categoryPrices.js';
+import { saveCategoryPrices, DEFAULT_CUSTOMER_CATEGORIES } from '../services/categoryPrices.js';
 
 const router = Router();
 
@@ -47,7 +47,7 @@ async function saveProductCategoryPrices(tx, { companyId, productId, rows, allow
   const packs = await tx.productPackaging.findMany({ where: { productId, status: 'active' }, select: { id: true } });
   await saveCategoryPrices(tx, {
     companyId, productId, rows, allowFractions,
-    categories: Array.isArray(categories) ? categories : [],
+    categories: Array.isArray(categories) ? categories : DEFAULT_CUSTOMER_CATEGORIES,
     packagingIds: new Set(packs.map((p) => p.id))
   });
 }

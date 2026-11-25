@@ -1,6 +1,9 @@
 import { quantityError } from './units.js';
 import { sameCategory } from './categoryPricing.js';
 
+// Categorías que ve la UI cuando la empresa nunca guardó las suyas
+export const DEFAULT_CUSTOMER_CATEGORIES = ['General', 'VIP', 'Mayorista'];
+
 // Devuelve el primer error de las filas de precios por categoría, o null si son válidas.
 // Sin índice único en BD (NULL cuenta como distinto): la unicidad la garantiza esta validación.
 export function validateCategoryPrices(rows, { categories = [], packagingIds = new Set(), allowFractions = true } = {}) {

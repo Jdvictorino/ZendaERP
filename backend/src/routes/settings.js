@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
+import { DEFAULT_CUSTOMER_CATEGORIES } from '../services/categoryPrices.js';
 
 const router = express.Router();
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -61,7 +62,7 @@ router.get('/', async (req, res) => {
       
       // Campos guardados en settings JSON
       allowCustomization: settings.allowCustomization ?? true,
-      customerCategories: settings.customerCategories || ['General', 'VIP', 'Mayorista'],
+      customerCategories: settings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES,
       pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
