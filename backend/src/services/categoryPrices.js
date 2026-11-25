@@ -52,24 +52,35 @@ const has = (list, c) => list.some((x) => sameCategory(x, c));
  * Qué cambia al pasar de la lista vieja a la nueva. Cada categoría vieja sigue la cadena de entradas
  * (la UI manda una por tecla) hasta su nombre final:
  * - renames: el nombre final es nuevo y está en la lista (precios y clientes se mueven)
- * - merges: el nombre final ya existía (solo clientes; los precios de la origen se borran)
- * - removed: precios a borrar (categorías quitadas y orígenes de un merge)
- * Lista nueva vacía o ausente: nada.
+ * - merges: el nombre final ya existía, o ya lo toma otra categoría (solo clientes; los precios de la origen se borran)
+ * - removed: precios a borrar (categorías quitadas y orígenes de un merge); vacío salvo que migrations.pricesAware === true
+ * Con varias categorías que terminan en el mismo nombre, solo una es renombre: la primera de la lista vieja
+ * cuya cadena no pasa por otra del grupo. Lista nueva vacía o ausente: nada.
  */
 export function planCategoryChanges(oldList, newList, migrations) {
   if (!Array.isArray(newList) || !newList.length) return { renames: [], merges: [], removed: [] };
   const old = Array.isArray(oldList) ? oldList : [];
   const entries = (migrations?.entries || []).filter((e) => e?.from && e?.to);
-  const renames = [], merges = [], removed = [];
+  const merges = [], removed = [], groups = [];
   for (const o of old) {
     if (has(newList, o)) continue;
     let cur = o;
-    for (const e of entries) if (sameCategory(e.from, cur)) cur = e.to;
-    if (sameCategory(cur, o) || !has(newList, cur)) removed.push(o);
-    else if (has(old, cur)) { merges.push({ from: o, to: cur }); removed.push(o); }
-    else renames.push({ from: o, to: cur });
+    const via = [];
+    for (const e of entries) if (sameCategory(e.from, cur)) { cur = e.to; via.push(cur); }
+    if (sameCategory(cur, o) || !has(newList, cur)) { removed.push(o); continue; }
+    const g = groups.find((x) => sameCategory(x.to, cur));
+    if (g) g.items.push({ from: o, via }); else groups.push({ to: cur, items: [{ from: o, via }] });
   }
-  return { renames, merges, removed };
+  const renames = [];
+  for (const { to, items } of groups) {
+    const direct = (i) => !items.some((j) => j !== i && i.via.some((v) => sameCategory(v, j.from)));
+    const winner = has(old, to) ? null : items.find(direct) || items[0];
+    for (const i of items) {
+      if (i === winner) renames.push({ from: i.from, to });
+      else { merges.push({ from: i.from, to }); removed.push(i.from); }
+    }
+  }
+  return { renames, merges, removed: migrations?.pricesAware === true ? removed : [] };
 }
 
 /** Filas base (cantidad 1, sin empaque) con el precio al por mayor de cada producto que aún no la tiene en la categoría. */
