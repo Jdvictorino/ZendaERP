@@ -65,3 +65,38 @@ describe('couponCap', () => {
     expect(couponCap({ ...offer, status: 'inactive' }, 500)).toBe(0);
   });
 });
+
+describe('precio por categoría', () => {
+  const rows = [
+    { category: 'VIP', packagingId: null, minQuantity: 1, price: '120.00' },
+    { category: 'VIP', packagingId: null, minQuantity: 10, price: '100.00' }
+  ];
+  const p = { ...prod, categoryPrices: rows };
+  const ctx = { category: 'vip', categoryDiscountPercent: 10, maxDiscountNoCategory: 5 };
+  const run = (o, c = ctx, product = p) => checkLinePrice(line(o), product, null, 10, null, c).needsApproval;
+
+  it('el precio del escalón no pide PIN', () => {
+    expect(run({ unitPrice: 100, quantity: 10 })).toBe(false);
+    expect(run({ unitPrice: 120, quantity: 3 })).toBe(false);
+  });
+  it('el precio de un escalón que la cantidad no alcanza pide PIN', () => {
+    expect(run({ unitPrice: 100, quantity: 3 })).toBe(true);
+  });
+  it('con precio de categoría el % de la categoría no cuenta', () => {
+    expect(run({ unitPrice: 120, quantity: 3, discountPercent: 8 })).toBe(true);
+    expect(run({ unitPrice: 120, quantity: 3, discountPercent: 5 })).toBe(false);
+    expect(run({ unitPrice: 150, quantity: 3, discountPercent: 8 })).toBe(true);
+  });
+  it('sin ctx o sin filas todo sigue igual', () => {
+    expect(checkLinePrice(line({ unitPrice: 100, quantity: 10 }), p, null, 10).needsApproval).toBe(true);
+    expect(run({ unitPrice: 150, quantity: 1, discountPercent: 8 }, ctx, prod)).toBe(false);
+  });
+});
+
+describe('allowedDiscountPercent sin categoría', () => {
+  it('withCategory false ignora el % de la categoría', () => {
+    const pricing = { maxDiscountPercent: 5, categoryDiscounts: { VIP: 10 } };
+    expect(allowedDiscountPercent(pricing, { category: 'VIP', defaultDiscount: 7 }, { withCategory: false })).toBe(7);
+    expect(allowedDiscountPercent(pricing, { category: 'VIP' }, { withCategory: false })).toBe(5);
+  });
+});
