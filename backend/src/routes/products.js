@@ -6,6 +6,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { assertSameCompany } from '../services/ownership.js';
 import { BASE_UNITS, quantityError, roundQty } from '../services/units.js';
 import { savePackagings, assertBarcodeNotInPackagings } from '../services/packagings.js';
+import { saveCategoryPrices } from '../services/categoryPrices.js';
 
 const router = Router();
 
@@ -31,11 +32,31 @@ const packagingSchema = z.object({
   barcode: z.string().optional().nullable(),
   salePrice: z.preprocess(toNumber, z.number().min(0).optional().nullable())
 });
+// El precio llega crudo: lo valida validateCategoryPrices (vacío/negativo = error en español)
+const categoryPriceSchema = z.object({
+  category: z.string(),
+  packagingId: z.string().optional().nullable(),
+  minQuantity: z.coerce.number(),
+  price: z.any()
+});
+const categoryPricesOrder = { orderBy: [{ category: 'asc' }, { packagingId: { sort: 'asc', nulls: 'first' } }, { minQuantity: 'asc' }] };
+// Guarda los precios por categoría; las categorías salen de la empresa y los empaques son los activos ya guardados
+async function saveProductCategoryPrices(tx, { companyId, productId, rows, allowFractions }) {
+  const company = await tx.company.findUnique({ where: { id: companyId }, select: { settings: true } });
+  const categories = company?.settings?.customerCategories;
+  const packs = await tx.productPackaging.findMany({ where: { productId, status: 'active' }, select: { id: true } });
+  await saveCategoryPrices(tx, {
+    companyId, productId, rows, allowFractions,
+    categories: Array.isArray(categories) ? categories : [],
+    packagingIds: new Set(packs.map((p) => p.id))
+  });
+}
 const activePackagings = { where: { status: 'active' }, orderBy: { factor: 'asc' } };
 const productInclude = {
   category: { select: { id: true, name: true } },
   supplier: { select: { id: true, name: true } },
-  packagings: activePackagings
+  packagings: activePackagings,
+  categoryPrices: categoryPricesOrder
 };
 
 // Un producto sin fracciones solo maneja cantidades enteras
@@ -68,6 +89,7 @@ const productSchemaBase = z.object({
   unit: z.preprocess(toUnit, z.enum(UNIT_CODES).default('unidad')),
   allowFractions: z.preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean().default(false)),
   packagings: z.array(packagingSchema).optional(),
+  categoryPrices: z.array(categoryPriceSchema).optional(),
   taxRate: z.preprocess(toNumber, z.number().min(0).max(100).default(18)),
   taxStatus: z.string().optional(), // Frontend envía taxStatus
   isTaxable: z.preprocess((val) => val === true || val === 'true', z.boolean().default(true)),
@@ -151,7 +173,8 @@ router.get('/', async (req, res, next) => {
           category: { select: { id: true, name: true } },
           supplier: { select: { id: true, name: true } },
           variants: true,
-          packagings: activePackagings
+          packagings: activePackagings,
+          categoryPrices: categoryPricesOrder
         },
         orderBy: { name: 'asc' },
         skip: take ? (parseInt(page) - 1) * take : undefined,
@@ -190,6 +213,7 @@ router.get('/:id', async (req, res, next) => {
         supplier: true,
         variants: true,
         packagings: activePackagings,
+        categoryPrices: categoryPricesOrder,
         inventoryLogs: {
           orderBy: { createdAt: 'desc' },
           take: 50
@@ -213,7 +237,7 @@ router.get('/:id', async (req, res, next) => {
  */
 router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
-    const { packagings, ...data } = productSchema.parse(req.body);
+    const { packagings, categoryPrices, ...data } = productSchema.parse(req.body);
     await assertSameCompany(prisma, req.companyId, data);
     assertWholeQuantities(data.allowFractions, data);
     const product = await prisma.$transaction(async (tx) => {
@@ -240,6 +264,7 @@ router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
       }
 
       if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: created.id, packagings, productBarcode: data.barcode, allowFractions: data.allowFractions });
+      if (categoryPrices) await saveProductCategoryPrices(tx, { companyId: req.companyId, productId: created.id, rows: categoryPrices, allowFractions: data.allowFractions });
       await assertBarcodeNotInPackagings(tx, req.companyId, data.barcode);
       return tx.product.findUnique({ where: { id: created.id }, include: productInclude });
     });
@@ -256,7 +281,7 @@ router.post('/', authorize(...rolesFor('products')), async (req, res, next) => {
  */
 router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) => {
   try {
-    const { packagings, ...data } = updateProductSchema.parse(req.body);
+    const { packagings, categoryPrices, ...data } = updateProductSchema.parse(req.body);
     await assertSameCompany(prisma, req.companyId, data);
     // Verificar que existe y pertenece a la empresa
     const existing = await prisma.product.findFirst({
@@ -287,6 +312,8 @@ router.put('/:id', authorize(...rolesFor('products')), async (req, res, next) =>
       await tx.product.update({ where: { id: req.params.id }, data });
       // Sin `packagings` en el cuerpo no se tocan los empaques existentes
       if (packagings) await savePackagings(tx, { companyId: req.companyId, productId: existing.id, packagings, productBarcode: data.barcode, allowFractions: data.allowFractions ?? existing.allowFractions });
+      // Ídem `categoryPrices`: sin la llave (apps viejas) no se tocan
+      if (categoryPrices) await saveProductCategoryPrices(tx, { companyId: req.companyId, productId: existing.id, rows: categoryPrices, allowFractions: data.allowFractions ?? existing.allowFractions });
       await assertBarcodeNotInPackagings(tx, req.companyId, data.barcode);
       return tx.product.findUnique({ where: { id: existing.id }, include: productInclude });
     });
