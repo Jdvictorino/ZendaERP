@@ -30,6 +30,9 @@ const getExpenseTotal = (expense) => {
     return goods + services;
 };
 
+// Lo retenido al suplidor no se le paga: se entrega a la DGII
+const getExpenseRetained = (expense) => Number(expense.itbisRetenido || 0) + Number(expense.montoRetencionIsr || 0);
+
 const computeDueDate = (expense) => parseTimestamp(expense.paymentDate || expense.invoiceDate);
 
 const normalizeTableDate = (value) => {
@@ -40,7 +43,7 @@ const normalizeTableDate = (value) => {
 const ExpensePaymentModal = ({ expense, currency, onClose, onSubmit }) => {
     const total = getExpenseTotal(expense);
     const paid = Number(expense.paidAmount || 0);
-    const balance = Math.max(0, total - paid);
+    const balance = Math.max(0, total - getExpenseRetained(expense) - paid);
     const [amount, setAmount] = useState(balance.toFixed(2));
     const [method, setMethod] = useState('transferencia');
     const [reference, setReference] = useState('');
@@ -157,7 +160,7 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
             .map(exp => {
                 const total = getExpenseTotal(exp);
                 const paid = Number(exp.paidAmount || 0);
-                const balance = Math.max(0, total - paid);
+                const balance = Math.max(0, total - getExpenseRetained(exp) - paid);
                 const dueDate = computeDueDate(exp);
                 let overdueDays = 0;
                 if (dueDate) {
@@ -431,8 +434,9 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
         if (!selectedExpense) return;
         const total = getExpenseTotal(selectedExpense);
         const currentPaid = Number(selectedExpense.paidAmount || 0);
-        const newPaidAmount = Math.min(total, currentPaid + amount);
-        const balance = Math.max(0, total - newPaidAmount);
+        const payable = Math.max(0, total - getExpenseRetained(selectedExpense));
+        const newPaidAmount = Math.min(payable, currentPaid + amount);
+        const balance = Math.max(0, payable - newPaidAmount);
         const paymentStatus = balance <= 0.01 ? 'Pagado' : 'Parcial';
         const paymentEntry = {
             amount,

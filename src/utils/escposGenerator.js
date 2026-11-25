@@ -1,4 +1,5 @@
 import { formatCurrency } from './formatCurrency.js';
+import { invoiceBalance } from './withholdings.js';
 import { qrSvg } from './ecfPrint.js';
 import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, isEcfDoc, lineDiscount, modificationInfo, baseSplit } from './docLines.js';
 import { round2 } from './tax.js';
@@ -130,7 +131,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         if (paid > 0) {
             bodyHtml += '<div class="sep"></div>';
             bodyHtml += row('Pagado', amountText(paid));
-            const balance = Math.max(0, total - paid);
+            const balance = invoiceBalance({ ...docData, total, amountPaid: paid });
             if (balance > 0) bodyHtml += row('Pendiente', amountText(balance));
             else if (docData?.changeAmount > 0) bodyHtml += row('Cambio', amountText(docData.changeAmount));
         }

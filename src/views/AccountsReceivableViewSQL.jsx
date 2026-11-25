@@ -4,6 +4,7 @@ import Card, { CardBody } from '../components/ui/Card.jsx';
 import { badgeClass } from '../components/ui/Badge.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import Button from '../components/ui/Button.jsx';
+import { invoiceBalance } from '../utils/withholdings.js';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ReceivableDetailModal from '../components/modals/ReceivableDetailModal.jsx';
 import { AlertTriangle, CalendarDays, Clock, Users, ChevronDown, Mail, Wallet, FileText } from 'lucide-react';
@@ -259,7 +260,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
             .map(inv => {
                 const total = Number(inv.total || 0);
                 const paid = Number(inv.paidAmount || 0);
-                const outstanding = Math.max(0, total - paid);
+                const outstanding = invoiceBalance({ ...inv, amountPaid: inv.paidAmount ?? inv.amountPaid });
                 const dueDate = getDueDate(inv);
                 const overdueDays = dueDate ? getDaysBetween(today, dueDate) : 0;
                 const bucket = agingBucketFor(overdueDays);

@@ -10,10 +10,13 @@ export const ACCOUNTS = {
   ACCOUNTS_RECEIVABLE:{ code: '1102', name: 'Cuentas por Cobrar',       type: 'activo' },
   INVENTORY:          { code: '1103', name: 'Inventario de Mercancías', type: 'activo' },
   BANK:               { code: '1104', name: 'Bancos',                   type: 'activo' },
+  ITBIS_WITHHELD_BY_THIRDS: { code: '1105', name: 'ITBIS retenido por terceros', type: 'activo' },
+  ISR_WITHHELD_BY_THIRDS:   { code: '1106', name: 'ISR retenido por terceros (anticipo)', type: 'activo' },
 
   // Pasivos
   ACCOUNTS_PAYABLE:   { code: '2101', name: 'Cuentas por Pagar',        type: 'pasivo' },
   TAXES_PAYABLE:      { code: '2102', name: 'ITBIS por Pagar',          type: 'pasivo' },
+  WITHHOLDINGS_PAYABLE: { code: '2104', name: 'Retenciones por pagar',  type: 'pasivo' },
 
   // Capital
   RETAINED_EARNINGS:  { code: '3101', name: 'Utilidades Retenidas',     type: 'capital' },
@@ -63,17 +66,24 @@ export function invoiceToJournalEntries(invoice) {
   const ref = invoice.invoiceNumber || invoice.orderNumber || invoice.id;
   const desc = invoice.customerName ? `Venta a ${invoice.customerName}` : 'Venta registrada';
 
-  // Débito: lo que nos deben / lo que cobraron
-  if (paid >= total) {
+  // Débito: lo que nos deben / lo que cobraron / lo que nos retuvieron el cliente
+  const itbisRet = Number(invoice.itbisRetenido || 0);
+  const isrRet = Number(invoice.retencionRenta || 0);
+  const retained = itbisRet + isrRet;
+  const push = (account, debit) => entries.push({ date, account, debit, credit: 0, ref, desc, sourceType: 'invoice', sourceId: invoice.id });
+  if (itbisRet > 0) push(ACCOUNTS.ITBIS_WITHHELD_BY_THIRDS, itbisRet);
+  if (isrRet > 0) push(ACCOUNTS.ISR_WITHHELD_BY_THIRDS, isrRet);
+  const owed = total - retained; // lo que queda entre efectivo y cuentas por cobrar
+  if (paid >= owed) {
     // Cobrado completo → Efectivo
-    entries.push({ date, account: ACCOUNTS.CASH, debit: total, credit: 0, ref, desc, sourceType: 'invoice', sourceId: invoice.id });
+    if (owed > 0 || !retained) push(ACCOUNTS.CASH, owed);
   } else if (paid > 0) {
     // Cobro parcial
-    entries.push({ date, account: ACCOUNTS.CASH, debit: paid, credit: 0, ref, desc, sourceType: 'invoice', sourceId: invoice.id });
-    entries.push({ date, account: ACCOUNTS.ACCOUNTS_RECEIVABLE, debit: total - paid, credit: 0, ref, desc, sourceType: 'invoice', sourceId: invoice.id });
+    push(ACCOUNTS.CASH, paid);
+    push(ACCOUNTS.ACCOUNTS_RECEIVABLE, owed - paid);
   } else {
     // Totalmente a crédito
-    entries.push({ date, account: ACCOUNTS.ACCOUNTS_RECEIVABLE, debit: total, credit: 0, ref, desc, sourceType: 'invoice', sourceId: invoice.id });
+    push(ACCOUNTS.ACCOUNTS_RECEIVABLE, owed);
   }
 
   // Crédito: ingreso por ventas
@@ -123,12 +133,18 @@ export function expenseToJournalEntries(expense) {
     entries.push({ date, account: ACCOUNTS.TAXES_PAYABLE, debit: tax, credit: 0, ref, desc: `ITBIS: ${desc}`, sourceType: 'expense', sourceId: expense.id });
   }
 
+  // Crédito: lo retenido al suplidor (se entrega a la DGII)
+  const retained = Number(expense.itbisRetenido || 0) + Number(expense.montoRetencionIsr || 0);
+  if (retained > 0) {
+    entries.push({ date, account: ACCOUNTS.WITHHOLDINGS_PAYABLE, debit: 0, credit: retained, ref, desc: `Retenciones: ${desc}`, sourceType: 'expense', sourceId: expense.id });
+  }
+
   // Crédito: efectivo o proveedor
   const isPaid = expense.paymentDate || expense.paymentType;
   if (isPaid) {
-    entries.push({ date, account: ACCOUNTS.CASH, debit: 0, credit: amount, ref, desc, sourceType: 'expense', sourceId: expense.id });
+    entries.push({ date, account: ACCOUNTS.CASH, debit: 0, credit: amount - retained, ref, desc, sourceType: 'expense', sourceId: expense.id });
   } else {
-    entries.push({ date, account: ACCOUNTS.ACCOUNTS_PAYABLE, debit: 0, credit: amount, ref, desc, sourceType: 'expense', sourceId: expense.id });
+    entries.push({ date, account: ACCOUNTS.ACCOUNTS_PAYABLE, debit: 0, credit: amount - retained, ref, desc, sourceType: 'expense', sourceId: expense.id });
   }
 
   return entries;

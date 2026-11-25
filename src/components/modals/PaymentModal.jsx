@@ -6,12 +6,13 @@ import notificationService from '../../utils/notificationService.js';
 import toast from 'react-hot-toast';
 import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import Button from '../ui/Button.jsx';
+import { invoiceBalance } from '../../utils/withholdings.js';
 import { enqueueInvoicePaymentUpdate } from '../../utils/offlineQueue.js';
 import { isGatewayConfigured, createPaymentIntent, fetchPaymentIntentStatus, mapGatewayStatusToPaymentStatus } from '../../utils/paymentGateway.js';
 import { useEffect } from 'react';
 
 const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }) => {
-    const amountDue = useMemo(() => invoice.total - (invoice.paidAmount || 0), [invoice]);
+    const amountDue = useMemo(() => invoiceBalance({ ...invoice, amountPaid: invoice.paidAmount ?? invoice.amountPaid }), [invoice]);
     const [payments, setPayments] = useState(() => {
         const initial = { efectivo: 0, chequeTransferencia: 0, tarjeta: 0, credito: 0 };
         const method = invoice.paymentMethod || '';
