@@ -14,6 +14,7 @@ import DashboardView from './views/DashboardViewSQL.jsx';
 import ProductsView from './views/ProductsViewSQL.jsx';
 import CustomersView from './views/CustomersViewSQL.jsx';
 import SuppliersView from './views/SuppliersViewSQL.jsx';
+import PurchasesView from './views/PurchasesView.jsx';
 import OrdersView from './views/OrdersViewSQL.jsx';
 import POSBillingOrdersView from './views/POSBillingOrdersView.jsx';
 import InvoicesView from './views/InvoicesViewSQL.jsx';
@@ -449,6 +450,8 @@ export default function App() {
                 return <ProductsView companyProfile={companyProfile} isMasterUser={isMasterUser} />;
             case 'customers':
                 return <CustomersView companyProfile={companyProfile} />;
+            case 'purchases-view':
+                return <PurchasesView companyProfile={companyProfile} currentUserProfile={currentUserProfile} />;
             case 'suppliers':
                 return <SuppliersView companyProfile={companyProfile} />;
             case 'offers':
