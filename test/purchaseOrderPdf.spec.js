@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { vi } from 'vitest';
+vi.mock('../src/api/client.js', () => ({ default: {} }));
 import { qtyText, customerTaxId } from '../src/utils/docLines.js';
 const { purchaseOrderDocData } = await import('../src/utils/pdfGenerator.js');
 

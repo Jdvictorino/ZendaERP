@@ -665,7 +665,7 @@ export const purchaseOrderDocData = (order) => {
     return {
         ...order,
         items: (order.items || []).map((it) => ({
-            productName: it.product?.name + (it.packagingName ? ` — ${it.packagingName}` : ''),
+            productName: (it.product?.name ?? '') + (it.packagingName ? ` — ${it.packagingName}` : ''),
             quantity: it.quantity,
             unitPrice: Number(it.unitCost),
             taxRate: it.taxRate,
