@@ -540,6 +540,9 @@ model Expense {
   invoiceLines    Json? // [{ itemId, quantity }] facturado por este gasto, para deshacerlo
   // Pago al exterior (formato 609): { idType, taxId, country, serviceType, serviceDetail, relatedParty, documentNumber, rentaPresunta }
   foreignPayment  Json?
+  // Pagos al suplidor: payments = [{ amount, method, reference, date }]; el estado se calcula
+  paidAmount      Decimal  @default(0) @db.Decimal(12, 2)
+  payments        Json?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

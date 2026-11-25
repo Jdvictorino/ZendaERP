@@ -5,6 +5,7 @@ import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { emitExpenseEcf } from '../services/ecfService.js';
 import { undoInvoice } from '../services/purchases.js';
+import { planExpensePayment, withPayment } from '../services/expensePayment.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 
 const router = Router();
@@ -113,7 +114,7 @@ router.get('/', async (req, res, next) => {
     ]);
 
     res.json({
-      data: expenses,
+      data: expenses.map(withPayment),
       pagination: {
         page: parseInt(page),
         limit: take ?? total,
@@ -140,7 +141,7 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Gasto no encontrado' });
     }
 
-    res.json(expense);
+    res.json(withPayment(expense));
   } catch (error) {
     next(error);
   }
@@ -226,12 +227,19 @@ router.put('/:id', authorize(...rolesFor('finance-expenses')), async (req, res, 
       updateData.montoFacturado = (data.montoBienes ?? Number(existing.montoBienes)) + (data.montoServicios ?? Number(existing.montoServicios));
     }
 
+    // Pagos a suplidores: zod no los conoce, los valida planExpensePayment
+    if (req.body.paidAmount !== undefined || req.body.payments !== undefined) {
+      const plan = planExpensePayment({ ...existing, ...updateData }, req.body, { manager: !!req.user.isAdmin || ['admin', 'manager'].includes(req.user.role) });
+      if (plan.error) throw httpError(plan.status, plan.error);
+      Object.assign(updateData, plan.data);
+    }
+
     const expense = await prisma.expense.update({
       where: { id: req.params.id },
       data: updateData
     });
 
-    res.json(expense);
+    res.json(withPayment(expense));
   } catch (error) {
     next(error);
   }
