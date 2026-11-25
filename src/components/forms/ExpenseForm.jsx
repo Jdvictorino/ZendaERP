@@ -5,6 +5,7 @@ import { ArrowLeft, Lock } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { SERVICIOS_609, PAISES } from '../../utils/dgii609.js';
+import { TIPOS_RETENCION_ISR } from '../../utils/isrTypes.js';
 import { withholdingsOf, conceptsFor, withholdingFor } from '../../utils/withholdings.js';
 
 const TIPOS_GASTO = [
@@ -17,12 +18,6 @@ const TIPOS_GASTO = [
 const FORMAS_PAGO = [
     ['01', 'Efectivo'], ['02', 'Cheque, transferencia o depósito'], ['03', 'Tarjeta de crédito o débito'],
     ['04', 'Compra a crédito'], ['05', 'Permuta'], ['06', 'Nota de crédito'], ['07', 'Mixto'],
-];
-const TIPOS_RETENCION_ISR = [
-    ['1', 'Alquileres'], ['2', 'Honorarios por servicios independientes'], ['3', 'Otras rentas'],
-    ['4', 'Otras rentas (rentas presuntas)'], ['5', 'Intereses pagados a personas jurídicas residentes'],
-    ['6', 'Intereses pagados a personas físicas residentes'], ['7', 'Retención por proveedores del Estado'],
-    ['8', 'Juegos telefónicos de venta de bienes'],
 ];
 // Quién emite el comprobante del gasto
 const COMPROBANTES = [
