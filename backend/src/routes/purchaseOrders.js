@@ -203,11 +203,13 @@ router.post('/:id/receive', authorize(...rolesFor('purchases')), async (req, res
         }
       });
       for (const c of plan.changes) {
-        const product = await tx.product.findFirst({ where: { id: c.productId, companyId: req.companyId }, select: { stock: true } });
-        const previous = new Prisma.Decimal(product.stock);
+        const exists = await tx.product.count({ where: { id: c.productId, companyId: req.companyId } });
+        if (!exists) throw bad('Uno de los productos de la orden ya no existe.', 409);
         const added = new Prisma.Decimal(c.baseQuantity);
-        const newStock = previous.plus(added);
-        await tx.product.update({ where: { id: c.productId }, data: { stock: newStock, costPrice: c.costPrice } });
+        // Incremento atómico: no pisa una venta que confirme a la vez
+        const { stock } = await tx.product.update({ where: { id: c.productId }, data: { stock: { increment: added }, costPrice: c.costPrice }, select: { stock: true } });
+        const newStock = new Prisma.Decimal(stock);
+        const previous = newStock.minus(added);
         await tx.inventoryLog.create({
           data: {
             productId: c.productId, userId: req.user.id, type: 'entrada', quantity: added,
