@@ -11,6 +11,8 @@ import { badgeClass } from '../components/ui/Badge.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import toast from 'react-hot-toast';
 import { catalogEntries } from './pos/catalogEntries.js';
+import { repriceRow } from './pos/linePricing.js';
+import { sameCategory } from '../utils/categoryPricing.js';
 import { baseQuantity, quantityError, formatQty, roundQty, unitOf } from '../utils/units.js';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ScannerLinkModal from '../components/modals/ScannerLinkModal.jsx';
@@ -638,14 +640,25 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
   const showToast = (msg, type = "ok") => (type === 'warn' ? toast.error(msg) : toast.success(msg));
 
+  // categoría del cliente y su % de descuento; las líneas se reprecian con esto
+  const custCategory = selectedCustomer?.category || '';
+  const catDiscounts = companyProfile?.pricing?.categoryDiscounts || {};
+  const catKey = Object.keys(catDiscounts).find((k) => sameCategory(k, custCategory));
+  const catPct = catKey ? Number(catDiscounts[catKey]) || 0 : 0;
+  // ref: los manejadores de escáner guardan un addProduct viejo y deben ver el cliente actual
+  const priceCtx = useRef({});
+  priceCtx.current = { category: custCategory, categoryDiscountPercent: catPct };
+  const reprice = (row) => repriceRow(row, priceCtx.current);
+  useEffect(() => { setRows(r => r.map(reprice)); }, [custCategory, catPct]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const addProduct = (p) => {
     if (!p) {
       setRows(r => [...r, { id: uuidv4(), desc: "", code: "", price: 0, qty: 1, disc: 0, taxable: true }]);
     } else {
       setRows(r => {
         // la misma línea se suma (key distingue variantes del mismo producto)
-        if (r.some(x => x.key === p.id)) return r.map(x => x.key === p.id ? { ...x, qty: x.qty + 1 } : x);
-        return [...r, {
+        if (r.some(x => x.key === p.id)) return r.map(x => x.key === p.id ? reprice({ ...x, qty: x.qty + 1 }) : x);
+        return [...r, reprice({
           id: uuidv4(),
           key: p.id,
           originalId: p.productId || p.id,
@@ -662,34 +675,36 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
           desc: p.name,
           code: p.sku || p.code || p.barcode || "-",
           price: Number(p.salePrice ?? p.price) || 0,
+          basePrice: p.basePrice,
+          categoryPrices: p.categoryPrices || [],
           qty: 1,
           disc: 0,
           taxable: p.isTaxable !== false && Number(p.taxRate ?? 18) > 0,
           taxRate: Number(p.taxRate ?? 18),
-        }];
+        })];
       });
     }
   };
 
-  const onQty = (id, d) => setRows(r => r.map(x => x.id === id ? { ...x, qty: Math.max(1, roundQty(x.qty + d)) } : x));
-  const onQtySet = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, qty: parseFloat(v) || 0 } : x));
+  const onQty = (id, d) => setRows(r => r.map(x => x.id === id ? reprice({ ...x, qty: Math.max(1, roundQty(x.qty + d)) }) : x));
+  const onQtySet = (id, v) => setRows(r => r.map(x => x.id === id ? reprice({ ...x, qty: parseFloat(v) || 0 }) : x));
   // Cambiar la unidad de la línea reemplaza empaque, factor y precio; un empaque lleva cantidad entera.
   const onUnit = (id, packagingId) => setRows(r => {
     const cur = r.find(x => x.id === id);
     const o = cur?.options.find(k => (k.packagingId || '') === packagingId);
     if (!o) return r;
     const qty = o.packagingId ? Math.max(1, Math.round(cur.qty)) : cur.qty;
-    const sw = { ...cur, key: o.id, packagingId: o.packagingId, packagingName: o.packagingName, factor: o.factor, price: o.salePrice,
-      desc: o.packagingName ? `${cur.baseDesc} — ${o.packagingName}` : cur.baseDesc, qty };
+    const sw = reprice({ ...cur, key: o.id, packagingId: o.packagingId, packagingName: o.packagingName, factor: o.factor, price: o.salePrice, basePrice: o.basePrice, manualPrice: false,
+      desc: o.packagingName ? `${cur.baseDesc} — ${o.packagingName}` : cur.baseDesc, qty });
     // si ya hay otra línea igual (misma unidad), se suman en la primera
     const twin = r.find(x => x.id !== id && x.key === o.id);
     if (!twin) return r.map(x => x.id === id ? sw : x);
     const firstId = r.indexOf(twin) < r.indexOf(cur) ? twin.id : id;
     return r.filter(x => x.id === firstId || (x.id !== id && x.id !== twin.id))
-      .map(x => x.id === firstId ? { ...sw, id: firstId, qty: roundQty(twin.qty + qty) } : x);
+      .map(x => x.id === firstId ? reprice({ ...sw, id: firstId, qty: roundQty(twin.qty + qty) }) : x);
   });
-  const onDisc = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, disc: Math.min(100, Math.max(0, parseFloat(v) || 0)) } : x));
-  const onPrice = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, price: Math.max(0, parseFloat(v) || 0) } : x));
+  const onDisc = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, disc: Math.min(100, Math.max(0, parseFloat(v) || 0)), manualDisc: true } : x));
+  const onPrice = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, price: Math.max(0, parseFloat(v) || 0), manualPrice: true } : x));
   const onDelete = (id) => setRows(r => r.filter(x => x.id !== id));
   const onDesc = (id, v) => setRows(r => r.map(x => x.id === id ? { ...x, desc: v } : x));
 

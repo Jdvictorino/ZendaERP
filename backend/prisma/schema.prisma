@@ -65,6 +65,7 @@ model Company {
   users             User[]
   products          Product[]
   productPackagings ProductPackaging[]
+  categoryPrices    CategoryPrice[]
   productCategories ProductCategory[]
   customers         Customer[]
   suppliers         Supplier[]
@@ -254,6 +255,7 @@ model Product {
   inventoryLogs InventoryLog[]
   invoiceItems  InvoiceItem[]
   packagings    ProductPackaging[]
+  categoryPrices CategoryPrice[]
 
   @@index([companyId])
   @@index([barcode])
@@ -302,10 +304,30 @@ model ProductPackaging {
   updatedAt DateTime @updatedAt
 
   invoiceItems InvoiceItem[]
+  categoryPrices CategoryPrice[]
 
   @@index([companyId])
   @@index([barcode])
   @@map("product_packagings")
+}
+
+// Precio por categoría de cliente con escalones por cantidad (sin ITBIS).
+// Sin índice único: NULL en packagingId cuenta como distinto; la unicidad la valida el servicio.
+model CategoryPrice {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    String
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  packagingId String?
+  packaging   ProductPackaging? @relation(fields: [packagingId], references: [id], onDelete: Cascade)
+  minQuantity Decimal  @default(1) @db.Decimal(14, 3)
+  price       Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, productId])
+  @@map("category_prices")
 }
 
 model InventoryLog {

@@ -13,7 +13,7 @@ import { priceInvoiceLines } from '../services/invoiceAmounts.js';
 import { discountedAmounts } from '../services/ecfXmlBuilder.js';
 import { isTaxExempt, todayRD, voucherError } from '../services/tax.js';
 import { baseQuantity, quantityError, roundQty, formatQty, unitOf } from '../services/units.js';
-import { allowedDiscountPercent, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
+import { allowedDiscountPercent, categoryDiscount, anyLineFromCategory, checkLinePrice, couponCap, creditExceeded } from '../services/pricing.js';
 
 export { takeNcf };
 
@@ -78,7 +78,7 @@ export function unreturnedLines(items, creditNotes) {
 }
 
 // Valida cada línea contra el catálogo y la completa (empaque, ITBIS). Muta las líneas; devuelve { error } o { needsApproval }.
-export function validateInvoiceLines(items, productsById, maxDiscount) {
+export function validateInvoiceLines(items, productsById, maxDiscount, ctx = {}) {
   let needsApproval = false;
   for (const item of items) {
     const product = item.productId ? productsById.get(item.productId) : null;
@@ -92,7 +92,7 @@ export function validateInvoiceLines(items, productsById, maxDiscount) {
     item.packagingId = packaging?.id ?? null;
     item.packagingName = packaging?.name ?? null;
     item.packagingFactor = packaging ? Number(packaging.factor) : 1;
-    const check = checkLinePrice(item, product, variant, maxDiscount, packaging);
+    const check = checkLinePrice(item, product, variant, maxDiscount, packaging, ctx);
     if (check.error) return { error: check.error };
     item.taxRate = check.taxRate;
     needsApproval ||= check.needsApproval;
@@ -237,9 +237,15 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
     ]);
     const maxDiscount = allowedDiscountPercent(company?.settings?.pricing, customer);
     const productIds = [...new Set(data.items.map((i) => i.productId).filter(Boolean))];
-    const products = await prisma.product.findMany({ where: { id: { in: productIds }, companyId: req.companyId }, include: { variants: true, packagings: { where: { status: 'active' } } } });
+    const pricing = company?.settings?.pricing;
+    const category = customer?.category?.trim() || null;
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, companyId: req.companyId },
+      include: { variants: true, packagings: { where: { status: 'active' } }, ...(category && { categoryPrices: { where: { category: { equals: category, mode: 'insensitive' } } } }) }
+    });
     const byId = new Map(products.map((p) => [p.id, p]));
-    const checked = validateInvoiceLines(data.items, byId, maxDiscount);
+    const ctx = { category, categoryDiscountPercent: categoryDiscount(category || 'Sin categoría', pricing?.categoryDiscounts), maxDiscountNoCategory: allowedDiscountPercent(pricing, customer, { withCategory: false }) };
+    const checked = validateInvoiceLines(data.items, byId, maxDiscount, ctx);
     if (checked.error) return res.status(400).json({ error: checked.error });
     const { needsApproval } = checked;
 
@@ -431,7 +437,13 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
         invoice.customerId ? prisma.customer.findFirst({ where: { id: invoice.customerId, companyId: req.companyId } }) : null,
         body.appliedCoupon?.id ? prisma.offer.findFirst({ where: { id: String(body.appliedCoupon.id), companyId: req.companyId } }) : null
       ]);
-      const cap = Math.max(grossTotal * allowedDiscountPercent(company?.settings?.pricing, customer) / 100, couponCap(offer, grossTotal));
+      // Con líneas a precio de categoría, el % de la categoría no se suma sobre el total
+      const category = customer?.category?.trim() || null;
+      const categoryPrices = category && invoice.items.length
+        ? await prisma.categoryPrice.findMany({ where: { companyId: req.companyId, productId: { in: invoice.items.map((i) => i.productId).filter(Boolean) }, category: { equals: category, mode: 'insensitive' } } })
+        : [];
+      const withCategory = !anyLineFromCategory(invoice.items, category, categoryPrices);
+      const cap = Math.max(grossTotal * allowedDiscountPercent(company?.settings?.pricing, customer, { withCategory }) / 100, couponCap(offer, grossTotal));
       if (discount > cap + 0.01 && (await requireApproval(req, res, 'price_override')) === false) return;
       updateData.discountAmount = discount;
       updateData.total = grossTotal - discount;

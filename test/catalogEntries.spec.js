@@ -23,3 +23,13 @@ describe('catalogEntries', () => {
     expect(e).toHaveLength(1);
   });
 });
+
+describe('catalogEntries precios por categoría', () => {
+  it('lleva basePrice y categoryPrices en entradas y opciones', () => {
+    const cp = [{ id: 'r1', category: 'Mayorista', packagingId: null, minQuantity: 1, price: '40' }];
+    const e = catalogEntries([{ id: 'p1', name: 'Agua', salePrice: '50', unit: 'unidad', categoryPrices: cp, packagings: [box] }]);
+    expect(e[0]).toMatchObject({ basePrice: 50, categoryPrices: cp });
+    expect(e[1]).toMatchObject({ basePrice: 1200, categoryPrices: cp });
+    expect(e[0].options.map((o) => o.basePrice)).toEqual([50, 1200]);
+  });
+});

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
+import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
 const router = express.Router();
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -61,7 +62,7 @@ router.get('/', async (req, res) => {
       
       // Campos guardados en settings JSON
       allowCustomization: settings.allowCustomization ?? true,
-      customerCategories: settings.customerCategories || ['General', 'VIP', 'Mayorista'],
+      customerCategories: settings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES,
       pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
@@ -128,7 +129,12 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       ncf, // Secuencias NCF
       orderMode, availableOrderModes, businessType, // Modo de pedidos
       smtp, // Configuración SMTP
+      _categoryMigrations,
     } = req.body;
+
+    if (Array.isArray(customerCategories) && customerCategories.some((c) => !String(c ?? '').trim())) {
+      return res.status(400).json({ error: 'Cada categoría necesita un nombre' });
+    }
 
     // Obtener el usuario para saber su companyId
     const user = await prisma.user.findUnique({
@@ -154,6 +160,22 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     const newSettings = { ...currentSettings };
     
     if (customerCategories !== undefined) {
+      // Renombres y borrados de categorías: precios siempre; clientes solo si el usuario lo aceptó
+      const { renames, merges, removed } = planCategoryChanges(
+        currentSettings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES, customerCategories, _categoryMigrations);
+      const companyId = user.companyId;
+      // Ids primero: los cambios son simultáneos y no se encadenan entre sí
+      const moves = [];
+      for (const { from, to } of [...renames, ...merges]) {
+        const customers = _categoryMigrations.apply === true ? await tx.customer.findMany({ where: { companyId, category: from }, select: { id: true } }) : [];
+        const prices = renames.some((r) => r.from === from) ? await tx.categoryPrice.findMany({ where: { companyId, category: { equals: from, mode: 'insensitive' } }, select: { id: true } }) : [];
+        moves.push({ to, customers: customers.map((c) => c.id), prices: prices.map((c) => c.id) });
+      }
+      if (removed.length) await tx.categoryPrice.deleteMany({ where: { companyId, OR: removed.map((x) => ({ category: { equals: x, mode: 'insensitive' } })) } });
+      for (const m of moves) {
+        if (m.customers.length) await tx.customer.updateMany({ where: { id: { in: m.customers } }, data: { category: m.to } });
+        if (m.prices.length) await tx.categoryPrice.updateMany({ where: { id: { in: m.prices } }, data: { category: m.to } });
+      }
       newSettings.customerCategories = customerCategories;
     }
     if (address !== undefined) {

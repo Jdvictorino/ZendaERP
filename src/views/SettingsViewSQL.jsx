@@ -5,7 +5,8 @@ import {
     Sliders, DollarSign, Printer, Package, Users, 
     Shield, Save, AlertTriangle, Plus, Trash, Volume2, Settings, Mail
 } from 'lucide-react';
-import api, { settings as settingsApi } from '../api/client.js';
+import api, { settings as settingsApi, categoryPrices } from '../api/client.js';
+import { buildCategoryMigrations } from '../utils/categoryMigrations.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import NcfModal from '../components/modals/NcfModal.jsx';
 import EcfConfigPanel from '../components/ecf/EcfConfigPanel.jsx';
@@ -54,7 +55,7 @@ const buildNcfSummary = (sequences = []) => {
     return summary;
 };
 
-const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser }) => {
+const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, canImportPrices = false }) => {
     const [activeTab, setActiveTab] = useState('preferencias');
     const [systemPrinters, setSystemPrinters] = useState([]);
     const [showNcfModal, setShowNcfModal] = useState(false);
@@ -78,6 +79,15 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
     // Migrations of categories to apply to existing customers upon save
     const [pendingMigrations, setPendingMigrations] = useState([]); // [{from, to}]
     const [applyMigrations, setApplyMigrations] = useState(false);
+    // Nombres de categoría tal como se cargaron/guardaron, fila por fila (null = fila nueva)
+    const [origCategories, setOrigCategories] = useState([]);
+    const [loadedCategories, setLoadedCategories] = useState([]); // inmutable hasta guardar/cargar
+    const [priceCounts, setPriceCounts] = useState({});
+    const refreshPriceCounts = () => categoryPrices.summary().then((s) => setPriceCounts(s || {})).catch(() => {});
+    const priceCountOf = (name) => {
+        const key = String(name ?? '').trim().toLowerCase();
+        return Object.entries(priceCounts).reduce((n, [k, v]) => (k.trim().toLowerCase() === key ? n + Number(v) : n), 0);
+    };
     const soundSettings = formData.notifications?.sound || { enabled: true, volume: 0.7 };
 
     // Electron printer loader
@@ -87,9 +97,12 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
         }
     }, [isMasterUser]);
 
+    useEffect(() => { refreshPriceCounts(); }, []);
+
     // Load initial values from profile
     useEffect(() => {
         if (companyProfile) {
+            if (companyProfile.customerCategories) { setOrigCategories([...companyProfile.customerCategories]); setLoadedCategories([...companyProfile.customerCategories]); }
             const sanitizedProfile = Object.fromEntries(
                 Object.entries(companyProfile).map(([key, value]) => [key, value === null ? '' : value])
             );
@@ -156,6 +169,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
         try {
             const cleanPayload = sanitizeForBackend(formData);
             cleanPayload.emailProvider = null;
+            delete cleanPayload.customerCategories; // las categorías no viajan sin _categoryMigrations
             await settingsApi.update(cleanPayload);
 
             const result = await api.email.send({
@@ -187,8 +201,10 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
         const cleanPayload = sanitizeForBackend(payloadToSave);
         cleanPayload.emailProvider = null;
 
-        if (applyMigrations && pendingMigrations.length) {
-            cleanPayload._categoryMigrations = { apply: true, entries: pendingMigrations };
+        if (cleanPayload.customerCategories) {
+            const { entries, error } = buildCategoryMigrations(origCategories, formData.customerCategories || [], pendingMigrations, loadedCategories);
+            if (error) { toast.error(error); return; }
+            cleanPayload._categoryMigrations = { apply: applyMigrations, entries, pricesAware: true, base: loadedCategories };
         }
 
         const promise = settingsApi.update(cleanPayload);
@@ -198,6 +214,8 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                 playSuccessSound();
                 if (onProfileUpdate) onProfileUpdate(saved);
                 setPendingMigrations([]);
+                if (saved?.customerCategories) { setOrigCategories([...saved.customerCategories]); setLoadedCategories([...saved.customerCategories]); }
+                refreshPriceCounts();
                 return '¡Configuración guardada!';
             },
             error: () => {
@@ -685,12 +703,6 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                                 delete discounts[old];
                                                             }
                                                             
-                                                            if (old && old !== val) {
-                                                                setPendingMigrations(prev => {
-                                                                    const others = prev.filter(m => !(m.from === old));
-                                                                    return [...others, { from: old, to: val }];
-                                                                });
-                                                            }
                                                             
                                                             setFormData({ 
                                                                 ...formData, 
@@ -700,15 +712,21 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                         }}
                                                         readOnly={!isMasterUser}
                                                     />
+                                                    {priceCountOf(origCategories[idx] ?? cat) > 0 && (
+                                                        <span className="text-xs text-slate-500 whitespace-nowrap">{priceCountOf(origCategories[idx] ?? cat)} precios propios</span>
+                                                    )}
                                                     {isMasterUser && (
                                                         <button
                                                             type="button"
                                                             className="text-red-500 hover:text-red-700 text-xs font-semibold p-2"
                                                             onClick={async () => {
                                                                 const name = formData.customerCategories[idx];
-                                                                if (!(await confirmDialog(`¿Eliminar la categoría "${name}"?`, { confirmText: 'Eliminar' }))) return;
+                                                                const nPrices = priceCountOf(origCategories[idx] ?? name);
+                                                                if (!(await confirmDialog(`¿Eliminar la categoría "${name}"?${nPrices > 0 ? ` También se borrarán sus ${nPrices} precios propios.` : ''}`, { confirmText: 'Eliminar' }))) return;
                                                                 const arr = [...(formData.customerCategories || [])];
                                                                 arr.splice(idx, 1);
+                                                                const origName = origCategories[idx];
+                                                                setOrigCategories(prev => prev.filter((_, j) => j !== idx));
                                                                 
                                                                 const discounts = { ...(formData.pricing?.categoryDiscounts || {}) };
                                                                 if (discounts.hasOwnProperty(name)) delete discounts[name];
@@ -716,7 +734,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                                 if (arr.length > 0 && await confirmDialog('¿Quieres reasignar los clientes de esta categoría a otra?', { title: 'Reasignar clientes', confirmText: 'Reasignar', cancelText: 'No', danger: false })) {
                                                                     const dest = window.prompt(`Ingresa el nombre de la nueva categoría destino exacto: (${arr.join(', ')})`, arr[0]);
                                                                     if (dest && arr.includes(dest)) {
-                                                                        setPendingMigrations(prev => [...prev.filter(m => m.from !== name), { from: name, to: dest }]);
+                                                                        if (origName != null) setPendingMigrations(prev => [...prev.filter(m => m.from !== origName), { from: origName, to: dest }]);
                                                                     }
                                                                 }
                                                                 
@@ -742,10 +760,38 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                         const set = new Set((formData.customerCategories || []));
                                                         let i = 1;
                                                         while (set.has(name)) { name = `${base} ${i++}`; }
+                                                        setOrigCategories(prev => [...prev, null]);
                                                         setFormData({ ...formData, customerCategories: [...(formData.customerCategories || []), name] });
                                                     }}
                                                 >
                                                     <Plus size={14} /> Añadir categoría
+                                                </button>
+                                            )}
+                                            {canImportPrices && (
+                                                <button
+                                                    type="button"
+                                                    className="block text-xs text-brand-600 font-semibold hover:text-brand-800 mt-1 text-left"
+                                                    onClick={async () => {
+                                                        const cur = formData.customerCategories || [];
+                                                        const dirty = pendingMigrations.length > 0 || origCategories.length !== loadedCategories.length
+                                                            || cur.some((n, i) => origCategories[i] == null || origCategories[i] !== n);
+                                                        if (dirty) { toast.error('Guarda primero los cambios de categorías'); return; }
+                                                        if (!(await confirmDialog('Esto copia los precios al por mayor de los productos como precios de la categoría Mayorista. Cambia lo que pagan los clientes Mayorista. ¿Continuar?', { title: 'Precios de Mayorista', confirmText: 'Continuar', danger: false }))) return;
+                                                        try {
+                                                            const r = await categoryPrices.importWholesale();
+                                                            if (r?.customerCategories) {
+                                                                setFormData(prev => ({ ...prev, customerCategories: r.customerCategories }));
+                                                                setOrigCategories([...r.customerCategories]);
+                                                                setLoadedCategories([...r.customerCategories]);
+                                                            }
+                                                            toast.success(r?.created ? `Se crearon ${r.created} precios para Mayorista` : 'No había precios al por mayor nuevos');
+                                                            refreshPriceCounts();
+                                                        } catch (err) {
+                                                            toast.error('No se pudieron importar los precios al por mayor.');
+                                                        }
+                                                    }}
+                                                >
+                                                    Usar los precios al por mayor como precios de la categoría Mayorista
                                                 </button>
                                             )}
                                         </div>

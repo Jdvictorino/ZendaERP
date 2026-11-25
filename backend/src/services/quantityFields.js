@@ -5,6 +5,7 @@ export const QUANTITY_FIELDS = {
   inventoryLog: ['quantity', 'previousStock', 'newStock'],
   invoiceItem: ['quantity', 'packagingFactor'],
   productPackaging: ['factor'],
+  categoryPrice: ['minQuantity'],
 };
 
 export function resultExtension(fields) {

@@ -1,10 +1,12 @@
 import { round2 } from './tax.js';
+import { resolveUnitPrice, sameCategory } from './categoryPricing.js';
 
 const near = (a, b) => Math.abs(Number(a) - Number(b)) <= 0.01;
 
 // Valida una línea de factura contra el catálogo: el precio debe ser uno de lista y el ITBIS el del producto.
 // Sin producto (línea libre) siempre pide autorización y solo admite 0, 16 o 18 de ITBIS.
-export function checkLinePrice(item, product, variant, maxDiscount, packaging = null) {
+// ctx = { category, categoryDiscountPercent, maxDiscountNoCategory }: habilita el precio de la categoría (product.categoryPrices)
+export function checkLinePrice(item, product, variant, maxDiscount, packaging = null, ctx = {}) {
   let needsApproval = Number(item.discountPercent) > maxDiscount;
   if (!product) {
     const taxRate = Number(item.taxRate);
@@ -21,9 +23,23 @@ export function checkLinePrice(item, product, variant, maxDiscount, packaging = 
     : variant
     ? [Number(variant.salePrice) > 0 ? Number(variant.salePrice) : Number(product.salePrice) + Number(variant.priceAdjustment || 0), ...(wholesale > 0 ? [wholesale] : [])]
     : [Number(product.salePrice), ...(wholesale != null ? [wholesale] : [])];
+  // un precio de categoría reemplaza el % de la categoría: el tope sin PIN no lo cuenta, lo mande o no el cajero
+  const rule = ctx.category != null && product.categoryPrices?.length
+    ? resolveUnitPrice({ basePrice: lists[0], category: ctx.category, packagingId: packaging?.id ?? null, quantity: item.quantity, categoryPrices: product.categoryPrices, categoryDiscountPercent: ctx.categoryDiscountPercent })
+    : null;
+  if (rule?.fromCategory) {
+    lists.push(rule.price);
+    // el tope sin la categoría solo rige si el neto queda bajo el precio de la categoría; base + % que paga lo mismo o más usa el tope normal
+    const net = Number(item.unitPrice) * (1 - (Number(item.discountPercent) || 0) / 100);
+    needsApproval = Number(item.discountPercent) > (net < rule.price - 0.01 ? ctx.maxDiscountNoCategory ?? maxDiscount : maxDiscount);
+  }
   if (!lists.some((p) => near(p, item.unitPrice))) needsApproval = true;
   return { needsApproval, taxRate: product.isTaxable ? Number(product.taxRate) : 0, error: null };
 }
+
+// ¿Alguna línea ya salió a precio de la categoría? (entonces el % de la categoría no se suma sobre el total)
+export const anyLineFromCategory = (items, category, categoryPrices) =>
+  !!category?.trim() && items.some((i) => resolveUnitPrice({ basePrice: i.unitPrice, category, packagingId: i.packagingId ?? null, quantity: i.quantity, categoryPrices: categoryPrices.filter((r) => r.productId === i.productId) }).fromCategory);
 
 export const creditExceeded = ({ creditLimit, pendingBalance, newTotal }) =>
   Number(creditLimit) > 0 && Number(pendingBalance) + Number(newTotal) > Number(creditLimit) + 0.01;
@@ -31,17 +47,17 @@ export const creditExceeded = ({ creditLimit, pendingBalance, newTotal }) =>
 // Mismo cruce de nombres que usa la pantalla de pedidos (sin distinguir mayúsculas)
 export function categoryDiscount(category, discounts = {}) {
   if (!category || !discounts) return 0;
-  const key = Object.keys(discounts).find((k) => k === category || k?.toLowerCase?.() === category.toLowerCase());
+  const key = Object.keys(discounts).find((k) => sameCategory(k, category));
   return key ? Number(discounts[key]) || 0 : 0;
 }
 
 // Descuento (%) permitido sin PIN: el mayor entre el tope general, el del cliente y el de su categoría
-export function allowedDiscountPercent(pricing, customer) {
+export function allowedDiscountPercent(pricing, customer, { withCategory = true } = {}) {
   const max = Number(pricing?.maxDiscountPercent ?? 5);
   return Math.max(
     Number.isFinite(max) ? max : 5,
     Number(customer?.defaultDiscount) || 0,
-    categoryDiscount(customer?.category?.trim() || 'Sin categoría', pricing?.categoryDiscounts)
+    withCategory ? categoryDiscount(customer?.category?.trim() || 'Sin categoría', pricing?.categoryDiscounts) : 0
   );
 }
 
