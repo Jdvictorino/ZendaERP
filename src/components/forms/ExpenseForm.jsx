@@ -5,6 +5,7 @@ import { ArrowLeft, Lock } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { SERVICIOS_609, PAISES } from '../../utils/dgii609.js';
+import { withholdingsOf, conceptsFor, withholdingFor } from '../../utils/withholdings.js';
 
 const TIPOS_GASTO = [
     '01-GASTOS DE PERSONAL', '02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS',
@@ -36,7 +37,7 @@ const today = () => new Date().toISOString().split('T')[0];
 const dateInput = (value) => (value ? String(value).slice(0, 10) : '');
 const num = (v) => parseFloat(v) || 0;
 
-const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency = 'DOP' }) => {
+const ExpenseForm = ({ expense = {}, suppliers = [], withholdings, onClose, onSave, currency = 'DOP' }) => {
     const issued = expense.issuedVoucher || null; // comprobante ya emitido: sus datos fiscales no cambian
     const [form, setForm] = useState({
         voucher: '',
@@ -73,8 +74,30 @@ const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency =
     const exento = voucherCode === 'B13' || voucherCode === 'B17'; // gastos menores y pagos al exterior van exentos
     const total = useMemo(() => num(form.montoBienes) + num(form.montoServicios), [form.montoBienes, form.montoServicios]);
 
-    const set = (name, value) => setForm((prev) => ({ ...prev, [name]: value }));
-    const handleChange = (e) => set(e.target.name, e.target.value);
+    // El concepto de retención es solo una ayuda de pantalla: llena los tres campos y no se envía al servidor
+    const table = withholdings || withholdingsOf();
+    const [conceptId, setConceptId] = useState('');
+    const [manual, setManual] = useState(false); // el usuario editó la retención a mano: ya no se recalcula
+    const supplierType = suppliers.find((s) => s.id === form.supplierId)?.supplierType || 'empresa';
+    const fill = (f, c) => {
+        const w = withholdingFor(c, f);
+        return { ...f, itbisRetenido: w.itbisRetenido, montoRetencionIsr: w.montoRetencionIsr, retencionIsrTipo: w.retencionIsrTipo ?? '' };
+    };
+    const chooseConcept = (id) => {
+        setConceptId(id);
+        setManual(false);
+        const c = table.find((x) => x.id === id);
+        if (c) setForm((prev) => fill(prev, c));
+    };
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        if (['itbisRetenido', 'montoRetencionIsr', 'retencionIsrTipo'].includes(name)) setManual(true);
+        const c = !manual && table.find((x) => x.id === conceptId);
+        setForm((prev) => {
+            const next = { ...prev, [name]: value };
+            return c && ['montoBienes', 'montoServicios', 'itbisFacturado'].includes(name) ? fill(next, c) : next;
+        });
+    };
     const handleSupplierChange = (e) => {
         const supplier = suppliers.find((s) => s.id === e.target.value);
         setForm((prev) => ({
@@ -83,6 +106,8 @@ const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency =
             supplierName: supplier?.name || '',
             rncCedula: supplier?.identificationNumber || '',
         }));
+        const informal = !expense.id && supplier?.supplierType === 'informal' && table.find((c) => c.id === 'informal' && c.active);
+        if (informal) chooseConcept('informal');
     };
     const chooseVoucher = (code) => setForm((prev) => ({
         ...prev,
@@ -221,6 +246,15 @@ const ExpenseForm = ({ expense = {}, suppliers = [], onClose, onSave, currency =
                         <fieldset className="border p-4 rounded-lg">
                             <legend className="text-lg font-semibold text-brand-600 px-2">Retenciones</legend>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {!issued && (
+                                    <div className="md:col-span-3">
+                                        <label htmlFor="exp-concept" className="block text-ink-soft mb-1">Concepto de retención</label>
+                                        <select id="exp-concept" value={conceptId} onChange={(e) => chooseConcept(e.target.value)} className="input-base">
+                                            <option value="">Sin retención</option>
+                                            {conceptsFor(table, supplierType).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                )}
                                 {voucherCode !== 'B17' && money('itbisRetenido', 'ITBIS retenido')}
                                 <div>
                                     <label htmlFor="exp-retencionIsrTipo" className="block text-ink-soft mb-1">Tipo de retención de ISR</label>
