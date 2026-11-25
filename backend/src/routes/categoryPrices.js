@@ -36,7 +36,7 @@ router.post('/import-wholesale', authorize('admin', 'manager'), async (req, res)
         await tx.company.update({ where: { id: companyId }, data: { settings: { ...settings, customerCategories: (categories = [...list, category]) } } });
       }
       const products = await tx.product.findMany({ where: { companyId, status: 'active', wholesalePrice: { gt: 0 } }, select: { id: true, wholesalePrice: true } });
-      const existing = await tx.categoryPrice.findMany({ where: { companyId, category }, select: { productId: true, category: true, packagingId: true, minQuantity: true } });
+      const existing = await tx.categoryPrice.findMany({ where: { companyId, category: { equals: category, mode: 'insensitive' } }, select: { productId: true, category: true, packagingId: true, minQuantity: true } });
       const rows = wholesaleRows(products, existing, category).map((r) => ({ ...r, companyId }));
       if (rows.length) await tx.categoryPrice.createMany({ data: rows });
       return { created: rows.length, customerCategories: categories };

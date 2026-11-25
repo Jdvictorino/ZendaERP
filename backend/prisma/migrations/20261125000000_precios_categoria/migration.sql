@@ -22,4 +22,4 @@ ALTER TABLE "category_prices" ADD CONSTRAINT "category_prices_companyId_fkey" FO
 ALTER TABLE "category_prices" ADD CONSTRAINT "category_prices_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "category_prices" ADD CONSTRAINT "category_prices_packagingId_fkey" FOREIGN KEY ("packagingId") REFERENCES "product_packagings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "category_prices" ADD CONSTRAINT "category_prices_packagingId_fkey" FOREIGN KEY ("packagingId") REFERENCES "product_packagings"("id") ON DELETE CASCADE ON UPDATE CASCADE;

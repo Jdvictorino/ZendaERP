@@ -169,6 +169,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
         try {
             const cleanPayload = sanitizeForBackend(formData);
             cleanPayload.emailProvider = null;
+            delete cleanPayload.customerCategories; // las categorías no viajan sin _categoryMigrations
             await settingsApi.update(cleanPayload);
 
             const result = await api.email.send({
@@ -203,7 +204,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
         if (cleanPayload.customerCategories) {
             const { entries, error } = buildCategoryMigrations(origCategories, formData.customerCategories || [], pendingMigrations, loadedCategories);
             if (error) { toast.error(error); return; }
-            cleanPayload._categoryMigrations = { apply: applyMigrations, entries, pricesAware: true };
+            cleanPayload._categoryMigrations = { apply: applyMigrations, entries, pricesAware: true, base: loadedCategories };
         }
 
         const promise = settingsApi.update(cleanPayload);

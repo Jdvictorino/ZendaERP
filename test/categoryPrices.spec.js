@@ -45,13 +45,18 @@ describe('categorías por defecto', () => {
 });
 
 describe('planCategoryChanges', () => {
-  const plan = (o, n, e, extra = {}) => planCategoryChanges(o, n, e ? { apply: true, pricesAware: true, entries: e, ...extra } : undefined);
+  const plan = (o, n, e, extra = {}) => planCategoryChanges(o, n, e ? { apply: true, pricesAware: true, entries: e, base: o, ...extra } : undefined);
   const none = { renames: [], merges: [], removed: [] };
   it('renombre: el destino queda y el origen sale', () => {
     expect(plan(['A', 'B'], ['A', 'C'], [{ from: 'B', to: 'C' }])).toEqual({ renames: [{ from: 'B', to: 'C' }], merges: [], removed: [] });
   });
   it('borrado sin renombre', () => {
     expect(plan(['A', 'B'], ['A'], [])).toEqual({ renames: [], merges: [], removed: ['B'] });
+  });
+  it('solo borra precios de categorías que la app conocía (base)', () => {
+    expect(plan(['A', 'B', 'C'], ['A'], [], { base: ['A', 'B'] }).removed).toEqual(['B']);
+    expect(plan(['A', 'B'], ['A'], [], { base: undefined })).toEqual(none);
+    expect(plan(['A', 'B'], ['A'], [], { base: [' b '] }).removed).toEqual(['B']);
   });
   it('sin pricesAware no se borran precios', () => {
     expect(plan(['A', 'B'], ['A'], [], { pricesAware: false })).toEqual(none);

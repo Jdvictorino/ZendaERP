@@ -6,6 +6,7 @@ const ERR = 'Cambia una categoría a la vez y guarda entre cada cambio';
 // loadedNames: lista inmutable cargada/guardada por última vez (incluye las filas ya eliminadas).
 export function buildCategoryMigrations(originalRows, currentRows, reassignments = [], loadedNames = originalRows.filter((n) => n != null)) {
     const fail = { entries: [], error: ERR };
+    if (currentRows.some((n) => !String(n ?? '').trim())) return { entries: [], error: 'Cada categoría necesita un nombre' };
     const cur = currentRows.map(norm);
     if (new Set(cur).size !== cur.length) return fail;
     const loaded = new Set(loadedNames.map(norm));

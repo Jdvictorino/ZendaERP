@@ -132,6 +132,10 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       _categoryMigrations,
     } = req.body;
 
+    if (Array.isArray(customerCategories) && customerCategories.some((c) => !String(c ?? '').trim())) {
+      return res.status(400).json({ error: 'Cada categoría necesita un nombre' });
+    }
+
     // Obtener el usuario para saber su companyId
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -164,10 +168,10 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       const moves = [];
       for (const { from, to } of [...renames, ...merges]) {
         const customers = _categoryMigrations.apply === true ? await tx.customer.findMany({ where: { companyId, category: from }, select: { id: true } }) : [];
-        const prices = renames.some((r) => r.from === from) ? await tx.categoryPrice.findMany({ where: { companyId, category: from }, select: { id: true } }) : [];
+        const prices = renames.some((r) => r.from === from) ? await tx.categoryPrice.findMany({ where: { companyId, category: { equals: from, mode: 'insensitive' } }, select: { id: true } }) : [];
         moves.push({ to, customers: customers.map((c) => c.id), prices: prices.map((c) => c.id) });
       }
-      if (removed.length) await tx.categoryPrice.deleteMany({ where: { companyId, category: { in: removed } } });
+      if (removed.length) await tx.categoryPrice.deleteMany({ where: { companyId, OR: removed.map((x) => ({ category: { equals: x, mode: 'insensitive' } })) } });
       for (const m of moves) {
         if (m.customers.length) await tx.customer.updateMany({ where: { id: { in: m.customers } }, data: { category: m.to } });
         if (m.prices.length) await tx.categoryPrice.updateMany({ where: { id: { in: m.prices } }, data: { category: m.to } });

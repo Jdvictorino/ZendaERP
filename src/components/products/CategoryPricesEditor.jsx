@@ -50,7 +50,7 @@ const CategoryPricesEditor = ({ value = [], onChange, categories = [], packaging
                             </div>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-xs text-red-600">{incomplete ? 'Fila incompleta (categoría, cantidad, precio o empaque): no se guardará' : ''}</span>
+                            <span className="text-xs text-red-600">{incomplete ? `Fila incompleta (categoría, cantidad, precio o empaque): ${row.id ? 'se eliminará' : 'no se guardará'} al guardar` : ''}</span>
                             <Button type="button" variant="danger" size="sm" aria-label={`Quitar precio ${n}`}
                                 onClick={() => onChange(value.filter((_, j) => j !== i))}><Trash2 size={16} /></Button>
                         </div>

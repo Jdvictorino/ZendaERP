@@ -1,5 +1,5 @@
 import { round2 } from './tax.js';
-import { resolveUnitPrice } from './categoryPricing.js';
+import { resolveUnitPrice, sameCategory } from './categoryPricing.js';
 
 const near = (a, b) => Math.abs(Number(a) - Number(b)) <= 0.01;
 
@@ -29,7 +29,9 @@ export function checkLinePrice(item, product, variant, maxDiscount, packaging = 
     : null;
   if (rule?.fromCategory) {
     lists.push(rule.price);
-    needsApproval = Number(item.discountPercent) > (ctx.maxDiscountNoCategory ?? maxDiscount);
+    // el tope sin la categoría solo rige si el neto queda bajo el precio de la categoría; base + % que paga lo mismo o más usa el tope normal
+    const net = Number(item.unitPrice) * (1 - (Number(item.discountPercent) || 0) / 100);
+    needsApproval = Number(item.discountPercent) > (net < rule.price - 0.01 ? ctx.maxDiscountNoCategory ?? maxDiscount : maxDiscount);
   }
   if (!lists.some((p) => near(p, item.unitPrice))) needsApproval = true;
   return { needsApproval, taxRate: product.isTaxable ? Number(product.taxRate) : 0, error: null };
@@ -45,7 +47,7 @@ export const creditExceeded = ({ creditLimit, pendingBalance, newTotal }) =>
 // Mismo cruce de nombres que usa la pantalla de pedidos (sin distinguir mayúsculas)
 export function categoryDiscount(category, discounts = {}) {
   if (!category || !discounts) return 0;
-  const key = Object.keys(discounts).find((k) => k === category || k?.toLowerCase?.() === category.toLowerCase());
+  const key = Object.keys(discounts).find((k) => sameCategory(k, category));
   return key ? Number(discounts[key]) || 0 : 0;
 }
 

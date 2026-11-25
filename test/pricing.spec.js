@@ -85,7 +85,12 @@ describe('precio por categoría', () => {
   it('con precio de categoría el % de la categoría no cuenta', () => {
     expect(run({ unitPrice: 120, quantity: 3, discountPercent: 8 })).toBe(true);
     expect(run({ unitPrice: 120, quantity: 3, discountPercent: 5 })).toBe(false);
-    expect(run({ unitPrice: 150, quantity: 3, discountPercent: 8 })).toBe(true);
+    // base + % que paga lo mismo o más que el precio de la categoría: tope normal (10)
+    expect(run({ unitPrice: 150, quantity: 3, discountPercent: 8 })).toBe(false);
+    expect(run({ unitPrice: 150, quantity: 3, discountPercent: 12 })).toBe(true);
+  });
+  it('precio de categoría + % de la categoría pide PIN (neto bajo el precio)', () => {
+    expect(run({ unitPrice: 120, quantity: 3, discountPercent: 10 })).toBe(true);
   });
   it('sin ctx o sin filas todo sigue igual', () => {
     expect(checkLinePrice(line({ unitPrice: 100, quantity: 10 }), p, null, 10).needsApproval).toBe(true);

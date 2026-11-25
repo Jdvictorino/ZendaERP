@@ -6,6 +6,9 @@ describe('buildCategoryMigrations', () => {
         const r = buildCategoryMigrations(['General', 'VIP'], ['General', 'Oro']);
         expect(r).toEqual({ entries: [{ from: 'VIP', to: 'Oro' }], error: null });
     });
+    it('rechaza nombres en blanco', () => {
+        expect(buildCategoryMigrations(['A', 'B'], ['A', '  ']).error).toMatch(/necesita un nombre/);
+    });
     it('ignora filas nuevas, sin cambios y cambios de mayúsculas/espacios', () => {
         const r = buildCategoryMigrations(['General', 'VIP', null], ['General', ' vip ', 'Nueva']);
         expect(r.entries).toEqual([]);

@@ -321,7 +321,7 @@ model CategoryPrice {
   productId   String
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   packagingId String?
-  packaging   ProductPackaging? @relation(fields: [packagingId], references: [id])
+  packaging   ProductPackaging? @relation(fields: [packagingId], references: [id], onDelete: Cascade)
   minQuantity Decimal  @default(1) @db.Decimal(14, 3)
   price       Decimal  @db.Decimal(12, 2)
   createdAt   DateTime @default(now())

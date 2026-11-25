@@ -53,7 +53,8 @@ const has = (list, c) => list.some((x) => sameCategory(x, c));
  * (la UI manda una por tecla) hasta su nombre final:
  * - renames: el nombre final es nuevo y está en la lista (precios y clientes se mueven)
  * - merges: el nombre final ya existía, o ya lo toma otra categoría (solo clientes; los precios de la origen se borran)
- * - removed: precios a borrar (categorías quitadas y orígenes de un merge); vacío salvo que migrations.pricesAware === true
+ * - removed: precios a borrar (categorías quitadas y orígenes de un merge); vacío salvo que migrations.pricesAware === true,
+ *   y solo de las que estén en migrations.base (lista que la app cargó)
  * Con varias categorías que terminan en el mismo nombre, solo una es renombre: la primera de la lista vieja
  * cuya cadena no pasa por otra del grupo. Lista nueva vacía o ausente: nada.
  */
@@ -80,7 +81,9 @@ export function planCategoryChanges(oldList, newList, migrations) {
       else { merges.push({ from: i.from, to }); removed.push(i.from); }
     }
   }
-  return { renames, merges, removed: migrations?.pricesAware === true ? removed : [] };
+  // solo se borran precios de categorías que la app conocía (base): las creadas en otro equipo no se tocan
+  const base = Array.isArray(migrations?.base) ? migrations.base : [];
+  return { renames, merges, removed: migrations?.pricesAware === true ? removed.filter((r) => has(base, r)) : [] };
 }
 
 /** Filas base (cantidad 1, sin empaque) con el precio al por mayor de cada producto que aún no la tiene en la categoría. */
