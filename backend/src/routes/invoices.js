@@ -1,5 +1,6 @@
 import { assertSameCompany } from '../services/ownership.js';
 import { appendPayments } from '../services/payments.js';
+import { planInvoicePayment } from '../services/invoicePayment.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
@@ -259,9 +260,9 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
     if (customer && /cr[eé]dito/i.test(data.paymentMethod || '')) {
       const open = await prisma.invoice.aggregate({
         where: { companyId: req.companyId, customerId: customer.id, status: { notIn: VOID_STATUSES } },
-        _sum: { total: true, amountPaid: true }
+        _sum: { total: true, amountPaid: true, itbisRetenido: true, retencionRenta: true }
       });
-      const pendingBalance = Number(open._sum.total || 0) - Number(open._sum.amountPaid || 0);
+      const pendingBalance = Number(open._sum.total || 0) - Number(open._sum.amountPaid || 0) - Number(open._sum.itbisRetenido || 0) - Number(open._sum.retencionRenta || 0);
       if (creditExceeded({ creditLimit: customer.creditLimit, pendingBalance, newTotal: total })) {
         return res.status(400).json({ error: 'La venta pasa el límite de crédito del cliente' });
       }
@@ -453,20 +454,13 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
     const total = updateData.total ?? Number(invoice.total);
 
     // Cobro: el monto se valida contra el total y el estado de pago sale de los montos, no de la pantalla
-    const paid = body.amountPaid ?? body.paidAmount;
-    if (paid !== undefined) {
-      const amount = Number(paid);
-      if (!(amount >= 0) || amount > total + 0.01) {
-        return res.status(400).json({ error: 'El monto pagado no puede ser mayor que el total de la factura.' });
-      }
-      if (!manager && amount < Number(invoice.amountPaid) - 0.01) {
-        return res.status(403).json({ error: 'Solo un gerente o administrador puede reducir lo pagado de una factura.' });
-      }
-      updateData.amountPaid = amount;
-      if (!VOID_STATUSES.includes(invoice.status)) {
-        updateData.status = amount >= total - 0.01 ? 'Pagado' : amount > 0 ? 'Pagado Parcialmente' : 'Pendiente';
-      }
-    }
+    const plan = planInvoicePayment(
+      { ...invoice, total, taxAmount: updateData.taxAmount ?? invoice.taxAmount, voided: VOID_STATUSES.includes(invoice.status) },
+      body,
+      { manager }
+    );
+    if (plan.error) return res.status(plan.httpStatus).json({ error: plan.error });
+    Object.assign(updateData, plan.data);
     const status = body.status ?? body.paymentStatus;
     if (status !== undefined && updateData.status === undefined) {
       if (VOID_STATUSES.includes(status)) {

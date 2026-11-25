@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
+import { withholdingsOf, validateWithholdings } from '../services/withholdings.js';
 import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
 const router = express.Router();
@@ -64,6 +65,7 @@ router.get('/', async (req, res) => {
       allowCustomization: settings.allowCustomization ?? true,
       customerCategories: settings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES,
       pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
+      withholdings: withholdingsOf(settings),
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
         bankName: '',
@@ -130,10 +132,16 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       orderMode, availableOrderModes, businessType, // Modo de pedidos
       smtp, // Configuración SMTP
       _categoryMigrations,
+      withholdings,
     } = req.body;
 
     if (Array.isArray(customerCategories) && customerCategories.some((c) => !String(c ?? '').trim())) {
       return res.status(400).json({ error: 'Cada categoría necesita un nombre' });
+    }
+
+    if (withholdings !== undefined) {
+      const bad = validateWithholdings(withholdings);
+      if (bad) return res.status(400).json({ error: bad });
     }
 
     // Obtener el usuario para saber su companyId
@@ -206,6 +214,9 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     if (businessType !== undefined) {
       newSettings.businessType = businessType;
     }
+    if (withholdings !== undefined) {
+      newSettings.withholdings = withholdings;
+    }
     if (smtp !== undefined) {
       newSettings.smtp = mergeSmtp(currentSettings.smtp, smtp);
     }
@@ -262,6 +273,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       cash: settings.cash || { enabled: true, defaultPaymentMethod: 'Efectivo' },
       notifications: newNotifications || { sound: { enabled: true, volume: 0.7 } },
       pricing: settings.pricing || {},
+      withholdings: withholdingsOf(settings),
       allowCustomization: settings.allowCustomization !== undefined ? settings.allowCustomization : true,
       customerCategories: settings.customerCategories || [],
       smtp: publicSettings({ smtp: newSettings.smtp }).smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },
