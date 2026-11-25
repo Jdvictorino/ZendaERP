@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { nextStatus, orderTotals, planReceipt, validateOrderLines } from '../services/purchases.js';
+import { nextStatus, orderTotals, planInvoice, planReceipt, purchaseSuggestions, validateOrderLines } from '../services/purchases.js';
 
 const router = Router();
 router.use(authenticate);
@@ -61,6 +61,31 @@ router.get('/', authorize(...rolesFor('purchases-view')), async (req, res, next)
       orderBy: { createdAt: 'desc' }
     });
     res.json(orders);
+  } catch (error) { next(error); }
+});
+
+router.get('/suggestions', authorize(...rolesFor('purchases')), async (req, res, next) => {
+  try {
+    const rows = await prisma.product.findMany({
+      where: { companyId: req.companyId, status: 'active', minStock: { gt: 0 } },
+      select: { id: true, name: true, unit: true, supplierId: true, minStock: true, maxStock: true, stock: true, costPrice: true, status: true, _count: { select: { variants: true } } }
+    });
+    const products = rows.map(({ _count, ...p }) => ({ ...p, hasVariants: _count.variants > 0 }));
+    const items = await prisma.purchaseOrderItem.findMany({
+      where: { productId: { in: products.map((p) => p.id) }, purchaseOrder: { companyId: req.companyId } },
+      select: { productId: true, quantity: true, receivedQuantity: true, packagingId: true, packagingName: true, packagingFactor: true, purchaseOrder: { select: { status: true } } },
+      orderBy: { purchaseOrder: { createdAt: 'desc' } }
+    });
+    const pendingByProduct = {}, lastPackagingByProduct = {};
+    for (const i of items) { // vienen de la orden más reciente a la más antigua
+      lastPackagingByProduct[i.productId] ??= i.packagingId ? { packagingId: i.packagingId, packagingName: i.packagingName, packagingFactor: Number(i.packagingFactor) } : null;
+      if (['borrador', 'enviada', 'parcial'].includes(i.purchaseOrder.status)) {
+        pendingByProduct[i.productId] = (pendingByProduct[i.productId] || 0) + (Number(i.quantity) - Number(i.receivedQuantity)) * Number(i.packagingFactor);
+      }
+    }
+    const result = purchaseSuggestions({ products, pendingByProduct, lastPackagingByProduct });
+    const sup = await prisma.supplier.findMany({ where: { companyId: req.companyId, id: { in: Object.keys(result.bySupplier) } }, select: { id: true, name: true } });
+    res.json({ ...result, suppliers: Object.fromEntries(sup.map((x) => [x.id, x.name])) });
   } catch (error) { next(error); }
 });
 
@@ -224,6 +249,49 @@ router.post('/:id/receive', authorize(...rolesFor('purchases')), async (req, res
       return tx.purchaseOrder.update({ where: { id: cur.id }, data: { status }, include: detailInclude });
     });
     res.json(order);
+  } catch (error) { next(error); }
+});
+
+const invoiceSchema = z.object({
+  lines: z.array(z.object({ itemId: z.string().uuid(), quantity: z.coerce.number() })).refine((l) => new Set(l.map((x) => x.itemId)).size === l.length, 'Una línea está repetida.'),
+  ncf: z.string().trim().min(1, 'El NCF es obligatorio'),
+  invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de factura inválida').refine((v) => !isNaN(new Date(v)), 'Fecha de factura inválida'),
+  paymentType: z.enum(['01', '02', '03', '04', '05', '06', '07']).default('04')
+});
+
+router.post('/:id/invoice', authorize(...rolesFor('finance-expenses')), async (req, res, next) => {
+  try {
+    const data = invoiceSchema.parse(req.body);
+    const expense = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM purchase_orders WHERE id = ${req.params.id} AND "companyId" = ${req.companyId} FOR UPDATE`;
+      const cur = await tx.purchaseOrder.findFirst({
+        where: { id: req.params.id, companyId: req.companyId },
+        include: { supplier: true, items: { include: { product: { select: { name: true } } } } }
+      });
+      if (!cur) throw bad('Orden no encontrada', 404);
+      if (['cancelada', 'borrador'].includes(cur.status)) throw bad('No se puede facturar una orden cancelada o en borrador.', 409);
+      const items = cur.items.map((i) => ({
+        id: i.id, productId: i.productId, productName: i.product.name, quantity: Number(i.quantity),
+        receivedQuantity: Number(i.receivedQuantity), invoicedQuantity: Number(i.invoicedQuantity),
+        unitCost: Number(i.unitCost), taxRate: Number(i.taxRate), packagingId: i.packagingId,
+        packagingFactor: i.packagingFactor == null ? 1 : Number(i.packagingFactor)
+      }));
+      const plan = planInvoice(items, data.lines);
+      if (plan.error) throw bad(plan.error);
+      const created = await tx.expense.create({
+        data: {
+          companyId: req.companyId, userId: req.user.id, supplierId: cur.supplierId,
+          supplierName: cur.supplier.name, rncCedula: cur.supplier.rnc || cur.supplier.identificationNumber || '',
+          ncf: data.ncf, invoiceDate: new Date(data.invoiceDate),
+          montoBienes: plan.montoBienes, montoServicios: 0, itbisFacturado: plan.itbisFacturado, montoFacturado: plan.montoBienes,
+          expenseType: '09-COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', paymentType: data.paymentType,
+          description: `Factura de la orden de compra ${cur.number}`, purchaseOrderId: cur.id
+        }
+      });
+      for (const u of plan.updates) await tx.purchaseOrderItem.update({ where: { id: u.itemId }, data: { invoicedQuantity: u.newInvoiced } });
+      return created;
+    });
+    res.status(201).json(expense);
   } catch (error) { next(error); }
 });
 
