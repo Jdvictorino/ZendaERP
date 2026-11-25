@@ -658,7 +658,33 @@ export const voucherDocData = (expense, currency = 'DOP') => {
     };
 };
 
+// Orden de compra al suplidor: costos por unidad de la línea (sin ITBIS), no precios de venta
+export const purchaseOrderDocData = (order) => {
+    const supplier = order.supplier || {};
+    const expected = order.expectedDate && order.expectedDate.slice(0, 10).split('-').reverse().join('/');
+    return {
+        ...order,
+        items: (order.items || []).map((it) => ({
+            productName: it.product?.name + (it.packagingName ? ` — ${it.packagingName}` : ''),
+            quantity: it.quantity,
+            unitPrice: Number(it.unitCost),
+            taxRate: it.taxRate,
+            subtotal: round2(Number(it.quantity) * Number(it.unitCost)),
+            product: it.packagingName ? {} : { unit: it.product?.unit },
+        })),
+        subtotal: Number(order.subtotal),
+        itbis: Number(order.itbis),
+        total: Number(order.total),
+        date: order.createdAt,
+        notes: [order.notes, expected && `Fecha esperada: ${expected}`].filter(Boolean).join('\n'),
+        customerName: supplier.name,
+        customerRnc: supplier.rnc || supplier.identificationNumber,
+        pricesIncludeTax: false,
+    };
+};
+
 export const generatePDF = async (docData, docType, companyProfile, customerDetails, emitterInfo, action = 'view') => {
+    if (docType === 'purchase-order') docData = purchaseOrderDocData(docData);
     if (docType === 'purchase-voucher') docData = voucherDocData(docData, companyProfile?.currency || 'DOP');
     try {
         await ensurePdfLibraries();
@@ -730,6 +756,11 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             docNumber = docData?.ncfNumber;
             documentDate = docData?.invoiceDate;
             break;
+        case 'purchase-order':
+            docTitle = 'Orden de Compra';
+            docNumber = docData?.number;
+            numberLabel = 'N.º';
+            break;
         case 'quote':
         default:
             docTitle = 'Cotización';
@@ -752,7 +783,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         docData,
         emitterInfo,
         startY: cursorY,
-        leftTitle: docType === 'purchase-voucher' ? (['B11', 'E41'].includes(docData?.issuedVoucher) ? 'Vendedor' : 'Proveedor') : 'Cliente',
+        leftTitle: docType === 'purchase-voucher' ? (['B11', 'E41'].includes(docData?.issuedVoucher) ? 'Vendedor' : 'Proveedor') : docType === 'purchase-order' ? 'Suplidor' : 'Cliente',
     });
 
     if (isModificationDocument) {
@@ -768,7 +799,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
             currency,
             pricesIncludeTax: docData?.pricesIncludeTax,
             startY: cursorY,
-            withNotes: showNotesColumn(companyProfile),
+            withNotes: docType === 'purchase-order' ? false : showNotesColumn(companyProfile),
             unitWords: isEcfDoc(docData),
             topMargin: headerBottom,
             bottomReserve: docData?.ecfData?.qrCodeUrl ? 44 : 30,
@@ -779,7 +810,7 @@ export const generatePDF = async (docData, docType, companyProfile, customerDeta
         cursorY = drawFinancialSection(doc, theme, {
             docData,
             currency,
-            bankDetails: docType === 'purchase-voucher' ? null : companyProfile?.bankDetails,
+            bankDetails: ['purchase-voucher', 'purchase-order'].includes(docType) ? null : companyProfile?.bankDetails,
             startY: cursorY + 4,
             newPage,
         });
