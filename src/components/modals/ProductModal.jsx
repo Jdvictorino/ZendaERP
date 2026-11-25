@@ -10,6 +10,7 @@ import { productRate } from '../../utils/productRate.js';
 import { round2 } from '../../utils/tax.js';
 import { BASE_UNITS, unitOf } from '../../utils/units.js';
 import PackagingsEditor from '../products/PackagingsEditor.jsx';
+import CategoryPricesEditor, { isCompletePriceRow } from '../products/CategoryPricesEditor.jsx';
 
 // --- Componente: Modal para Gestionar Categorías ---
 const ManageCategoriesModal = ({ onClose, categories, handleDeleteCategory, isMasterUser }) => (
@@ -34,7 +35,7 @@ const ManageCategoriesModal = ({ onClose, categories, handleDeleteCategory, isMa
 );
 
 
-const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMasterUser, onCategoryAdded, onSupplierAdded, currency = 'DOP', fullPage = false }) => {
+const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMasterUser, onCategoryAdded, onSupplierAdded, currency = 'DOP', fullPage = false, customerCategories }) => {
     const [formData, setFormData] = useState({ 
         name: '', salePrice: 0, purchasePrice: 0, stock: 0, stockThreshold: 5,
         code: '', imageUrl: '', supplierId: '', supplierName: '',
@@ -43,6 +44,8 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
     });
     const [packagings, setPackagings] = useState([]);
     const [packagingsTouched, setPackagingsTouched] = useState(false);
+    const [categoryPrices, setCategoryPrices] = useState([]);
+    const [categoryPricesTouched, setCategoryPricesTouched] = useState(false);
     const [showAddSupplier, setShowAddSupplier] = useState(false);
     const [showAddCategory, setShowAddCategory] = useState(false);
     const [showManageCategories, setShowManageCategories] = useState(false);
@@ -66,6 +69,8 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
             });
             setPackagings((product.packagings || []).map(k => ({ ...k, salePrice: k.salePrice ?? '' })));
             setPackagingsTouched(false);
+            setCategoryPrices((product.categoryPrices || []).map(r => ({ ...r, packagingId: r.packagingId ?? null })));
+            setCategoryPricesTouched(false);
         }
     }, [product]);
 
@@ -107,6 +112,12 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                     ...(pid ? { id: pid } : {}), name: String(name).trim(), factor: Number(factor), unitCode,
                     barcode: String(barcode ?? '').trim(),
                     salePrice: salePrice === '' || salePrice == null ? null : Number(salePrice),
+                }));
+            }
+            // Igual que los empaques: solo se reescriben los precios por categoría si se tocaron.
+            if (categoryPricesTouched) {
+                dataToSave.categoryPrices = categoryPrices.filter(isCompletePriceRow).map(({ category, packagingId, minQuantity, price }) => ({
+                    category, packagingId: packagingId || null, minQuantity: Number(minQuantity), price: Number(price),
                 }));
             }
             await onSave(dataToSave);
@@ -213,6 +224,13 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                                 baseUnitAbbr={unitOf(formData.unit).abbr} basePrice={Number(formData.salePrice) || 0} />
                         </div>
                         
+                        <div>
+                            <h4 className="block text-ink-soft mb-1">Precios por categoría de cliente</h4>
+                            <CategoryPricesEditor value={categoryPrices} onChange={(v) => { setCategoryPrices(v); setCategoryPricesTouched(true); }}
+                                categories={customerCategories?.length ? customerCategories : ['General', 'VIP', 'Mayorista']}
+                                packagings={packagings} baseUnitLabel={unitOf(formData.unit).label} />
+                        </div>
+
                         <div>
                             <label className="block text-ink-soft mb-1">Estado Fiscal</label>
                             <select name="taxStatus" value={formData.taxStatus} onChange={handleChange} className="input-base">

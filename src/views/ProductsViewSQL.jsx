@@ -279,6 +279,7 @@ const ProductsViewSQL = ({ companyProfile, isMasterUser }) => {
                     onSupplierAdded={refetchSuppliers}
                     isMasterUser={isMasterUser}
                     currency={currency}
+                    customerCategories={companyProfile?.customerCategories}
                     fullPage
                 />
             </div>
