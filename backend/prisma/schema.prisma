@@ -823,8 +823,8 @@ model PurchaseOrder {
   status       String    @default("borrador") // borrador, enviada, parcial, recibida, cancelada
   expectedDate DateTime? @db.Date
   notes        String?
-  createdById  String
-  createdBy    User      @relation(fields: [createdById], references: [id])
+  createdById  String?
+  createdBy    User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   subtotal     Decimal   @default(0) @db.Decimal(12, 2)
   itbis        Decimal   @default(0) @db.Decimal(12, 2)
   total        Decimal   @default(0) @db.Decimal(12, 2)
@@ -864,8 +864,8 @@ model PurchaseReceipt {
   id              String        @id @default(uuid())
   purchaseOrderId String
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   receivedAt      DateTime      @default(now())
   items           Json
   notes           String?

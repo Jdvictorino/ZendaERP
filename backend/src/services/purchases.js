@@ -104,8 +104,9 @@ export function validateOrderLines(lines, productsById) {
     if (l.packagingId && !pack) return { error: `El empaque de "${p.name}" no existe o está inactivo.` };
     const qErr = quantityError({ quantity: l.quantity, allowFractions: p.allowFractions, hasPackaging: !!pack });
     if (qErr) return { error: `${p.name}: ${qErr}` };
-    const unitCost = Number(l.unitCost);
-    if (!Number.isFinite(unitCost) || unitCost < 0) return { error: `${p.name}: el costo no puede ser negativo.` };
+    const rawCost = Number(l.unitCost);
+    if (!Number.isFinite(rawCost) || rawCost < 0) return { error: `${p.name}: el costo no puede ser negativo.` };
+    const unitCost = round2(rawCost); // los totales se calculan sobre el costo que se guarda
     out.push({
       productId: l.productId,
       packagingId: pack ? pack.id : null,

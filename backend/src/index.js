@@ -177,6 +177,10 @@ app.use((err, req, res, next) => {
     return res.status(409).json({ error: 'El registro ya existe' });
   }
   
+  if (err.code === 'P2003') {
+    return res.status(409).json({ error: 'No se puede eliminar: está en uso en otros registros (por ejemplo, órdenes de compra).' });
+  }
+
   if (err.code === 'P2025') {
     return res.status(404).json({ error: 'Registro no encontrado' });
   }

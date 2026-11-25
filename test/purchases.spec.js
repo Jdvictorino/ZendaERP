@@ -82,3 +82,12 @@ describe('validateOrderLines', () => {
     expect(ok({ productId: 'a', quantity: 1, unitCost: -1 }).error).toMatch(/costo/);
   });
 });
+
+describe('validateOrderLines: redondeo', () => {
+  it('redondea el costo a 2 decimales antes de los totales', () => {
+    const P = { a: { name: 'A', allowFractions: false, isTaxable: false, taxRate: 0, status: 'active', packagings: [] } };
+    const l = validateOrderLines([{ productId: 'a', quantity: 1000, unitCost: 1.005 }], P).lines;
+    expect(l[0].unitCost).toBe(1.01);
+    expect(orderTotals(l).subtotal).toBe(1010);
+  });
+});

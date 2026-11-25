@@ -10,7 +10,7 @@ CREATE TABLE "purchase_orders" (
     "status" TEXT NOT NULL DEFAULT 'borrador',
     "expectedDate" DATE,
     "notes" TEXT,
-    "createdById" TEXT NOT NULL,
+    "createdById" TEXT,
     "subtotal" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "itbis" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "total" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -42,7 +42,7 @@ CREATE TABLE "purchase_order_items" (
 CREATE TABLE "purchase_receipts" (
     "id" TEXT NOT NULL,
     "purchaseOrderId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "userId" TEXT,
     "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "items" JSONB NOT NULL,
     "notes" TEXT,
@@ -75,7 +75,7 @@ ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_companyId_fkey" FO
 ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "suppliers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "purchase_order_items" ADD CONSTRAINT "purchase_order_items_purchaseOrderId_fkey" FOREIGN KEY ("purchaseOrderId") REFERENCES "purchase_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -87,4 +87,4 @@ ALTER TABLE "purchase_order_items" ADD CONSTRAINT "purchase_order_items_productI
 ALTER TABLE "purchase_receipts" ADD CONSTRAINT "purchase_receipts_purchaseOrderId_fkey" FOREIGN KEY ("purchaseOrderId") REFERENCES "purchase_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "purchase_receipts" ADD CONSTRAINT "purchase_receipts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "purchase_receipts" ADD CONSTRAINT "purchase_receipts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;

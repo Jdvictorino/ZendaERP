@@ -12,7 +12,7 @@ const bad = (error, status = 400) => Object.assign(new Error(error), { status })
 
 const orderSchema = z.object({
   supplierId: z.string().min(1),
-  expectedDate: z.string().optional().nullable(),
+  expectedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha esperada inválida').refine((v) => !isNaN(new Date(v)), 'Fecha esperada inválida').optional().nullable().or(z.literal('')),
   notes: z.string().optional().nullable(),
   items: z.array(z.object({
     productId: z.string().min(1),
@@ -110,9 +110,12 @@ router.put('/:id', authorize(...rolesFor('purchases')), async (req, res, next) =
   try {
     const data = orderSchema.parse(req.body);
     const order = await prisma.$transaction(async (tx) => {
-      const current = await tx.purchaseOrder.findFirst({ where: { id: req.params.id, companyId: req.companyId }, select: { status: true } });
-      if (!current) throw bad('Orden no encontrada', 404);
-      if (current.status !== 'borrador') throw bad('Solo se puede editar una orden en borrador.', 409);
+      // Toma la fila solo si sigue en borrador: un envío simultáneo no se cuela
+      const claimed = await tx.purchaseOrder.updateMany({ where: { id: req.params.id, companyId: req.companyId, status: 'borrador' }, data: { updatedAt: new Date() } });
+      if (!claimed.count) {
+        const exists = await tx.purchaseOrder.count({ where: { id: req.params.id, companyId: req.companyId } });
+        throw bad(exists ? 'Solo se puede editar una orden en borrador.' : 'Orden no encontrada', exists ? 409 : 404);
+      }
       const { lines, totals } = await prepare(tx, req.companyId, data);
       await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: req.params.id } });
       return tx.purchaseOrder.update({
@@ -149,13 +152,15 @@ router.post('/:id/send', authorize(...rolesFor('purchases')), async (req, res, n
 router.post('/:id/cancel', authorize(...rolesFor('purchases')), async (req, res, next) => {
   try {
     const order = await prisma.$transaction(async (tx) => {
-      const current = await tx.purchaseOrder.findFirst({
-        where: { id: req.params.id, companyId: req.companyId },
-        select: { status: true, _count: { select: { receipts: true } } }
+      const claimed = await tx.purchaseOrder.updateMany({
+        where: { id: req.params.id, companyId: req.companyId, status: { in: ['borrador', 'enviada'] }, receipts: { none: {} } },
+        data: { updatedAt: new Date() }
       });
-      if (!current) throw bad('Orden no encontrada', 404);
-      if (current.status === 'cancelada') throw bad('La orden ya está cancelada.', 409);
-      if (current._count.receipts > 0 || !['borrador', 'enviada'].includes(current.status)) throw bad('Una orden con mercancía recibida no se puede cancelar.', 409);
+      if (!claimed.count) {
+        const cur = await tx.purchaseOrder.findFirst({ where: { id: req.params.id, companyId: req.companyId }, select: { status: true } });
+        if (!cur) throw bad('Orden no encontrada', 404);
+        throw bad(cur.status === 'cancelada' ? 'La orden ya está cancelada.' : 'Una orden con mercancía recibida no se puede cancelar.', 409);
+      }
       return tx.purchaseOrder.update({ where: { id: req.params.id }, data: { status: 'cancelada' }, include: detailInclude });
     });
     res.json(order);
