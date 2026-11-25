@@ -71,7 +71,7 @@ export function purchaseSuggestions({ products, pendingByProduct = {}, lastPacka
   const out = { bySupplier: {}, noSupplier: [], reviewByHand: [] };
   for (const p of products) {
     const min = Number(p.minStock || 0), stock = Number(p.stock || 0);
-    if (p.isActive === false || min <= 0 || stock > min) continue;
+    if (p.status === 'inactive' || min <= 0 || stock > min) continue;
     if (p.hasVariants || p.variants?.length) { out.reviewByHand.push(p); continue; }
     const target = Number(p.maxStock) > 0 ? Number(p.maxStock) : 2 * min;
     const need = target - stock - Number(pendingByProduct[p.id] || 0);

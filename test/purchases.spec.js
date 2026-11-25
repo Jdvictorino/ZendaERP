@@ -39,7 +39,7 @@ describe('compras', () => {
   });
 
   describe('purchaseSuggestions', () => {
-    const base = { id: 'a', supplierId: 's1', minStock: 10, maxStock: 50, stock: 4, costPrice: 5, isActive: true };
+    const base = { id: 'a', supplierId: 's1', minStock: 10, maxStock: 50, stock: 4, costPrice: 5, status: 'active' };
     it('caja de 12: necesidad 50-4-6=40 -> 4 cajas', () => {
       const r = purchaseSuggestions({ products: [base], pendingByProduct: { a: 6 }, lastPackagingByProduct: { a: { packagingId: 'k', packagingName: 'Caja', packagingFactor: 12 } } });
       expect(r.bySupplier.s1).toEqual([{ productId: 'a', packagingId: 'k', packagingName: 'Caja', packagingFactor: 12, quantity: 4, unitCost: 60 }]);
@@ -50,7 +50,7 @@ describe('compras', () => {
     });
     it('sin suplidor, variantes, no bajo mínimo, cubierto', () => {
       const r = purchaseSuggestions({
-        products: [{ ...base, id: 'b', supplierId: null }, { ...base, id: 'c', hasVariants: true }, { ...base, id: 'd', stock: 11 }, { ...base, id: 'e' }],
+        products: [{ ...base, id: 'b', supplierId: null }, { ...base, id: 'c', hasVariants: true }, { ...base, id: 'd', stock: 11 }, { ...base, id: 'e' }, { ...base, id: 'f', status: 'inactive' }],
         pendingByProduct: { e: 60 }, lastPackagingByProduct: {}
       });
       expect(r.noSupplier.map((l) => l.productId)).toEqual(['b']);
