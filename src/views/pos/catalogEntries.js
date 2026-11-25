@@ -38,10 +38,10 @@ export function catalogEntries(products) {
         }));
         const base = { ...b, productId: b.productId || b.id, packagingId: null, packagingName: null, factor: 1, unitAbbr };
         const options = [
-          { packagingId: null, packagingName: null, factor: 1, salePrice: Number(b.salePrice) || 0, id: b.id },
-          ...packEntries.map((e) => ({ packagingId: e.packagingId, packagingName: e.packagingName, factor: e.factor, salePrice: e.salePrice, id: e.id })),
+          { packagingId: null, packagingName: null, factor: 1, salePrice: Number(b.salePrice) || 0, basePrice: Number(b.salePrice) || 0, id: b.id },
+          ...packEntries.map((e) => ({ packagingId: e.packagingId, packagingName: e.packagingName, factor: e.factor, salePrice: e.salePrice, basePrice: Number(e.salePrice) || 0, id: e.id })),
         ];
-        return [base, ...packEntries].map((e) => ({ ...e, baseId: b.id, baseName: b.name, unitAbbr, options }));
+        return [base, ...packEntries].map((e) => ({ ...e, baseId: b.id, baseName: b.name, unitAbbr, options, basePrice: Number(e.salePrice) || 0, categoryPrices: p.categoryPrices || [] }));
       });
     });
 }
