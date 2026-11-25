@@ -87,6 +87,18 @@ describe('ExpenseForm', () => {
       expect(val('#exp-montoRetencionIsr')).toBe('999');
     });
 
+    it('al cambiar a un proveedor al que el concepto no aplica, deja de recalcular', async () => {
+      const list = [...suppliers, { id: 's3', name: 'Acme', supplierType: 'empresa' }];
+      await act(async () => root.render(<ExpenseForm suppliers={list} onClose={() => {}} onSave={vi.fn()} />));
+      await pick('#exp-supplierId', 's2');
+      await type('#exp-montoServicios', '10000');
+      await pick('#exp-concept', 'honorarios');
+      await pick('#exp-supplierId', 's3');
+      expect(val('#exp-concept')).toBe('');
+      await type('#exp-montoServicios', '20000');
+      expect(val('#exp-montoRetencionIsr')).toBe('1500');
+    });
+
     it('un proveedor informal preselecciona el concepto B11 en un gasto nuevo', async () => {
       await act(async () => root.render(<ExpenseForm suppliers={suppliers} onClose={() => {}} onSave={vi.fn()} />));
       await type('#exp-itbisFacturado', '180');

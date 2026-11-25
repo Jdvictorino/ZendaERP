@@ -108,6 +108,7 @@ const ExpenseForm = ({ expense = {}, suppliers = [], withholdings, onClose, onSa
         }));
         const informal = !expense.id && supplier?.supplierType === 'informal' && table.find((c) => c.id === 'informal' && c.active);
         if (informal) chooseConcept('informal');
+        else if (!conceptsFor(table, supplier?.supplierType || 'empresa').some((c) => c.id === conceptId)) setConceptId(''); // el concepto ya no aplica: conserva los valores, deja de recalcular
     };
     const chooseVoucher = (code) => setForm((prev) => ({
         ...prev,
