@@ -3,7 +3,9 @@ import { Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 
 // Filas sin categoría o sin precio no se envían al guardar; aquí se marcan.
-export const isCompletePriceRow = (r) => !!r.category && r.price !== '' && r.price != null;
+export const isCompletePriceRow = (r, packagings = []) => !!r.category && r.price !== '' && r.price != null
+    && Number(r.minQuantity) > 0
+    && (!r.packagingId || packagings.some((p) => p.id === r.packagingId));
 
 // Precios por categoría de cliente y escalón de cantidad (lista controlada).
 const CategoryPricesEditor = ({ value = [], onChange, categories = [], packagings = [], baseUnitLabel = 'Unidad' }) => {
@@ -15,7 +17,7 @@ const CategoryPricesEditor = ({ value = [], onChange, categories = [], packaging
         <div className="space-y-3">
             {value.map((row, i) => {
                 const n = i + 1;
-                const incomplete = !isCompletePriceRow(row);
+                const incomplete = !isCompletePriceRow(row, packagings);
                 return (
                     <div key={row.id ?? `new-${i}`} className={`p-3 border rounded-lg bg-surface-muted space-y-2 ${incomplete ? 'border-red-400' : 'border-line'}`}>
                         <div className="grid grid-cols-2 gap-2">
@@ -32,6 +34,7 @@ const CategoryPricesEditor = ({ value = [], onChange, categories = [], packaging
                                 <select id={`cp-pk-${i}`} aria-label={`Empaque ${n}`} className="input-base" value={row.packagingId ?? ''}
                                     onChange={(e) => setRow(i, { packagingId: e.target.value || null })}>
                                     <option value="">{baseUnitLabel}</option>
+                                    {row.packagingId && !saved.some((p) => p.id === row.packagingId) && <option value={row.packagingId}>(empaque eliminado)</option>}
                                     {saved.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
                             </div>
@@ -47,7 +50,7 @@ const CategoryPricesEditor = ({ value = [], onChange, categories = [], packaging
                             </div>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-xs text-red-600">{incomplete ? 'Falta categoría o precio: esta fila no se guardará' : ''}</span>
+                            <span className="text-xs text-red-600">{incomplete ? 'Fila incompleta (categoría, cantidad, precio o empaque): no se guardará' : ''}</span>
                             <Button type="button" variant="danger" size="sm" aria-label={`Quitar precio ${n}`}
                                 onClick={() => onChange(value.filter((_, j) => j !== i))}><Trash2 size={16} /></Button>
                         </div>

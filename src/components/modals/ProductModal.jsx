@@ -116,7 +116,7 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
             }
             // Igual que los empaques: solo se reescriben los precios por categoría si se tocaron.
             if (categoryPricesTouched) {
-                dataToSave.categoryPrices = categoryPrices.filter(isCompletePriceRow).map(({ category, packagingId, minQuantity, price }) => ({
+                dataToSave.categoryPrices = categoryPrices.filter(r => isCompletePriceRow(r, packagings)).map(({ category, packagingId, minQuantity, price }) => ({
                     category, packagingId: packagingId || null, minQuantity: Number(minQuantity), price: Number(price),
                 }));
             }

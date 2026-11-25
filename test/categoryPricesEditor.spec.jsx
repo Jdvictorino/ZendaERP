@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import CategoryPricesEditor from '../src/components/products/CategoryPricesEditor';
+import CategoryPricesEditor, { isCompletePriceRow } from '../src/components/products/CategoryPricesEditor';
 
 const cats = ['General', 'VIP'];
 const pks = [{ id: 'p1', name: 'Caja de 24' }, { name: 'Nuevo' }];
@@ -20,6 +20,22 @@ describe('CategoryPricesEditor', () => {
         const opts = [...screen.getByLabelText('Empaque 1').options].map((o) => o.textContent);
         expect(opts).toEqual(['Unidad', 'Caja de 24']);
         expect(screen.getByText('Guarda el producto para usar un empaque nuevo')).toBeTruthy();
+    });
+
+    it('empaque eliminado: opción marcada y fila incompleta', () => {
+        const row = { category: 'VIP', packagingId: 'gone', minQuantity: 1, price: '90' };
+        render(<CategoryPricesEditor value={[row]} onChange={() => {}} categories={cats} packagings={pks} baseUnitLabel="Unidad" />);
+        expect(screen.getByLabelText('Empaque 1').value).toBe('gone');
+        expect(screen.getByText('(empaque eliminado)')).toBeTruthy();
+        expect(isCompletePriceRow(row, pks)).toBe(false);
+        expect(isCompletePriceRow({ ...row, packagingId: 'p1' }, pks)).toBe(true);
+    });
+
+    it('cantidad vacía o cero es fila incompleta', () => {
+        const row = { category: 'VIP', packagingId: null, minQuantity: 1, price: '90' };
+        expect(isCompletePriceRow(row, [])).toBe(true);
+        expect(isCompletePriceRow({ ...row, minQuantity: '' }, [])).toBe(false);
+        expect(isCompletePriceRow({ ...row, minQuantity: '0' }, [])).toBe(false);
     });
 
     it('editar el precio y quitar la fila', () => {
