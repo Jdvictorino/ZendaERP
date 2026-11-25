@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { orderTotals, validateOrderLines } from '../services/purchases.js';
+import { nextStatus, orderTotals, planReceipt, validateOrderLines } from '../services/purchases.js';
 
 const router = Router();
 router.use(authenticate);
@@ -162,6 +163,63 @@ router.post('/:id/cancel', authorize(...rolesFor('purchases')), async (req, res,
         throw bad(cur.status === 'cancelada' ? 'La orden ya está cancelada.' : 'Una orden con mercancía recibida no se puede cancelar.', 409);
       }
       return tx.purchaseOrder.update({ where: { id: req.params.id }, data: { status: 'cancelada' }, include: detailInclude });
+    });
+    res.json(order);
+  } catch (error) { next(error); }
+});
+
+const receiveSchema = z.object({
+  lines: z.array(z.object({ itemId: z.string().uuid(), quantity: z.coerce.number() })).refine((l) => new Set(l.map((x) => x.itemId)).size === l.length, 'Una línea está repetida.'),
+  notes: z.string().optional().nullable()
+});
+
+router.post('/:id/receive', authorize(...rolesFor('purchases')), async (req, res, next) => {
+  try {
+    const data = receiveSchema.parse(req.body);
+    const order = await prisma.$transaction(async (tx) => {
+      // Bloquea la orden: recepciones y cancelaciones simultáneas se serializan
+      await tx.$queryRaw`SELECT id FROM purchase_orders WHERE id = ${req.params.id} AND "companyId" = ${req.companyId} FOR UPDATE`;
+      const cur = await tx.purchaseOrder.findFirst({
+        where: { id: req.params.id, companyId: req.companyId },
+        include: { items: { include: { product: { select: { id: true, name: true, allowFractions: true } } } } }
+      });
+      if (!cur) throw bad('Orden no encontrada', 404);
+      if (!['enviada', 'parcial'].includes(cur.status)) throw bad('Solo se puede recibir una orden enviada o parcial.', 409);
+
+      const items = cur.items.map((i) => ({
+        id: i.id, productId: i.productId, productName: i.product.name, quantity: Number(i.quantity),
+        receivedQuantity: Number(i.receivedQuantity), invoicedQuantity: Number(i.invoicedQuantity),
+        unitCost: Number(i.unitCost), taxRate: Number(i.taxRate), packagingId: i.packagingId,
+        packagingFactor: i.packagingFactor == null ? 1 : Number(i.packagingFactor)
+      }));
+      const productsById = Object.fromEntries(cur.items.map((i) => [i.productId, i.product]));
+      const plan = planReceipt(items, data.lines, productsById);
+      if (plan.error) throw bad(plan.error);
+
+      const receipt = await tx.purchaseReceipt.create({
+        data: {
+          purchaseOrderId: cur.id, userId: req.user.id, notes: data.notes || null,
+          items: plan.changes.map((c) => ({ itemId: c.itemId, quantity: c.quantity }))
+        }
+      });
+      for (const c of plan.changes) {
+        const product = await tx.product.findFirst({ where: { id: c.productId, companyId: req.companyId }, select: { stock: true } });
+        const previous = new Prisma.Decimal(product.stock);
+        const added = new Prisma.Decimal(c.baseQuantity);
+        const newStock = previous.plus(added);
+        await tx.product.update({ where: { id: c.productId }, data: { stock: newStock, costPrice: c.costPrice } });
+        await tx.inventoryLog.create({
+          data: {
+            productId: c.productId, userId: req.user.id, type: 'entrada', quantity: added,
+            previousStock: previous, newStock, reason: `Recepción de compra ${cur.number}`,
+            referenceType: 'purchase_receipt', referenceId: receipt.id
+          }
+        });
+        await tx.purchaseOrderItem.update({ where: { id: c.itemId }, data: { receivedQuantity: c.newReceived } });
+      }
+      const received = new Map(plan.changes.map((c) => [c.itemId, c.newReceived]));
+      const status = nextStatus(items.map((i) => ({ quantity: i.quantity, receivedQuantity: received.get(i.id) ?? i.receivedQuantity })));
+      return tx.purchaseOrder.update({ where: { id: cur.id }, data: { status }, include: detailInclude });
     });
     res.json(order);
   } catch (error) { next(error); }
