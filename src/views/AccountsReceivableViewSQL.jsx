@@ -976,6 +976,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                         setSelectedInvoice(null);
                     }}
                     onSuccess={handlePaymentSuccess}
+                    allowWithholdings
                     useApi={true}
                 />
             )}

@@ -11,7 +11,7 @@ import { enqueueInvoicePaymentUpdate } from '../../utils/offlineQueue.js';
 import { isGatewayConfigured, createPaymentIntent, fetchPaymentIntentStatus, mapGatewayStatusToPaymentStatus } from '../../utils/paymentGateway.js';
 import { useEffect } from 'react';
 
-const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }) => {
+const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, allowWithholdings = false }) => {
     const paidBefore = Number(invoice.paidAmount ?? invoice.amountPaid ?? 0) || 0;
     const [itbisRet, setItbisRet] = useState(() => String(Number(invoice.itbisRetenido) || 0));
     const [isrRet, setIsrRet] = useState(() => String(Number(invoice.retencionRenta) || 0));
@@ -193,7 +193,8 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
 
         const newPaidAmount = paidBefore + totalPaid;
         const newPaymentStatus = invoiceStatus({ ...invoice, amountPaid: newPaidAmount, itbisRetenido: itbisNum, retencionRenta: isrNum });
-        const retention = itbisNum > 0 || isrNum > 0 ? { itbisRetenido: itbisNum, retencionRenta: isrNum, retentionDate: retDate } : {};
+        const changed = allowWithholdings && (itbisNum !== (Number(invoice.itbisRetenido) || 0) || isrNum !== (Number(invoice.retencionRenta) || 0));
+        const retention = changed ? { itbisRetenido: itbisNum, retencionRenta: isrNum, retentionDate: retDate } : {};
 
         // Guardamos el desglose del pago en la factura
         const paymentBreakdown = {
@@ -229,6 +230,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
             // Fallback offline: encola la operación y actualiza UI de forma optimista
             enqueueInvoicePaymentUpdate({
                 invoiceId: invoice.id,
+                retention,
                 paymentBreakdown,
                 newPaidAmount,
                 newPaymentStatus,
@@ -293,6 +295,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                         </div>
                     </fieldset>
 
+                    {allowWithholdings && (
                     <fieldset className="border p-4 rounded-lg">
                         <legend className="font-semibold px-2">Retenciones del cliente</legend>
                         <div className="grid grid-cols-2 gap-4">
@@ -310,6 +313,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                             </div>
                         </div>
                     </fieldset>
+                    )}
 
                     <div className="p-4 bg-blue-50 rounded-lg text-right">
                         <p className="text-ink-soft">Total Ingresado</p>
