@@ -55,7 +55,7 @@ const buildNcfSummary = (sequences = []) => {
     return summary;
 };
 
-const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser }) => {
+const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, canImportPrices = false }) => {
     const [activeTab, setActiveTab] = useState('preferencias');
     const [systemPrinters, setSystemPrinters] = useState([]);
     const [showNcfModal, setShowNcfModal] = useState(false);
@@ -81,6 +81,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
     const [applyMigrations, setApplyMigrations] = useState(false);
     // Nombres de categoría tal como se cargaron/guardaron, fila por fila (null = fila nueva)
     const [origCategories, setOrigCategories] = useState([]);
+    const [loadedCategories, setLoadedCategories] = useState([]); // inmutable hasta guardar/cargar
     const [priceCounts, setPriceCounts] = useState({});
     const refreshPriceCounts = () => categoryPrices.summary().then((s) => setPriceCounts(s || {})).catch(() => {});
     const priceCountOf = (name) => {
@@ -101,7 +102,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
     // Load initial values from profile
     useEffect(() => {
         if (companyProfile) {
-            if (companyProfile.customerCategories) setOrigCategories([...companyProfile.customerCategories]);
+            if (companyProfile.customerCategories) { setOrigCategories([...companyProfile.customerCategories]); setLoadedCategories([...companyProfile.customerCategories]); }
             const sanitizedProfile = Object.fromEntries(
                 Object.entries(companyProfile).map(([key, value]) => [key, value === null ? '' : value])
             );
@@ -200,7 +201,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
         cleanPayload.emailProvider = null;
 
         if (cleanPayload.customerCategories) {
-            const { entries, error } = buildCategoryMigrations(origCategories, formData.customerCategories || [], pendingMigrations);
+            const { entries, error } = buildCategoryMigrations(origCategories, formData.customerCategories || [], pendingMigrations, loadedCategories);
             if (error) { toast.error(error); return; }
             cleanPayload._categoryMigrations = { apply: applyMigrations, entries, pricesAware: true };
         }
@@ -212,7 +213,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                 playSuccessSound();
                 if (onProfileUpdate) onProfileUpdate(saved);
                 setPendingMigrations([]);
-                if (saved?.customerCategories) setOrigCategories([...saved.customerCategories]);
+                if (saved?.customerCategories) { setOrigCategories([...saved.customerCategories]); setLoadedCategories([...saved.customerCategories]); }
                 refreshPriceCounts();
                 return '¡Configuración guardada!';
             },
@@ -765,17 +766,22 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser })
                                                     <Plus size={14} /> Añadir categoría
                                                 </button>
                                             )}
-                                            {isMasterUser && (
+                                            {canImportPrices && (
                                                 <button
                                                     type="button"
                                                     className="block text-xs text-brand-600 font-semibold hover:text-brand-800 mt-1 text-left"
                                                     onClick={async () => {
+                                                        const cur = formData.customerCategories || [];
+                                                        const dirty = pendingMigrations.length > 0 || origCategories.length !== loadedCategories.length
+                                                            || cur.some((n, i) => origCategories[i] == null || origCategories[i] !== n);
+                                                        if (dirty) { toast.error('Guarda primero los cambios de categorías'); return; }
                                                         if (!(await confirmDialog('Esto copia los precios al por mayor de los productos como precios de la categoría Mayorista. Cambia lo que pagan los clientes Mayorista. ¿Continuar?', { title: 'Precios de Mayorista', confirmText: 'Continuar', danger: false }))) return;
                                                         try {
                                                             const r = await categoryPrices.importWholesale();
                                                             if (r?.customerCategories) {
                                                                 setFormData(prev => ({ ...prev, customerCategories: r.customerCategories }));
                                                                 setOrigCategories([...r.customerCategories]);
+                                                                setLoadedCategories([...r.customerCategories]);
                                                             }
                                                             toast.success(r?.created ? `Se crearon ${r.created} precios para Mayorista` : 'No había precios al por mayor nuevos');
                                                             refreshPriceCounts();

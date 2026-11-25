@@ -462,7 +462,7 @@ export default function App() {
             case 'company-profile':
                 return <CompanyProfileView companyProfile={companyProfile} onProfileUpdate={handleProfileUpdate} isMasterUser={isMasterUser} setView={setViewWithGuard} previousView={previousViewRef.current} />;
             case 'settings':
-                return <SettingsView companyProfile={companyProfile} onProfileUpdate={handleProfileUpdate} isMasterUser={isMasterUser} />;
+                return <SettingsView companyProfile={companyProfile} onProfileUpdate={handleProfileUpdate} isMasterUser={isMasterUser} canImportPrices={isMasterUser || user?.role === 'manager'} />;
             case 'finance-sales-reports':
                 return <SalesReportsView companyProfile={companyProfile} isMasterUser={isMasterUser} onProfileUpdate={handleProfileUpdate} />;
             case 'finance-cash-shifts':

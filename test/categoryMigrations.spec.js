@@ -19,4 +19,18 @@ describe('buildCategoryMigrations', () => {
         expect(r.entries).toEqual([]);
         expect(r.error).toMatch(/una categoría a la vez/);
     });
+    const fails = (r) => { expect(r.entries).toEqual([]); expect(r.error).toMatch(/una categoría a la vez/); };
+    const loaded = ['A', 'B'];
+    it('bloquea renombrar y luego fusionar sobre el nuevo nombre', () => {
+        fails(buildCategoryMigrations(['B'], ['B2'], [{ from: 'A', to: 'B2' }], loaded));
+    });
+    it('bloquea borrar A y renombrar B a A', () => {
+        fails(buildCategoryMigrations(['B'], ['A'], [], loaded));
+    });
+    it('bloquea renombrar B al nombre de otra categoría existente (duplicado)', () => {
+        fails(buildCategoryMigrations(['A', 'B'], ['A', 'a'], [], loaded));
+    });
+    it('bloquea borrar una fila y agregar otra con ese nombre', () => {
+        fails(buildCategoryMigrations(['B', null], ['B', 'A'], [], loaded));
+    });
 });
