@@ -339,6 +339,18 @@ export const categoryPrices = {
   importWholesale: () => post('/category-prices/import-wholesale', {})
 };
 
+export const purchaseOrders = {
+  list: (params) => get('/purchase-orders', params),
+  get: (id) => get(`/purchase-orders/${id}`),
+  create: (data) => post('/purchase-orders', data),
+  update: (id, data) => put(`/purchase-orders/${id}`, data),
+  send: (id) => post(`/purchase-orders/${id}/send`, {}),
+  cancel: (id) => post(`/purchase-orders/${id}/cancel`, {}),
+  receive: (id, data) => post(`/purchase-orders/${id}/receive`, data),
+  invoice: (id, data) => post(`/purchase-orders/${id}/invoice`, data),
+  suggestions: () => get('/purchase-orders/suggestions')
+};
+
 export const alerts = {
   list: (params) => get('/alerts', params),
   create: (data) => post('/alerts', data),

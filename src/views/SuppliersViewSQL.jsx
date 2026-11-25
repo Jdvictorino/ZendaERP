@@ -43,6 +43,7 @@ const SuppliersViewSQL = ({ companyProfile }) => {
             playErrorSound();
             toast.error('No se pudo guardar el proveedor.');
             console.error(err);
+            throw err;
         }
     };
 

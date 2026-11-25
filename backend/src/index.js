@@ -19,6 +19,7 @@ import categoryPricesRoutes from './routes/categoryPrices.js';
 import customersRoutes from './routes/customers.js';
 import suppliersRoutes from './routes/suppliers.js';
 import invoicesRoutes from './routes/invoices.js';
+import purchaseOrdersRoutes from './routes/purchaseOrders.js';
 import expensesRoutes from './routes/expenses.js';
 import categoriesRoutes from './routes/categories.js';
 import usersRoutes from './routes/users.js';
@@ -130,6 +131,7 @@ app.use('/api/category-prices', categoryPricesRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/invoices', invoicesRoutes);
+app.use('/api/purchase-orders', purchaseOrdersRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/users', usersRoutes);
@@ -175,6 +177,10 @@ app.use((err, req, res, next) => {
     return res.status(409).json({ error: 'El registro ya existe' });
   }
   
+  if (err.code === 'P2003') {
+    return res.status(409).json({ error: 'No se puede eliminar: está en uso en otros registros (por ejemplo, órdenes de compra).' });
+  }
+
   if (err.code === 'P2025') {
     return res.status(404).json({ error: 'Registro no encontrado' });
   }

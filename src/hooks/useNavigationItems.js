@@ -17,6 +17,7 @@ import {
     CreditCard,
     Clock3,
     Settings,
+    ShoppingBag
 } from 'lucide-react';
 import { filterNavItemsByRole } from '../utils/permissions.js';
 
@@ -41,7 +42,8 @@ export const useNavigationItems = (role, isMasterUser) => {
             { id: 'finance', label: 'Finanzas', icon: PiggyBank, children: financeChildren },
             { id: 'warehouse', label: 'Gestión de Almacén', icon: Package, children: [
                 { id: 'products', label: 'Inventario de Productos', icon: Package },
-                { id: 'shipments', label: 'Envíos', icon: Truck }
+                { id: 'shipments', label: 'Envíos', icon: Truck },
+                { id: 'purchases-view', label: 'Compras', icon: ShoppingBag }
             ] },
             { id: 'offers', label: 'Ofertas', icon: Tag },
             { id: 'customers', label: 'Clientes', icon: Users },

@@ -21,6 +21,8 @@ export const VIEW_PERMISSIONS = {
   orders: ['admin', 'manager', 'supervisor', 'cashier'],
   invoices: ['admin', 'manager', 'supervisor', 'cashier', 'accountant'],
   products: ['admin', 'manager', 'supervisor'],
+  purchases: ['admin', 'manager', 'supervisor'],
+  'purchases-view': ['admin', 'manager', 'supervisor', 'accountant'],
   customers: ['admin', 'manager', 'supervisor', 'cashier', 'accountant'],
   suppliers: ['admin', 'manager', 'accountant'],
   'finance-sales-reports': ['admin', 'manager', 'accountant'],

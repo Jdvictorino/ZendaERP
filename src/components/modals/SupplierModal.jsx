@@ -3,30 +3,21 @@ import { ArrowLeft, X } from 'lucide-react';
 import ProfilePicture from '../common/ProfilePicture.jsx';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button.jsx';
+import { normalizeSupplierId, formatSupplierId } from '../../utils/supplierId.js';
+
+const TYPES = [['empresa', 'Empresa'], ['persona_fisica', 'Persona física'], ['informal', 'Informal (sin comprobante)'], ['exterior', 'Del exterior']];
+const ID_LABEL = { empresa: 'RNC', persona_fisica: 'Cédula o RNC', informal: 'Cédula del vendedor', exterior: 'Pasaporte o identificación extranjera' };
+const ID_HELP = { informal: 'Para estas compras tu empresa emite el comprobante de compras (B11).', exterior: 'Pagos al exterior (B17).' };
+// Lo guardado: el tipo, o persona física si la identificación tiene 11 dígitos
+const initialType = (s) => s.supplierType || (/^\d{11}$/.test(String(s.identificationNumber || s.rnc || '').replace(/\D/g, '')) ? 'persona_fisica' : 'empresa');
 
 const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage = false }) => {
-    // Helpers RD: cédula y RNC
-    const onlyDigits = (v = '') => (v || '').replace(/\D/g, '');
-    const validateCedula = (ced) => {
-        const digits = onlyDigits(ced);
-        return digits.length === 11;
-    };
-    const validateRNC = (rnc) => {
-        const digits = onlyDigits(rnc);
-        if (digits.length !== 9) return false;
-        const weights = [7,9,8,6,5,4,3,2];
-        let sum = 0;
-        for (let i = 0; i < 8; i++) sum += parseInt(digits[i], 10) * weights[i];
-        const mod = sum % 11;
-        let check = 11 - mod;
-        if (check === 10) check = 2;
-        if (check === 11) check = 1;
-        return check === parseInt(digits[8], 10);
-    };
     // --- ESTADO INICIAL CON TODOS LOS NUEVOS CAMPOS ---
     const [formData, setFormData] = useState({
         name: '',
+        supplierType: 'empresa',
         identificationNumber: '',
+        contactName: '',
         address: '',
         phone: '',
         email: '',
@@ -47,7 +38,9 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
         if (supplier && supplier.id) {
             setFormData({ 
                 name: supplier.name || '', 
-                identificationNumber: supplier.identificationNumber || '',
+                supplierType: initialType(supplier),
+                identificationNumber: supplier.identificationNumber || supplier.rnc || '',
+                contactName: supplier.contactName || '',
                 address: supplier.address || '',
                 phone: supplier.phone || '', 
                 email: supplier.email || '',
@@ -64,20 +57,11 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
     }, [supplier]);
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    // El campo muestra el formato; lo que se guarda es solo dígitos (exterior: mayúsculas sin espacios)
     const handleIdChange = (e) => {
-        let val = e.target.value || '';
-        const digits = onlyDigits(val);
-        // Si parece cédula (11 dígitos), aplicar máscara 000-0000000-0
-        if (digits.length <= 11 && /^\d+$/.test(val.replace(/[-\s]/g, ''))) {
-            const d = digits.slice(0, 11);
-            let masked = d;
-            if (d.length > 3 && d.length <= 10) masked = `${d.slice(0,3)}-${d.slice(3)}`;
-            if (d.length > 10) masked = `${d.slice(0,3)}-${d.slice(3,10)}-${d.slice(10)}`;
-            setFormData(prev => ({ ...prev, identificationNumber: masked }));
-        } else {
-            // Permitir pasaporte u otros formatos
-            setFormData(prev => ({ ...prev, identificationNumber: val }));
-        }
+        const v = e.target.value;
+        const clean = formData.supplierType === 'exterior' ? v.replace(/[\s-]/g, '').toUpperCase().slice(0, 20) : v.replace(/\D/g, '').slice(0, 11);
+        setFormData(prev => ({ ...prev, identificationNumber: clean }));
     };
     const handleBankChange = (e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, [e.target.name]: e.target.value } });
     
@@ -89,19 +73,8 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
         if (formData.bankDetails && formData.bankDetails.accountNumber && !/^[0-9\-\s]+$/.test(formData.bankDetails.accountNumber)) {
             err.accountNumber = 'Número de cuenta inválido.';
         }
-        // Validación flexible de identificación: si es todo dígitos y 11 => validar cédula; si 9 => validar RNC; si alfanumérico, se permite (pasaporte)
-        const idRaw = formData.identificationNumber || '';
-        const idDigits = onlyDigits(idRaw);
-        const onlyNumeric = /^[0-9\-\s]+$/.test(idRaw);
-        if (idRaw) {
-            if (onlyNumeric) {
-                if (idDigits.length === 11 && !validateCedula(idDigits)) err.identificationNumber = 'Cédula inválida';
-                if (idDigits.length === 9 && !validateRNC(idDigits)) err.identificationNumber = 'RNC inválido';
-                if (![0,9,11].includes(idDigits.length)) {
-                    err.identificationNumber = 'Longitud inválida (use 11 dígitos para Cédula o 9 para RNC)';
-                }
-            } // si no es solo numérico, se asume pasaporte y no valida
-        }
+        const id = normalizeSupplierId(formData.supplierType, formData.identificationNumber);
+        if (id.error) err.identificationNumber = id.error;
         setErrors(err);
         return Object.keys(err).length === 0;
     };
@@ -111,7 +84,7 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
         if (!validate()) return;
         setSubmitting(true);
         try {
-            const dataToSave = { ...formData };
+            const dataToSave = { ...formData, identificationNumber: normalizeSupplierId(formData.supplierType, formData.identificationNumber).value || '' };
             // La imagen ya está en base64 en formData.logo si se seleccionó una nueva
             // El backend puede almacenarla directamente o convertirla según necesite
             await onSave(dataToSave);
@@ -119,7 +92,7 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
             onClose();
         } catch (err) {
             console.error('Error guardando proveedor:', err);
-            toast.error('No se pudo guardar el proveedor.');
+            toast.error(err?.message || err?.response?.data?.error || err?.error || 'No se pudo guardar el proveedor.');
         } finally {
             setSubmitting(false);
         }
@@ -159,34 +132,45 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
                             <legend className="text-lg font-semibold text-brand-600 px-2">Información General</legend>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-ink-soft mb-1">Nombre / Razón Social</label>
-                                    <input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" aria-invalid={!!errors.name} aria-describedby={errors.name ? 'err-name' : undefined} required />
+                                    <label htmlFor="sup-name" className="block text-ink-soft mb-1">Nombre / Razón Social</label>
+                                    <input id="sup-name" type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" aria-invalid={!!errors.name} aria-describedby={errors.name ? 'err-name' : undefined} required />
                                     {errors.name && <p id="err-name" className="field-error">{errors.name}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-ink-soft mb-1">RNC / Cédula / Pasaporte (Opcional)</label>
-                                    <input type="text" name="identificationNumber" value={formData.identificationNumber} onChange={handleIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={errors.identificationNumber ? 'err-identificationNumber' : undefined} placeholder="Ej: 001-1234567-8 o 1-01-12345-1" />
+                                    <label htmlFor="sup-type" className="block text-ink-soft mb-1">Tipo de proveedor</label>
+                                    <select id="sup-type" name="supplierType" value={formData.supplierType} onChange={handleChange} className="input-base">
+                                        {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="sup-id" className="block text-ink-soft mb-1">{ID_LABEL[formData.supplierType]}{formData.supplierType !== 'exterior' && ' *'}</label>
+                                    <input id="sup-id" type="text" name="identificationNumber" value={formatSupplierId(formData.identificationNumber)} onChange={handleIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={[errors.identificationNumber && 'err-identificationNumber', ID_HELP[formData.supplierType] && 'help-id'].filter(Boolean).join(' ') || undefined} />
+                                    {ID_HELP[formData.supplierType] && <p id="help-id" className="text-xs text-ink-soft mt-1">{ID_HELP[formData.supplierType]}</p>}
                                     {errors.identificationNumber && <p id="err-identificationNumber" className="field-error">{errors.identificationNumber}</p>}
+                                </div>
+                                <div>
+                                    <label htmlFor="sup-contact" className="block text-ink-soft mb-1">Persona de contacto</label>
+                                    <input id="sup-contact" type="text" name="contactName" value={formData.contactName} onChange={handleChange} className="input-base" />
                                 </div>
                             </div>
                             <div className="mt-4">
-                                <label className="block text-ink-soft mb-1">Dirección</label>
-                                <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="input-base" />
+                                <label htmlFor="sup-address" className="block text-ink-soft mb-1">Dirección</label>
+                                <textarea id="sup-address" name="address" value={formData.address} onChange={handleChange} rows="3" className="input-base" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
-                                    <label className="block text-ink-soft mb-1">Teléfono</label>
-                                    <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-base" />
+                                    <label htmlFor="sup-phone" className="block text-ink-soft mb-1">Teléfono</label>
+                                    <input id="sup-phone" type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-base" />
                                 </div>
                                 <div>
-                                    <label className="block text-ink-soft mb-1">Correo Electrónico</label>
-                                    <input type="email" name="email" value={formData.email} onChange={handleChange} className="input-base" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
+                                    <label htmlFor="sup-email" className="block text-ink-soft mb-1">Correo Electrónico</label>
+                                    <input id="sup-email" type="email" name="email" value={formData.email} onChange={handleChange} className="input-base" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
                                     {errors.email && <p id="err-email" className="field-error">{errors.email}</p>}
                                 </div>
                             </div>
                             <div className="mt-4">
-                                <label className="block text-ink-soft mb-1">Sitio Web / Tienda Online (Opcional)</label>
-                                <input type="url" name="website" value={formData.website} onChange={handleChange} className="input-base" />
+                                <label htmlFor="sup-website" className="block text-ink-soft mb-1">Sitio Web / Tienda Online (Opcional)</label>
+                                <input id="sup-website" type="url" name="website" value={formData.website} onChange={handleChange} className="input-base" />
                             </div>
                         </fieldset>
                         
@@ -195,29 +179,29 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
                             <legend className="text-lg font-semibold text-brand-600 px-2">Datos Bancarios (Opcional)</legend>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-ink-soft mb-1">Nombre del Banco</label>
-                                    <input type="text" name="bankName" value={formData.bankDetails.bankName} onChange={handleBankChange} className="input-base" />
+                                    <label htmlFor="sup-bank" className="block text-ink-soft mb-1">Nombre del Banco</label>
+                                    <input id="sup-bank" type="text" name="bankName" value={formData.bankDetails.bankName} onChange={handleBankChange} className="input-base" />
                                 </div>
                                  <div>
-                                    <label className="block text-ink-soft mb-1">Tipo de Cuenta</label>
-                                    <select name="accountType" value={formData.bankDetails.accountType} onChange={handleBankChange} className="input-base">
+                                    <label htmlFor="sup-acctype" className="block text-ink-soft mb-1">Tipo de Cuenta</label>
+                                    <select id="sup-acctype" name="accountType" value={formData.bankDetails.accountType} onChange={handleBankChange} className="input-base">
                                         <option>Ahorros</option>
                                         <option>Corriente</option>
                                     </select>
                                 </div>
                             </div>
                             <div className="mt-4">
-                                <label className="block text-ink-soft mb-1">Nombre del Beneficiario</label>
-                                <input type="text" name="beneficiaryName" value={formData.bankDetails.beneficiaryName} onChange={handleBankChange} className="input-base" />
+                                <label htmlFor="sup-benef" className="block text-ink-soft mb-1">Nombre del Beneficiario</label>
+                                <input id="sup-benef" type="text" name="beneficiaryName" value={formData.bankDetails.beneficiaryName} onChange={handleBankChange} className="input-base" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
-                                   <label className="block text-ink-soft mb-1">Número de Cuenta</label>
-                                   <input type="text" name="accountNumber" value={formData.bankDetails.accountNumber} onChange={handleBankChange} className="input-base" />
+                                   <label htmlFor="sup-acct" className="block text-ink-soft mb-1">Número de Cuenta</label>
+                                   <input id="sup-acct" type="text" name="accountNumber" value={formData.bankDetails.accountNumber} onChange={handleBankChange} className="input-base" />
                                 </div>
                                 <div>
-                                   <label className="block text-ink-soft mb-1">Cédula o RNC del Beneficiario</label>
-                                   <input type="text" name="beneficiaryId" value={formData.bankDetails.beneficiaryId} onChange={handleBankChange} className="input-base" />
+                                   <label htmlFor="sup-benefid" className="block text-ink-soft mb-1">Cédula o RNC del Beneficiario</label>
+                                   <input id="sup-benefid" type="text" name="beneficiaryId" value={formData.bankDetails.beneficiaryId} onChange={handleBankChange} className="input-base" />
                                 </div>
                             </div>
                         </fieldset>

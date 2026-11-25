@@ -1,0 +1,46 @@
+export const SUPPLIER_TYPES = ['empresa', 'persona_fisica', 'informal', 'exterior'];
+
+function rncValid(d) {
+  if (!/^\d{9}$/.test(d)) return false;
+  const w = [7, 9, 8, 6, 5, 4, 3, 2];
+  const sum = w.reduce((s, x, i) => s + x * Number(d[i]), 0);
+  return (10 - (sum % 11)) % 9 + 1 === Number(d[8]);
+}
+
+export function normalizeSupplierId(type, value) {
+  const raw = String(value ?? '').trim();
+  const digits = raw.replace(/[\s-]/g, '');
+  const fail = (error) => ({ value: null, error });
+  if (type === 'exterior') {
+    const v = raw.replace(/[\s-]/g, '').toUpperCase();
+    if (!v) return { value: null, error: null };
+    return /^[A-Z0-9]{1,20}$/.test(v) ? { value: v, error: null } : fail('La identificación del exterior solo admite letras y números (máx. 20).');
+  }
+  if (!SUPPLIER_TYPES.includes(type)) return fail('Tipo de proveedor no válido.');
+  const numeric = /^\d+$/.test(digits);
+  if (type === 'empresa') {
+    if (!digits) return fail('El RNC es obligatorio para una empresa.');
+    if (!numeric || digits.length !== 9) return fail('El RNC debe tener 9 dígitos.');
+    return rncValid(digits) ? { value: digits, error: null } : fail('El RNC no es válido (dígito verificador).');
+  }
+  if (type === 'persona_fisica') {
+    const ok = numeric && (digits.length === 11 || rncValid(digits));
+    return ok ? { value: digits, error: null } : fail('Escribe una cédula (11 dígitos) o un RNC (9) válidos.');
+  }
+  return numeric && digits.length === 11 ? { value: digits, error: null } : fail('La cédula del vendedor informal es obligatoria (11 dígitos).');
+}
+
+// 9 dígitos: 1-31-00000-1; 11: 001-1234567-8; otro: tal cual.
+export function formatSupplierId(v = '') {
+  const d = String(v ?? '');
+  if (/^\d{9}$/.test(d)) return `${d[0]}-${d.slice(1, 3)}-${d.slice(3, 8)}-${d[8]}`;
+  if (/^\d{11}$/.test(d)) return `${d.slice(0, 3)}-${d.slice(3, 10)}-${d[10]}`;
+  return d;
+}
+
+// Apps 1.1.x no mandan supplierType: se infiere (11 dígitos = persona física) y no se valida.
+export function legacySupplierId(value) {
+  const raw = String(value ?? '').trim();
+  const v = /^[\d\s-]+$/.test(raw) ? raw.replace(/[\s-]/g, '') : raw;
+  return { supplierType: /^\d{11}$/.test(v) ? 'persona_fisica' : 'empresa', identificationNumber: v || null };
+}

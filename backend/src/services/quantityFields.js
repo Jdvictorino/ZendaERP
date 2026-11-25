@@ -6,6 +6,7 @@ export const QUANTITY_FIELDS = {
   invoiceItem: ['quantity', 'packagingFactor'],
   productPackaging: ['factor'],
   categoryPrice: ['minQuantity'],
+  purchaseOrderItem: ['quantity', 'receivedQuantity', 'invoicedQuantity', 'packagingFactor'],
 };
 
 export function resultExtension(fields) {

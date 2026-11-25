@@ -155,3 +155,10 @@ Cliente sin categoría → "Sin categoría". La caja recalcula el precio al camb
 - Diseño visual dentro del sistema de la casa (tokens, `Card`, `KpiCard`, tablas).
 - Paginación y búsqueda de la vista de Compras.
 - Formato exacto del número de orden si ya existe un generador de secuencias reutilizable.
+
+### PR 3 — Recortes aprobados por el dueño (2026-11-25)
+
+- **Sin envío por correo:** la orden se descarga en PDF y el usuario la manda por su cuenta.
+- **Sin "empaque de compra por defecto":** la sugerencia usa el empaque de la última línea de orden de compra de ese producto; si nunca se compró, la unidad base.
+- **Sin variantes en compras:** las órdenes solo aceptan productos sin variantes; en la sugerencia, los productos con variantes bajo mínimo se listan como "revisar a mano". `PurchaseOrderItem` no lleva `variantId`.
+- **Factura del suplidor *(decisión del constructor)*:** se registra desde la orden con un formulario propio (cantidades por línea, NCF, fecha); el servidor calcula bienes e ITBIS de esas cantidades y crea el gasto 606 enlazado, en la misma transacción que suma `invoicedQuantity`. No reutiliza el formulario general de gastos.

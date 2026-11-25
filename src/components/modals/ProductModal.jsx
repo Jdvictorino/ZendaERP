@@ -135,6 +135,7 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
         } catch (error) {
             console.error('Error al crear proveedor:', error);
             toast.error('No se pudo crear el proveedor');
+            throw error;
         }
     };
 

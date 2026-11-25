@@ -25,11 +25,7 @@ function validateRNC(rnc) {
     const weights = [7,9,8,6,5,4,3,2];
     let sum = 0;
     for (let i = 0; i < 8; i++) sum += parseInt(digits[i], 10) * weights[i];
-    const mod = sum % 11;
-    let check = 11 - mod;
-    if (check === 10) check = 2;
-    if (check === 11) check = 1;
-    return check === parseInt(digits[8], 10);
+    return (10 - (sum % 11)) % 9 + 1 === parseInt(digits[8], 10);
 }
 
 const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = false }) => {
