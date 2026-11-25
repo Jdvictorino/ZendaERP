@@ -95,3 +95,17 @@
 - Tabla editable (nombre, tipo de proveedor, % ITBIS, % ISR, tipo del 606 de la lista existente `TIPOS_RETENCION_ISR` — exportarla o duplicarla en un solo lugar compartido, activo), agregar fila, "Restaurar valores iniciales" con confirmación, aviso fijo "Las tasas cambian con la ley: verifícalas con tu contador.", validación con `validateWithholdings` antes de guardar, se guarda con el `PUT /api/settings` existente. Solo editable para admin/manager.
 
 - [ ] Prueba: restaurar valores iniciales y validación; build con Node 22; commit `Retenciones: pestaña de Configuración`.
+
+### Task 7: Guardar los pagos a suplidores (pedido del dueño el 2026-11-25)
+
+Hoy Cuentas por Pagar manda `paidAmount`, `paymentStatus` y `payments` a `PUT /api/expenses/:id`, pero `Expense` no tiene esos campos y zod los descarta: los pagos se pierden al recargar.
+
+**Files:** Modify `backend/prisma/schema.prisma`, `backend/prisma/migrations/20261127000000_retenciones/migration.sql` (no desplegada: agregar ahí), `backend/src/routes/expenses.js`, `src/views/AccountsPayableViewSQL.jsx` (solo si hace falta ajustar lo que envía o lee). Create `backend/src/services/expensePayment.js`. Test: `test/expensePayment.spec.js`.
+
+**Interfaces — Produces:**
+- `Expense.paidAmount Decimal(12,2) @default(0)`, `Expense.payments Json?` (lista `{ date: 'YYYY-MM-DD', amount, method }`). El estado se calcula, no se guarda.
+- `planExpensePayment(expense, body, { manager }) => { data, error, status }` (puro): `paidAmount` ≥ 0 y ≤ total − `itbisRetenido` − `montoRetencionIsr` + 0.01, donde total = `montoFacturado + itbisFacturado`; reducir lo pagado solo gerente/administrador (403); si queda saldado y el gasto no tiene `paymentDate`, `paymentDate` = fecha del último pago (lo usa el 606 como "Fecha Pago").
+- `PUT /api/expenses/:id` acepta `paidAmount` y `payments` con esa regla; las respuestas de GET traen `paidAmount`, `payments` y `paymentStatus` calculado (`Pagado` / `Parcial` / `Pendiente`) para que la vista de CxP siga funcionando.
+- El bloqueo de gastos enlazados a una orden de compra no cuenta `paidAmount`/`payments` como cambio de montos.
+
+- [ ] Pruebas puras (pago parcial, pago del neto con retención deja `Pagado`, tope, reducción por no gerente, fecha de pago); `prisma validate`; `node --check`; build; commit `Cuentas por Pagar: los pagos a suplidores se guardan`.
