@@ -3,7 +3,31 @@ import { PrismaClient } from '@prisma/client';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
+import { withholdingsOf, validateWithholdings } from '../services/withholdings.js';
 import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
+
+
+// Columnas de la empresa que cambia el cuerpo: solo las claves presentes (un guardado parcial no borra el resto)
+export const companyUpdateData = (body) => {
+  const { name, companyName, rnc, phone, address, currency, email, logo, logoUrl } = body;
+  let addressStr = null;
+  if (address) {
+    addressStr = typeof address === 'object'
+      ? [address.street, address.sector, address.city, address.province, address.zipCode, address.country].filter(Boolean).join(', ')
+      : address;
+  }
+  const finalName = name || companyName;
+  const logoGiven = logo !== undefined || logoUrl !== undefined;
+  return {
+    ...(finalName && { name: finalName }),
+    ...(rnc !== undefined && { rnc: rnc || null }),
+    ...(phone !== undefined && { phone: phone || null }),
+    ...(address !== undefined && { address: addressStr || null }),
+    ...(currency !== undefined && { currency: currency || 'DOP' }),
+    ...(email !== undefined && { email: email || null }),
+    ...(logoGiven && { logoUrl: logo || logoUrl || null }),
+  };
+};
 
 const router = express.Router();
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -64,6 +88,7 @@ router.get('/', async (req, res) => {
       allowCustomization: settings.allowCustomization ?? true,
       customerCategories: settings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES,
       pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
+      withholdings: withholdingsOf(settings),
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
         bankName: '',
@@ -130,10 +155,16 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       orderMode, availableOrderModes, businessType, // Modo de pedidos
       smtp, // Configuración SMTP
       _categoryMigrations,
+      withholdings,
     } = req.body;
 
     if (Array.isArray(customerCategories) && customerCategories.some((c) => !String(c ?? '').trim())) {
       return res.status(400).json({ error: 'Cada categoría necesita un nombre' });
+    }
+
+    if (withholdings !== undefined) {
+      const bad = validateWithholdings(withholdings);
+      if (bad) return res.status(400).json({ error: bad });
     }
 
     // Obtener el usuario para saber su companyId
@@ -206,6 +237,9 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     if (businessType !== undefined) {
       newSettings.businessType = businessType;
     }
+    if (withholdings !== undefined) {
+      newSettings.withholdings = withholdings;
+    }
     if (smtp !== undefined) {
       newSettings.smtp = mergeSmtp(currentSettings.smtp, smtp);
     }
@@ -215,35 +249,14 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       ? { ...currentNotifications, ...notifications }
       : currentNotifications;
 
-    // Serializar dirección para el campo address de la tabla
-    let addressStr = null;
-    if (address) {
-      if (typeof address === 'object') {
-        const parts = [address.street, address.sector, address.city, address.province, address.zipCode, address.country].filter(Boolean);
-        addressStr = parts.join(', ');
-      } else {
-        addressStr = address;
-      }
-    }
-
-    // Usar name o companyName, logo o logoUrl
-    const finalName = name || companyName;
-    const finalLogo = logo || logoUrl;
+    const data = companyUpdateData(req.body);
+    data.settings = newSettings;
+    data.notifications = newNotifications;
 
     // Actualizar la empresa
     const updated = await tx.company.update({
       where: { id: user.companyId },
-      data: {
-        name: finalName,
-        rnc: rnc || null,
-        phone: phone || null,
-        address: addressStr || null,
-        currency: currency || 'DOP',
-        email: email || null,
-        logoUrl: finalLogo || null,
-        settings: newSettings,
-        notifications: newNotifications,
-      }
+      data,
     });
     return { updated, newSettings, newNotifications };
     });
@@ -262,6 +275,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       cash: settings.cash || { enabled: true, defaultPaymentMethod: 'Efectivo' },
       notifications: newNotifications || { sound: { enabled: true, volume: 0.7 } },
       pricing: settings.pricing || {},
+      withholdings: withholdingsOf(settings),
       allowCustomization: settings.allowCustomization !== undefined ? settings.allowCustomization : true,
       customerCategories: settings.customerCategories || [],
       smtp: publicSettings({ smtp: newSettings.smtp }).smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },

@@ -9,6 +9,7 @@ import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import ConfirmationModal from '../components/modals/ConfirmationModal.jsx';
 import ExpenseForm from '../components/forms/ExpenseForm.jsx';
+import { withholdingsOf } from '../utils/withholdings.js';
 import Button from '../components/ui/Button.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
@@ -112,6 +113,7 @@ const ExpensesViewSQL = ({ companyProfile }) => {
                 <ExpenseForm
                     expense={editingExpense}
                     suppliers={suppliers || []}
+                    withholdings={withholdingsOf(companyProfile)}
                     currency={currency}
                     onClose={() => setEditingExpense(null)}
                     onSave={handleSave}

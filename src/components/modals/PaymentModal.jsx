@@ -6,21 +6,38 @@ import notificationService from '../../utils/notificationService.js';
 import toast from 'react-hot-toast';
 import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import Button from '../ui/Button.jsx';
+import { invoiceBalance, invoiceStatus } from '../../utils/withholdings.js';
 import { enqueueInvoicePaymentUpdate } from '../../utils/offlineQueue.js';
 import { isGatewayConfigured, createPaymentIntent, fetchPaymentIntentStatus, mapGatewayStatusToPaymentStatus } from '../../utils/paymentGateway.js';
 import { useEffect } from 'react';
 
-const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }) => {
-    const amountDue = useMemo(() => invoice.total - (invoice.paidAmount || 0), [invoice]);
-    const [payments, setPayments] = useState(() => {
+const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, allowWithholdings = false }) => {
+    const paidBefore = Number(invoice.paidAmount ?? invoice.amountPaid ?? 0) || 0;
+    const [itbisRet, setItbisRet] = useState(() => String(Number(invoice.itbisRetenido) || 0));
+    const [isrRet, setIsrRet] = useState(() => String(Number(invoice.retencionRenta) || 0));
+    const [retDate, setRetDate] = useState(() => String(invoice.retentionDate || '').slice(0, 10) || new Date().toLocaleDateString('en-CA'));
+    const itbisNum = parseFloat(itbisRet) || 0;
+    const isrNum = parseFloat(isrRet) || 0;
+    // Saldo tras lo ya cobrado y las retenciones escritas (totales acumulados).
+    const amountDue = useMemo(() => invoiceBalance({ ...invoice, amountPaid: paidBefore, itbisRetenido: itbisNum, retencionRenta: isrNum }), [invoice, paidBefore, itbisNum, isrNum]);
+    const suggested = (due) => {
         const initial = { efectivo: 0, chequeTransferencia: 0, tarjeta: 0, credito: 0 };
         const method = invoice.paymentMethod || '';
-        if (method === 'Efectivo') initial.efectivo = amountDue;
-        else if (method === 'Tarjeta') initial.tarjeta = amountDue;
-        else if (method === 'Transferencia') initial.chequeTransferencia = amountDue;
-        else if (method === 'Contado') initial.efectivo = amountDue;
+        if (method === 'Efectivo') initial.efectivo = due;
+        else if (method === 'Tarjeta') initial.tarjeta = due;
+        else if (method === 'Transferencia') initial.chequeTransferencia = due;
+        else if (method === 'Contado') initial.efectivo = due;
         return initial;
-    });
+    };
+    const [payments, setPayments] = useState(() => suggested(amountDue));
+    const handleRetention = (setter) => (e) => {
+        const value = e.target.value;
+        setter(value);
+        setRetDate(new Date().toLocaleDateString('en-CA'));
+        const i = setter === setItbisRet ? parseFloat(value) || 0 : itbisNum;
+        const r = setter === setIsrRet ? parseFloat(value) || 0 : isrNum;
+        setPayments(suggested(invoiceBalance({ ...invoice, amountPaid: paidBefore, itbisRetenido: i, retencionRenta: r })));
+    };
     const [gatewayInfo, setGatewayInfo] = useState(invoice.paymentGateway || null);
     const [isGatewayBusy, setIsGatewayBusy] = useState(false);
     const currency = companyProfile?.currency || 'USD';
@@ -106,7 +123,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
 
             if (mappedStatus === 'Pagado' && invoice.paymentStatus !== 'Pagado') {
                 const received = Number(gatewayStatus.amountReceived || amountDue || 0);
-                const newPaidAmount = Math.min((invoice.paidAmount || 0) + received, invoice.total);
+                const newPaidAmount = Math.min(paidBefore + received, paidBefore + amountDue);
                 updates.paidAmount = newPaidAmount;
                 updates.paymentStatus = 'Pagado';
                 updates.payments = [...(invoice.payments || []), {
@@ -168,8 +185,17 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
             return;
         }
         
-        const newPaidAmount = (invoice.paidAmount || 0) + totalPaid;
-        const newPaymentStatus = newPaidAmount >= invoice.total ? 'Pagado' : 'Pagado Parcialmente';
+        const taxAmount = Number(invoice.taxAmount) || 0;
+        const total = Number(invoice.total) || 0;
+        if (itbisNum < 0 || isrNum < 0) { toast.error('Las retenciones no pueden ser negativas.'); return; }
+        if (itbisNum > taxAmount + 0.01) { toast.error('El ITBIS retenido no puede superar el ITBIS de la factura.'); return; }
+        if (isrNum > total - taxAmount + 0.01) { toast.error('El ISR retenido no puede superar el monto sin ITBIS.'); return; }
+        if (paidBefore + totalPaid + itbisNum + isrNum > total + 0.01) { toast.error('Lo cobrado más las retenciones supera el total de la factura.'); return; }
+
+        const newPaidAmount = paidBefore + totalPaid;
+        const newPaymentStatus = invoiceStatus({ ...invoice, amountPaid: newPaidAmount, itbisRetenido: itbisNum, retencionRenta: isrNum });
+        const changed = allowWithholdings && (itbisNum !== (Number(invoice.itbisRetenido) || 0) || isrNum !== (Number(invoice.retencionRenta) || 0));
+        const retention = changed ? { itbisRetenido: itbisNum, retencionRenta: isrNum, retentionDate: retDate } : {};
 
         // Guardamos el desglose del pago en la factura
         const paymentBreakdown = {
@@ -185,12 +211,13 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
             const promise = api.invoices.update(invoice.id, { 
                 paidAmount: newPaidAmount, 
                 paymentStatus: newPaymentStatus,
-                payments: [...(invoice.payments || []), paymentBreakdown]
+                payments: [...(invoice.payments || []), paymentBreakdown],
+                ...retention
             });
             await toast.promise(promise, {
                 loading: 'Registrando pago...',
                 success: () => { playSuccessSound(); return '¡Pago registrado con éxito!'; },
-                error: () => { playErrorSound(); return 'No se pudo registrar el pago.'; }
+                error: (e) => { playErrorSound(); return e?.message || 'No se pudo registrar el pago.'; }
             });
             
             // Notificación del dispositivo - Pago registrado
@@ -199,11 +226,14 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                 message: `Pago de ${formatCurrency(totalPaid)} para pedido #${invoice.invoiceNumber}`,
             }, ['desktop']);
             
-            onSuccess({ ...invoice, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown] });
+            onSuccess({ ...invoice, ...retention, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown] });
         } catch (err) {
+            // Un rechazo del servidor (400/403) no se encola ni se aplica: ya se avisó con su mensaje
+            if (err?.status) return;
             // Fallback offline: encola la operación y actualiza UI de forma optimista
             enqueueInvoicePaymentUpdate({
                 invoiceId: invoice.id,
+                retention,
                 paymentBreakdown,
                 newPaidAmount,
                 newPaymentStatus,
@@ -213,7 +243,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                     Sin conexión. Pago encolado para sincronizar. <button onClick={() => toast.dismiss(t.id)} className="underline">OK</button>
                 </span>
             ));
-            onSuccess({ ...invoice, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown] });
+            onSuccess({ ...invoice, ...retention, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown] });
         }
     };
 
@@ -250,8 +280,8 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                         <legend className="font-semibold px-2">Desglose del Pago</legend>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-ink-soft mb-1">Efectivo</label>
-                                <input type="number" name="efectivo" value={payments.efectivo} onChange={handleChange} className="input-base" min="0" step="0.01" />
+                                <label htmlFor="pm-efectivo" className="block text-ink-soft mb-1">Efectivo</label>
+                                <input id="pm-efectivo" type="number" name="efectivo" value={payments.efectivo} onChange={handleChange} className="input-base" min="0" step="0.01" />
                             </div>
                             <div>
                                 <label className="block text-ink-soft mb-1">Cheque/Transf./Depósito</label>
@@ -267,6 +297,26 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess }
                             </div>
                         </div>
                     </fieldset>
+
+                    {allowWithholdings && (
+                    <fieldset className="border p-4 rounded-lg">
+                        <legend className="font-semibold px-2">Retenciones del cliente</legend>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="pm-itbis-ret" className="block text-ink-soft mb-1">ITBIS retenido por el cliente</label>
+                                <input id="pm-itbis-ret" type="number" value={itbisRet} onChange={handleRetention(setItbisRet)} className="input-base" min="0" step="0.01" />
+                            </div>
+                            <div>
+                                <label htmlFor="pm-isr-ret" className="block text-ink-soft mb-1">ISR retenido por el cliente</label>
+                                <input id="pm-isr-ret" type="number" value={isrRet} onChange={handleRetention(setIsrRet)} className="input-base" min="0" step="0.01" />
+                            </div>
+                            <div className="col-span-2">
+                                <label htmlFor="pm-ret-date" className="block text-ink-soft mb-1">Fecha de retención</label>
+                                <input id="pm-ret-date" type="date" value={retDate} onChange={(e) => setRetDate(e.target.value)} className="input-base" />
+                            </div>
+                        </div>
+                    </fieldset>
+                    )}
 
                     <div className="p-4 bg-blue-50 rounded-lg text-right">
                         <p className="text-ink-soft">Total Ingresado</p>

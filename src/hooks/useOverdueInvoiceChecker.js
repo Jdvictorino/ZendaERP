@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { invoices as invoicesApi, alerts as alertsApi } from '../api/client.js';
 
+import { invoiceBalance } from '../utils/withholdings.js';
 const STORAGE_KEY = 'overdue_alerted_ids';
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // cada 5 minutos
 
@@ -57,9 +58,7 @@ function useOverdueInvoiceChecker(user) {
           // Excluir estados terminales
           if (['Cancelado', 'Anulado', 'Pagado'].includes(inv.status)) return false;
           // Verificar si tiene saldo pendiente
-          const total = parseFloat(inv.total) || 0;
-          const paid = parseFloat(inv.amountPaid) || 0;
-          if (paid >= total) return false;
+          if (invoiceBalance(inv) <= 0) return false;
           // Ya fue alertada en esta sesión
           if (alertedIds.includes(inv.id)) return false;
           return true;
@@ -69,7 +68,7 @@ function useOverdueInvoiceChecker(user) {
         for (const inv of overdueInvoices) {
           try {
             const daysOverdue = Math.floor((now - new Date(inv.dueDate)) / 86400000);
-            const outstanding = (parseFloat(inv.total) - parseFloat(inv.amountPaid)).toFixed(2);
+            const outstanding = invoiceBalance(inv).toFixed(2);
             await alertsApi.create({
               type: 'overdue_invoice',
               title: `Factura Vencida - ${inv.orderNumber || inv.invoiceNumber || inv.id}`,

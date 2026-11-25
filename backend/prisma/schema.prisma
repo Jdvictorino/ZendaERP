@@ -397,6 +397,9 @@ model Invoice {
   paymentTermDays Int?      // plazo de crédito en días (null/0 = contado)
   dueDate         DateTime? // vencimiento: fecha de la venta + plazo
   amountPaid    Decimal @default(0) @db.Decimal(12, 2)
+  itbisRetenido  Decimal @default(0) @db.Decimal(12, 2) // ITBIS que el cliente retuvo al pagar
+  retencionRenta Decimal @default(0) @db.Decimal(12, 2) // ISR que el cliente retuvo al pagar
+  retentionDate  DateTime? @db.Date
   payments      Json    @default("[]") // desglose de cada cobro (efectivo, tarjeta, transferencia) para el cierre de caja
   paymentGateway Json?  // enlace de cobro por pasarela
   changeAmount  Decimal @default(0) @db.Decimal(12, 2)
@@ -537,6 +540,9 @@ model Expense {
   invoiceLines    Json? // [{ itemId, quantity }] facturado por este gasto, para deshacerlo
   // Pago al exterior (formato 609): { idType, taxId, country, serviceType, serviceDetail, relatedParty, documentNumber, rentaPresunta }
   foreignPayment  Json?
+  // Pagos al suplidor: payments = [{ amount, method, reference, date }]; el estado se calcula
+  paidAmount      Decimal  @default(0) @db.Decimal(12, 2)
+  payments        Json?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

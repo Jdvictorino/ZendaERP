@@ -13,6 +13,9 @@ describe('gasto enlazado a una orden', () => {
     expect(linkedExpenseChanged(saved, { supplierId: null })).toBe(true);
     expect(linkedExpenseChanged(saved, { rncCedula: '999' })).toBe(true);
   });
+  it('paidAmount y payments no cuentan como cambio de montos', () => {
+    expect(linkedExpenseChanged(saved, { paidAmount: 500, payments: [{ amount: 500 }] })).toBe(false);
+  });
   it('NCF, forma de pago, fecha de pago y descripción se pueden cambiar', () => {
     expect(linkedExpenseChanged(saved, { ncf: 'B0100000001', paymentType: '02', paymentDate: '2026-11-30', description: 'x' })).toBe(false);
   });

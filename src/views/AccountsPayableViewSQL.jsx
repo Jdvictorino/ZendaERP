@@ -9,6 +9,7 @@ import Button from '../components/ui/Button.jsx';
 import { CalendarDays, AlertTriangle, Building2, Clock, ChevronDown, Wallet, FileText, X } from 'lucide-react';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
+import { expensePayable } from '../utils/expensePayable.js';
 import api from '../api/client.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
@@ -22,13 +23,10 @@ const parseTimestamp = (value) => {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const getExpenseTotal = (expense) => {
-    const base = Number(expense.totalMontoFacturado ?? expense.montoFacturado ?? 0);
-    if (base > 0) return base;
-    const goods = Number(expense.montoBienes || 0);
-    const services = Number(expense.montoServicios || 0);
-    return goods + services;
-};
+const getExpenseTotal = (expense) => expensePayable({ ...expense, itbisRetenido: 0, montoRetencionIsr: 0 });
+
+// Lo retenido al suplidor no se le paga: se entrega a la DGII
+const getExpenseRetained = (expense) => Number(expense.itbisRetenido || 0) + Number(expense.montoRetencionIsr || 0);
 
 const computeDueDate = (expense) => parseTimestamp(expense.paymentDate || expense.invoiceDate);
 
@@ -40,7 +38,7 @@ const normalizeTableDate = (value) => {
 const ExpensePaymentModal = ({ expense, currency, onClose, onSubmit }) => {
     const total = getExpenseTotal(expense);
     const paid = Number(expense.paidAmount || 0);
-    const balance = Math.max(0, total - paid);
+    const balance = Math.max(0, total - getExpenseRetained(expense) - paid);
     const [amount, setAmount] = useState(balance.toFixed(2));
     const [method, setMethod] = useState('transferencia');
     const [reference, setReference] = useState('');
@@ -157,7 +155,7 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
             .map(exp => {
                 const total = getExpenseTotal(exp);
                 const paid = Number(exp.paidAmount || 0);
-                const balance = Math.max(0, total - paid);
+                const balance = Math.max(0, total - getExpenseRetained(exp) - paid);
                 const dueDate = computeDueDate(exp);
                 let overdueDays = 0;
                 if (dueDate) {
@@ -431,14 +429,15 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
         if (!selectedExpense) return;
         const total = getExpenseTotal(selectedExpense);
         const currentPaid = Number(selectedExpense.paidAmount || 0);
-        const newPaidAmount = Math.min(total, currentPaid + amount);
-        const balance = Math.max(0, total - newPaidAmount);
+        const payable = Math.max(0, total - getExpenseRetained(selectedExpense));
+        const newPaidAmount = Math.min(payable, currentPaid + amount);
+        const balance = Math.max(0, payable - newPaidAmount);
         const paymentStatus = balance <= 0.01 ? 'Pagado' : 'Parcial';
         const paymentEntry = {
             amount,
             method,
             reference,
-            date: new Date().toISOString(),
+            date: new Date().toLocaleDateString('en-CA'),
         };
         
         const promise = api.expenses.update(selectedExpense.id, {
@@ -446,7 +445,6 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
             balanceAmount: balance,
             paymentStatus,
             payments: [...(selectedExpense.payments || []), paymentEntry],
-            lastPaymentDate: new Date().toISOString(),
         });
 
         await toast.promise(promise, {
@@ -457,9 +455,9 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
                 refetchExpenses();
                 return 'Pago registrado.';
             },
-            error: () => {
+            error: (e) => {
                 playErrorSound();
-                return 'No se pudo registrar el pago.';
+                return e?.message || 'No se pudo registrar el pago.';
             },
         });
     };

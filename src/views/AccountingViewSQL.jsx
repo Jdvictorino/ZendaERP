@@ -1,6 +1,7 @@
 // Versión migrada a PostgreSQL - AccountingView con pestañas del ciclo contable
 import React, { useMemo, useState } from 'react';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { invoiceBalance } from '../utils/withholdings.js';
 import Button from '../components/ui/Button.jsx';
 import Card, { CardBody, CardHeader } from '../components/ui/Card.jsx';
 import { Download, RefreshCcw, BookOpen, Layers, Scale, Sliders, ShoppingCart, TrendingUp, Wallet, CreditCard } from 'lucide-react';
@@ -112,7 +113,7 @@ const AccountingViewSQL = ({ companyProfile }) => {
   const totals = useMemo(() => {
     const incomeCollected = filteredInvoices.reduce((sum, inv) => sum + Number(inv.paidAmount || inv.amountPaid || 0), 0);
     const invoiceTotal = filteredInvoices.reduce((sum, inv) => sum + Number(inv.total || 0), 0);
-    const outstanding = Math.max(invoiceTotal - incomeCollected, 0);
+    const outstanding = filteredInvoices.reduce((sum, inv) => sum + invoiceBalance({ ...inv, amountPaid: inv.paidAmount || inv.amountPaid }), 0);
     const expensesTotal = filteredExpenses.reduce((sum, exp) => sum + Number(exp.totalMontoFacturado || exp.montoFacturado || exp.total || 0), 0);
     const creditRefunds = creditNotes.reduce((sum, note) => sum + Number(note.amount || 0), 0);
     const debitAdjustments = debitNotes.reduce((sum, note) => sum + Number(note.amount || 0), 0);
@@ -239,7 +240,7 @@ const AccountingViewSQL = ({ companyProfile }) => {
                   <p className="text-sm text-warning-800 dark:text-warning-300 font-semibold">Facturas con pago pendiente:</p>
                   <ul className="list-disc list-inside text-sm text-warning-800 dark:text-warning-300 mt-2 space-y-1">
                     {pendingInvoices.slice(0, 5).map((inv) => (
-                      <li key={inv.id}>{inv.invoiceNumber || inv.orderNumber || inv.id} · {formatCurrency((inv.total || 0) - (inv.paidAmount || inv.amountPaid || 0), currency)}</li>
+                      <li key={inv.id}>{inv.invoiceNumber || inv.orderNumber || inv.id} · {formatCurrency(invoiceBalance({ ...inv, amountPaid: inv.paidAmount || inv.amountPaid }), currency)}</li>
                     ))}
                     {pendingInvoices.length > 5 && <li>+{pendingInvoices.length - 5} facturas adicionales.</li>}
                   </ul>

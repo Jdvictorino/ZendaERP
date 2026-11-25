@@ -64,10 +64,10 @@ export const enqueueOperation = (op) => {
 /**
  * Encolar actualización de pago de factura
  */
-export const enqueueInvoicePaymentUpdate = ({ invoiceId, paymentBreakdown, newPaidAmount, newPaymentStatus }) => {
+export const enqueueInvoicePaymentUpdate = ({ invoiceId, paymentBreakdown, newPaidAmount, newPaymentStatus, retention }) => {
   enqueueOperation({
     type: 'updateInvoicePayment',
-    payload: { invoiceId, paymentBreakdown, newPaidAmount, newPaymentStatus },
+    payload: { invoiceId, paymentBreakdown, newPaidAmount, newPaymentStatus, retention },
   });
 };
 
@@ -87,11 +87,12 @@ export const flushOfflineQueue = async () => {
   for (const item of queue) {
     try {
       if (item.type === 'updateInvoicePayment') {
-        const { invoiceId, paymentBreakdown, newPaidAmount, newPaymentStatus } = item.payload;
+        const { invoiceId, paymentBreakdown, newPaidAmount, newPaymentStatus, retention } = item.payload;
         await invoices.update(invoiceId, {
           paymentBreakdown,
           amountPaid: newPaidAmount,
-          paymentStatus: newPaymentStatus
+          paymentStatus: newPaymentStatus,
+          ...(retention || {})
         });
         processed++;
       } else {

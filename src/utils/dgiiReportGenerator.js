@@ -152,12 +152,12 @@ export const generate607Data = (invoices = []) => {
                 "NCF ó Documento Modificado": inv.ncfModificado || '',
                 "Tipo de Ingreso": '01', // Ingresos por Operaciones (No Financieros)
                 "Fecha Comprobante": formatDateToDGII(voucherDateOf(inv)),
-                "Fecha de Retención": '', // No manejado actualmente
+                "Fecha de Retención": formatDateToDGII(inv.retentionDate),
                 "Monto Facturado": inv.subtotal || 0,
                 "ITBIS Facturado": Number(inv.itbis ?? inv.taxAmount ?? 0),
-                "ITBIS Retenido por Terceros": inv.itbisRetenido || 0,
+                "ITBIS Retenido por Terceros": Number(inv.itbisRetenido || 0),
                 "ITBIS Percibido": inv.itbisPercibido || 0,
-                "Retención Renta por Terceros": inv.retencionRenta || 0,
+                "Retención Renta por Terceros": Number(inv.retencionRenta || 0),
                 "ISR Percibido": inv.isrPercibido || 0,
                 "Impuesto Selectivo al Consumo (ISC)": inv.isc || 0,
                 "Otros Impuestos/Tasas": inv.otrosImpuestos || 0,
