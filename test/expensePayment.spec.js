@@ -70,9 +70,7 @@ describe('expensePayable (app y servidor)', () => {
     expect(m.expensePaymentStatus({ ...exp, paidAmount: 900 })).toBe('Pagado');
   });
   it('copias identicas desde la linea 2', () => {
-    const body = (f) => readFileSync(f, 'utf8').split('
-').slice(1).join('
-').replace(//g, '');
+    const body = (f) => readFileSync(f, 'utf8').split(String.fromCharCode(10)).slice(1).join('|').replace(//g, '');
     expect(body('src/utils/expensePayable.js')).toBe(body('backend/src/services/expensePayable.js'));
   });
 });
