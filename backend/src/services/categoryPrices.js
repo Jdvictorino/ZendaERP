@@ -45,3 +45,22 @@ export async function saveCategoryPrices(tx, { companyId, productId, rows, categ
     }))
   });
 }
+
+const has = (list, c) => list.some((x) => sameCategory(x, c));
+
+/** Qué renombres y borrados implica pasar de la lista vieja a la nueva. Lista nueva vacía o ausente: nada. */
+export function planCategoryChanges(oldList, newList, migrations) {
+  if (!Array.isArray(newList) || !newList.length) return { renames: [], removed: [] };
+  const old = Array.isArray(oldList) ? oldList : [];
+  const renames = (migrations?.entries || []).filter((e) => e?.from && e?.to && has(newList, e.to) && !has(newList, e.from));
+  const removed = old.filter((c) => !has(newList, c) && !renames.some((r) => sameCategory(r.from, c)));
+  return { renames, removed };
+}
+
+/** Filas base (cantidad 1, sin empaque) con el precio al por mayor de cada producto que aún no la tiene en la categoría. */
+export function wholesaleRows(products, existing, category) {
+  return products
+    .filter((p) => Number(p.wholesalePrice) > 0
+      && !existing.some((e) => e.productId === p.id && sameCategory(e.category, category) && !e.packagingId && Number(e.minQuantity) === 1))
+    .map((p) => ({ productId: p.id, category, packagingId: null, minQuantity: 1, price: Number(p.wholesalePrice) }));
+}

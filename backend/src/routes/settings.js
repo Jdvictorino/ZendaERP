@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
-import { DEFAULT_CUSTOMER_CATEGORIES } from '../services/categoryPrices.js';
+import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
 const router = express.Router();
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -129,6 +129,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       ncf, // Secuencias NCF
       orderMode, availableOrderModes, businessType, // Modo de pedidos
       smtp, // Configuración SMTP
+      _categoryMigrations,
     } = req.body;
 
     // Obtener el usuario para saber su companyId
@@ -155,6 +156,14 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     const newSettings = { ...currentSettings };
     
     if (customerCategories !== undefined) {
+      // Renombres y borrados de categorías: precios siempre; clientes solo si el usuario lo aceptó
+      const { renames, removed } = planCategoryChanges(
+        currentSettings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES, customerCategories, _categoryMigrations);
+      for (const { from, to } of renames) {
+        if (_categoryMigrations.apply === true) await tx.customer.updateMany({ where: { companyId: user.companyId, category: from }, data: { category: to } });
+        await tx.categoryPrice.updateMany({ where: { companyId: user.companyId, category: from }, data: { category: to } });
+      }
+      if (removed.length) await tx.categoryPrice.deleteMany({ where: { companyId: user.companyId, category: { in: removed } } });
       newSettings.customerCategories = customerCategories;
     }
     if (address !== undefined) {

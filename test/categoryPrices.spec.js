@@ -1,4 +1,4 @@
-import { validateCategoryPrices, DEFAULT_CUSTOMER_CATEGORIES } from '../backend/src/services/categoryPrices.js';
+import { validateCategoryPrices, DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges, wholesaleRows } from '../backend/src/services/categoryPrices.js';
 import { QUANTITY_FIELDS } from '../backend/src/services/quantityFields.js';
 
 const ctx = { categories: ['Mayorista', 'Colmado'], packagingIds: new Set(['p1']), allowFractions: false };
@@ -41,5 +41,37 @@ describe('QUANTITY_FIELDS', () => {
 describe('categorías por defecto', () => {
   it('General, VIP y Mayorista son válidas sin configuración de la empresa', () => {
     expect(validateCategoryPrices([{ ...row, category: 'VIP' }], { ...ctx, categories: DEFAULT_CUSTOMER_CATEGORIES })).toBeNull();
+  });
+});
+
+describe('planCategoryChanges', () => {
+  const plan = (o, n, e) => planCategoryChanges(o, n, e ? { apply: true, entries: e } : undefined);
+  it('renombre: el destino queda y el origen sale', () => {
+    expect(plan(['A', 'B'], ['A', 'C'], [{ from: 'B', to: 'C' }])).toEqual({ renames: [{ from: 'B', to: 'C' }], removed: [] });
+  });
+  it('borrado sin renombre', () => {
+    expect(plan(['A', 'B'], ['A'])).toEqual({ renames: [], removed: ['B'] });
+  });
+  it('renombre en cadena: solo los que no chocan con la lista nueva', () => {
+    const r = plan(['A', 'B'], ['B', 'C'], [{ from: 'A', to: 'B' }, { from: 'B', to: 'C' }]);
+    expect(r).toEqual({ renames: [{ from: 'A', to: 'B' }], removed: [] });
+  });
+  it('lista nueva vacía o ausente: nada', () => {
+    expect(plan(['A'], [], [{ from: 'A', to: 'B' }])).toEqual({ renames: [], removed: [] });
+    expect(plan(['A'], undefined)).toEqual({ renames: [], removed: [] });
+  });
+});
+
+describe('wholesaleRows', () => {
+  const products = [{ id: 'p1', wholesalePrice: 50 }, { id: 'p2', wholesalePrice: 0 }, { id: 'p3', wholesalePrice: null }, { id: 'p4', wholesalePrice: '30.5' }];
+  it('una fila base por producto con precio al por mayor', () => {
+    expect(wholesaleRows(products, [], 'Mayorista')).toEqual([
+      { productId: 'p1', category: 'Mayorista', packagingId: null, minQuantity: 1, price: 50 },
+      { productId: 'p4', category: 'Mayorista', packagingId: null, minQuantity: 1, price: 30.5 }
+    ]);
+  });
+  it('idempotente: segunda pasada da 0 filas', () => {
+    const first = wholesaleRows(products, [], 'Mayorista');
+    expect(wholesaleRows(products, first, 'mayorista')).toEqual([]);
   });
 });

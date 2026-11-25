@@ -15,6 +15,7 @@ import rateLimit from 'express-rate-limit';
 // Rutas
 import authRoutes from './routes/auth.js';
 import productsRoutes from './routes/products.js';
+import categoryPricesRoutes from './routes/categoryPrices.js';
 import customersRoutes from './routes/customers.js';
 import suppliersRoutes from './routes/suppliers.js';
 import invoicesRoutes from './routes/invoices.js';
@@ -125,6 +126,7 @@ app.get('/api/health', (req, res) => {
 // Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);
+app.use('/api/category-prices', categoryPricesRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/invoices', invoicesRoutes);
