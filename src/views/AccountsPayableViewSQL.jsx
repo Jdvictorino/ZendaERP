@@ -9,6 +9,7 @@ import Button from '../components/ui/Button.jsx';
 import { CalendarDays, AlertTriangle, Building2, Clock, ChevronDown, Wallet, FileText, X } from 'lucide-react';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
+import { expensePayable } from '../utils/expensePayable.js';
 import api from '../api/client.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
@@ -22,13 +23,7 @@ const parseTimestamp = (value) => {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const getExpenseTotal = (expense) => {
-    const base = Number(expense.totalMontoFacturado ?? expense.montoFacturado ?? 0);
-    if (base > 0) return base;
-    const goods = Number(expense.montoBienes || 0);
-    const services = Number(expense.montoServicios || 0);
-    return goods + services;
-};
+const getExpenseTotal = (expense) => expensePayable({ ...expense, itbisRetenido: 0, montoRetencionIsr: 0 });
 
 // Lo retenido al suplidor no se le paga: se entrega a la DGII
 const getExpenseRetained = (expense) => Number(expense.itbisRetenido || 0) + Number(expense.montoRetencionIsr || 0);
@@ -442,7 +437,7 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
             amount,
             method,
             reference,
-            date: new Date().toISOString(),
+            date: new Date().toLocaleDateString('en-CA'),
         };
         
         const promise = api.expenses.update(selectedExpense.id, {
@@ -450,7 +445,6 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
             balanceAmount: balance,
             paymentStatus,
             payments: [...(selectedExpense.payments || []), paymentEntry],
-            lastPaymentDate: new Date().toISOString(),
         });
 
         await toast.promise(promise, {

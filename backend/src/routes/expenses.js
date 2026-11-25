@@ -5,7 +5,7 @@ import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { emitExpenseEcf } from '../services/ecfService.js';
 import { undoInvoice } from '../services/purchases.js';
-import { planExpensePayment, withPayment } from '../services/expensePayment.js';
+import { planExpensePayment, payableBelowPaid, withPayment } from '../services/expensePayment.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 
 const router = Router();
@@ -227,9 +227,13 @@ router.put('/:id', authorize(...rolesFor('finance-expenses')), async (req, res, 
       updateData.montoFacturado = (data.montoBienes ?? Number(existing.montoBienes)) + (data.montoServicios ?? Number(existing.montoServicios));
     }
 
+    const merged = { ...existing, ...updateData };
+    if (payableBelowPaid(merged, existing.paidAmount)) {
+      throw httpError(400, `Ya se le pagó ${Number(existing.paidAmount).toFixed(2)} al suplidor; el total no puede quedar por debajo de eso.`);
+    }
     // Pagos a suplidores: zod no los conoce, los valida planExpensePayment
     if (req.body.paidAmount !== undefined || req.body.payments !== undefined) {
-      const plan = planExpensePayment({ ...existing, ...updateData }, req.body, { manager: !!req.user.isAdmin || ['admin', 'manager'].includes(req.user.role) });
+      const plan = planExpensePayment(merged, req.body, { manager: !!req.user.isAdmin || ['admin', 'manager'].includes(req.user.role) });
       if (plan.error) throw httpError(plan.status, plan.error);
       Object.assign(updateData, plan.data);
     }
