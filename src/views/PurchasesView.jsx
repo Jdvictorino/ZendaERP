@@ -22,13 +22,16 @@ export const STATUS = {
 const errMsg = (e) => e?.message || e?.error || 'No se pudo completar la acción.';
 
 const SuggestionGroup = ({ title, lines: initial, needsSupplier, suppliers, onCreate }) => {
-    const [qty, setQty] = useState(() => initial.map((l) => String(l.quantity)));
+    const keyOf = (l) => `${l.productId}-${l.packagingId || ''}`;
+    const [qty, setQty] = useState(() => Object.fromEntries(initial.map((l) => [keyOf(l), String(l.quantity)])));
+    const [busy, setBusy] = useState(false);
     const [supplierId, setSupplierId] = useState('');
     const create = async () => {
-        const items = initial.map((l, i) => ({ productId: l.productId, packagingId: l.packagingId || null, quantity: Number(qty[i]), unitCost: Number(l.unitCost) })).filter((l) => l.quantity > 0);
+        const items = initial.map((l) => ({ productId: l.productId, packagingId: l.packagingId || null, quantity: Number(qty[keyOf(l)]), unitCost: Number(l.unitCost) })).filter((l) => l.quantity > 0);
         if (needsSupplier && !supplierId) return toast.error('Elige un suplidor.');
         if (!items.length) return toast.error('No hay cantidades para pedir.');
-        await onCreate(items, supplierId);
+        setBusy(true);
+        try { await onCreate(items, supplierId); } finally { setBusy(false); }
     };
     return (
         <Card className="p-4 space-y-3">
@@ -41,15 +44,15 @@ const SuggestionGroup = ({ title, lines: initial, needsSupplier, suppliers, onCr
                             {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </Select>
                     )}
-                    <Button size="sm" onClick={create}>Crear borrador</Button>
+                    <Button size="sm" onClick={create} disabled={busy}>Crear borrador</Button>
                 </div>
             </div>
             <ul className="space-y-2 text-sm">
-                {initial.map((l, i) => (
-                    <li key={`${l.productId}-${l.packagingId || ''}`} className="flex items-center justify-between gap-2">
+                {initial.map((l) => (
+                    <li key={keyOf(l)} className="flex items-center justify-between gap-2">
                         <span>{l.productName}{l.packagingName ? ` — ${l.packagingName}` : ''}</span>
                         <input aria-label={`Cantidad de ${l.productName}`} type="number" min="0" step="any" className="input-base w-28"
-                            value={qty[i]} onChange={(e) => setQty(qty.map((q, k) => (k === i ? e.target.value : q)))} />
+                            value={qty[keyOf(l)]} onChange={(e) => setQty({ ...qty, [keyOf(l)]: e.target.value })} />
                     </li>
                 ))}
             </ul>
@@ -83,13 +86,15 @@ const PurchasesView = ({ companyProfile, currentUserProfile }) => {
         (async () => {
             try {
                 const [ps, ss] = await Promise.all([productsApi.list(), suppliersApi.list()]);
-                setProducts((ps || []).filter((p) => p.status !== 'inactive' && !p.variants?.length));
-                setSuppliers((ss || []).filter((s) => s.status !== 'inactive'));
+                const rows = (r) => (Array.isArray(r) ? r : r?.data || []);
+                setProducts(rows(ps).filter((p) => p.status !== 'inactive' && !p.variants?.length));
+                setSuppliers(rows(ss).filter((s) => s.status !== 'inactive'));
             } catch (e) { toast.error(errMsg(e)); }
         })();
     }, []);
 
     const loadSuggestions = useCallback(async () => {
+        setSuggestions(null);
         try { setSuggestions(await purchaseOrders.suggestions()); } catch (e) { toast.error(errMsg(e)); }
     }, []);
     useEffect(() => { if (tab === 'suggestions' && canWrite) loadSuggestions(); }, [tab, canWrite, loadSuggestions]);
@@ -106,7 +111,7 @@ const PurchasesView = ({ companyProfile, currentUserProfile }) => {
         try {
             const full = await purchaseOrders.get(o.id);
             const emitter = currentUserProfile ? { fullName: `${currentUserProfile.firstName} ${currentUserProfile.lastName}`, employeeId: currentUserProfile.employeeId } : null;
-            await generatePDF(full, 'purchase-order', companyProfile, full.supplier, emitter, 'download');
+            await generatePDF(full, 'purchase-order', companyProfile, suppliers.find((s) => s.id === full.supplierId) || full.supplier, emitter, 'download');
         } catch (e) { toast.error(errMsg(e)); }
     };
     const cancel = async (o) => {

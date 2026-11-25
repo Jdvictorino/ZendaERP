@@ -10,8 +10,8 @@ vi.mock('../src/api/client.js', () => ({
         ]),
         get: vi.fn(), create: vi.fn(), update: vi.fn(), send: vi.fn(), cancel: vi.fn(), receive: vi.fn(), invoice: vi.fn(), suggestions: vi.fn()
     },
-    products: { list: vi.fn().mockResolvedValue([]) },
-    suppliers: { list: vi.fn().mockResolvedValue([{ id: 's1', name: 'Distribuidora Sol', status: 'active' }]) }
+    products: { list: vi.fn().mockResolvedValue({ data: [], pagination: {} }) },
+    suppliers: { list: vi.fn().mockResolvedValue({ data: [{ id: 's1', name: 'Distribuidora Sol', status: 'active' }] }) }
 }));
 vi.mock('../src/utils/pdfGenerator.js', () => ({ generatePDF: vi.fn() }));
 
@@ -25,6 +25,7 @@ describe('PurchasesView', () => {
         expect(screen.getByText('OC-0002')).toBeTruthy();
         expect(screen.getAllByText('Borrador').length).toBeGreaterThan(0); // también está en el filtro
         expect(screen.getAllByText('Recibida parcial').length).toBe(2); // filtro + badge
+        expect(await screen.findByRole('option', { name: 'Distribuidora Sol' })).toBeTruthy(); // proveedores leídos de .data
         expect(screen.getByLabelText('Enviar OC-0001')).toBeTruthy();
         expect(screen.getByLabelText('Recibir OC-0002')).toBeTruthy();
     });

@@ -10,7 +10,7 @@ export const PAYMENT_TYPES = [
     ['01', 'Efectivo'], ['02', 'Cheque/transferencia/depósito'], ['03', 'Tarjeta'],
     ['04', 'Compra a crédito'], ['05', 'Permuta'], ['06', 'Nota de crédito'], ['07', 'Mixto']
 ];
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString('en-CA');
 
 const SupplierInvoiceModal = ({ isOpen, onClose, order, onSubmit }) => {
     const open = (i) => roundQty(i.receivedQuantity - i.invoicedQuantity);
