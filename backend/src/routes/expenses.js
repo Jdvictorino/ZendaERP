@@ -201,6 +201,10 @@ router.put('/:id', authorize(...rolesFor('finance-expenses')), async (req, res, 
       return res.status(404).json({ error: 'Gasto no encontrado' });
     }
 
+    if (existing.purchaseOrderId && ['montoBienes', 'montoServicios', 'itbisFacturado', 'itbisRetenido', 'montoRetencionIsr', 'propina', 'supplierId'].some((f) => data[f] !== undefined)) {
+      throw httpError(409, 'Esta factura viene de una orden de compra: corrígela desde Compras.');
+    }
+
     if (existing.issuedVoucher) {
       if (LOCKED_FIELDS.some((f) => !sameValue(f, existing[f], data[f]))) {
         throw httpError(400, `Este gasto emitió el comprobante ${existing.ncf}: sus montos, fecha y vendedor ya no se pueden cambiar.`);
@@ -238,6 +242,8 @@ router.delete('/:id', authorize('admin', 'manager'), async (req, res, next) => {
     if (!existing) {
       return res.status(404).json({ error: 'Gasto no encontrado' });
     }
+
+    if (existing.purchaseOrderId) throw httpError(409, 'Esta factura viene de una orden de compra: corrígela desde Compras.');
 
     if (existing.issuedVoucher) {
       throw httpError(400, `Este gasto emitió el comprobante ${existing.ncf} y no se puede eliminar: el número ya está usado ante la DGII.`);

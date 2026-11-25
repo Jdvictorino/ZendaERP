@@ -74,16 +74,27 @@ router.get('/suggestions', authorize(...rolesFor('purchases')), async (req, res,
     const items = await prisma.purchaseOrderItem.findMany({
       where: { productId: { in: products.map((p) => p.id) }, purchaseOrder: { companyId: req.companyId } },
       select: { productId: true, quantity: true, receivedQuantity: true, packagingId: true, packagingName: true, packagingFactor: true, purchaseOrder: { select: { status: true } } },
-      orderBy: { purchaseOrder: { createdAt: 'desc' } }
+      orderBy: [{ purchaseOrder: { createdAt: 'desc' } }, { id: 'desc' }]
     });
+    // Empaque vigente: se usa su factor y nombre actuales; si ya no existe o está inactivo, unidad base
+    const pks = await prisma.productPackaging.findMany({
+      where: { companyId: req.companyId, id: { in: [...new Set(items.map((i) => i.packagingId).filter(Boolean))] }, status: 'active' },
+      select: { id: true, name: true, factor: true }
+    });
+    const pkById = Object.fromEntries(pks.map((k) => [k.id, k]));
     const pendingByProduct = {}, lastPackagingByProduct = {};
     for (const i of items) { // vienen de la orden más reciente a la más antigua
-      lastPackagingByProduct[i.productId] ??= i.packagingId ? { packagingId: i.packagingId, packagingName: i.packagingName, packagingFactor: Number(i.packagingFactor) } : null;
+      if (i.purchaseOrder.status !== 'cancelada' && !(i.productId in lastPackagingByProduct)) {
+        const k = pkById[i.packagingId];
+        lastPackagingByProduct[i.productId] = k ? { packagingId: k.id, packagingName: k.name, packagingFactor: Number(k.factor) } : null;
+      }
       if (['borrador', 'enviada', 'parcial'].includes(i.purchaseOrder.status)) {
         pendingByProduct[i.productId] = (pendingByProduct[i.productId] || 0) + (Number(i.quantity) - Number(i.receivedQuantity)) * Number(i.packagingFactor);
       }
     }
     const result = purchaseSuggestions({ products, pendingByProduct, lastPackagingByProduct });
+    const info = Object.fromEntries(products.map((p) => [p.id, { productName: p.name, unit: p.unit }]));
+    for (const list of [...Object.values(result.bySupplier), result.noSupplier]) for (const l of list) Object.assign(l, info[l.productId]);
     const sup = await prisma.supplier.findMany({ where: { companyId: req.companyId, id: { in: Object.keys(result.bySupplier) } }, select: { id: true, name: true } });
     res.json({ ...result, suppliers: Object.fromEntries(sup.map((x) => [x.id, x.name])) });
   } catch (error) { next(error); }
@@ -276,12 +287,13 @@ router.post('/:id/invoice', authorize(...rolesFor('finance-expenses')), async (r
         unitCost: Number(i.unitCost), taxRate: Number(i.taxRate), packagingId: i.packagingId,
         packagingFactor: i.packagingFactor == null ? 1 : Number(i.packagingFactor)
       }));
+      if (!cur.supplier.rnc && !cur.supplier.identificationNumber) throw bad('El suplidor no tiene RNC o cédula: agrégalo en Proveedores antes de registrar la factura.');
       const plan = planInvoice(items, data.lines);
       if (plan.error) throw bad(plan.error);
       const created = await tx.expense.create({
         data: {
           companyId: req.companyId, userId: req.user.id, supplierId: cur.supplierId,
-          supplierName: cur.supplier.name, rncCedula: cur.supplier.rnc || cur.supplier.identificationNumber || '',
+          supplierName: cur.supplier.name, rncCedula: cur.supplier.rnc || cur.supplier.identificationNumber,
           ncf: data.ncf, invoiceDate: new Date(data.invoiceDate),
           montoBienes: plan.montoBienes, montoServicios: 0, itbisFacturado: plan.itbisFacturado, montoFacturado: plan.montoBienes,
           expenseType: '09-COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', paymentType: data.paymentType,
