@@ -455,9 +455,9 @@ const AccountsPayableViewSQL = ({ companyProfile = {} }) => {
                 refetchExpenses();
                 return 'Pago registrado.';
             },
-            error: () => {
+            error: (e) => {
                 playErrorSound();
-                return 'No se pudo registrar el pago.';
+                return e?.message || 'No se pudo registrar el pago.';
             },
         });
     };

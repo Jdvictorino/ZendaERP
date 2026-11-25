@@ -1,5 +1,6 @@
 import { assertSameCompany } from '../services/ownership.js';
 import { appendPayments } from '../services/payments.js';
+import { invoiceBalance } from '../services/withholdings.js';
 import { planInvoicePayment } from '../services/invoicePayment.js';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -466,7 +467,7 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
       if (VOID_STATUSES.includes(status)) {
         return res.status(400).json({ error: 'Para anular usa la opción Anular: así se devuelve el inventario.' });
       }
-      if (status === 'Pagado' && Number(invoice.amountPaid) < total - 0.01) {
+      if (status === 'Pagado' && invoiceBalance({ ...invoice, total }) > 0.01) {
         return res.status(400).json({ error: 'Registra el pago antes de marcar la factura como pagada.' });
       }
       updateData.status = status;

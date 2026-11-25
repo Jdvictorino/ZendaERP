@@ -28,7 +28,7 @@ const WithholdingsTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
     };
 
     const save = async () => {
-        const list = rows.map((c) => ({ ...c, name: c.name.trim(), isrType: Number(c.isrPercent) > 0 ? c.isrType : null }));
+        const list = rows.map((c) => ({ ...c, name: c.name.trim(), itbisPercent: Number(c.itbisPercent), isrPercent: Number(c.isrPercent), isrType: Number(c.isrPercent) > 0 ? c.isrType : null }));
         const problem = validateWithholdings(list);
         if (problem) { setError(problem); return; }
         setSaving(true);

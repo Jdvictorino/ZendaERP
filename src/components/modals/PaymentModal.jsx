@@ -33,6 +33,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
     const handleRetention = (setter) => (e) => {
         const value = e.target.value;
         setter(value);
+        setRetDate(new Date().toLocaleDateString('en-CA'));
         const i = setter === setItbisRet ? parseFloat(value) || 0 : itbisNum;
         const r = setter === setIsrRet ? parseFloat(value) || 0 : isrNum;
         setPayments(suggested(invoiceBalance({ ...invoice, amountPaid: paidBefore, itbisRetenido: i, retencionRenta: r })));
@@ -216,7 +217,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             await toast.promise(promise, {
                 loading: 'Registrando pago...',
                 success: () => { playSuccessSound(); return '¡Pago registrado con éxito!'; },
-                error: () => { playErrorSound(); return 'No se pudo registrar el pago.'; }
+                error: (e) => { playErrorSound(); return e?.message || 'No se pudo registrar el pago.'; }
             });
             
             // Notificación del dispositivo - Pago registrado
@@ -227,6 +228,8 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             
             onSuccess({ ...invoice, ...retention, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown] });
         } catch (err) {
+            // Un rechazo del servidor (400/403) no se encola ni se aplica: ya se avisó con su mensaje
+            if (err?.status) return;
             // Fallback offline: encola la operación y actualiza UI de forma optimista
             enqueueInvoicePaymentUpdate({
                 invoiceId: invoice.id,

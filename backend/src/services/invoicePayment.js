@@ -40,8 +40,9 @@ export function planInvoicePayment(invoice, body, { manager }) {
   if (body.itbisRetenido !== undefined) data.itbisRetenido = cents(next.itbisRetenido);
   if (body.retencionRenta !== undefined) data.retencionRenta = cents(next.retencionRenta);
   if (body.retentionDate !== undefined) {
-    if (body.retentionDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(body.retentionDate)) return bad(400, 'La fecha de la retención no es válida.');
-    data.retentionDate = body.retentionDate === null ? null : new Date(`${body.retentionDate}T00:00:00.000Z`);
+    const d = body.retentionDate === null ? null : new Date(`${body.retentionDate}T00:00:00.000Z`);
+    if (d && (!/^\d{4}-\d{2}-\d{2}$/.test(body.retentionDate) || isNaN(d) || d.toISOString().slice(0, 10) !== body.retentionDate)) return bad(400, 'Fecha de retención inválida.');
+    data.retentionDate = d;
   }
   if (!invoice.voided && (paid !== undefined || hasRet)) data.status = invoiceStatus(next);
   return { data };

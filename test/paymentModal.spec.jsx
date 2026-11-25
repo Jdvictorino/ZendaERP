@@ -7,9 +7,11 @@ vi.mock('react-hot-toast', () => {
     const toast = Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn(), promise: (p) => p });
     return { default: toast };
 });
+vi.mock('../src/utils/offlineQueue.js', () => ({ enqueueInvoicePaymentUpdate: vi.fn() }));
 vi.mock('../src/utils/soundPlayer.js', () => ({ playSuccessSound: vi.fn(), playErrorSound: vi.fn() }));
 vi.mock('../src/utils/notificationService.js', () => ({ default: { notify: vi.fn() } }));
 
+import { enqueueInvoicePaymentUpdate } from '../src/utils/offlineQueue.js';
 import api from '../src/api/client.js';
 import PaymentModal from '../src/components/modals/PaymentModal.jsx';
 
@@ -56,6 +58,24 @@ describe('PaymentModal con retenciones', () => {
     it('sin allowWithholdings no muestra los campos', () => {
         setup(invoice, false);
         expect(screen.queryByLabelText('ITBIS retenido por el cliente')).toBeNull();
+    });
+
+    it('un rechazo 403 del servidor no se encola ni se aplica', async () => {
+        api.invoices.update.mockRejectedValueOnce(Object.assign(new Error('Solo un gerente'), { status: 403 }));
+        const onSuccess = setup();
+        fireEvent.click(screen.getByText('Confirmar Pago'));
+        await waitFor(() => expect(api.invoices.update).toHaveBeenCalled());
+        await new Promise((r) => setTimeout(r, 20));
+        expect(enqueueInvoicePaymentUpdate).not.toHaveBeenCalled();
+        expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('sin respuesta del servidor sí se encola', async () => {
+        api.invoices.update.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+        const onSuccess = setup();
+        fireEvent.click(screen.getByText('Confirmar Pago'));
+        await waitFor(() => expect(enqueueInvoicePaymentUpdate).toHaveBeenCalled());
+        expect(onSuccess).toHaveBeenCalled();
     });
 
     it('bajar una retención guardada a 0 la envía', async () => {

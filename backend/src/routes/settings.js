@@ -6,6 +6,29 @@ import { publicSettings, mergeSmtp } from '../services/security.js';
 import { withholdingsOf, validateWithholdings } from '../services/withholdings.js';
 import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
+
+// Columnas de la empresa que cambia el cuerpo: solo las claves presentes (un guardado parcial no borra el resto)
+export const companyUpdateData = (body) => {
+  const { name, companyName, rnc, phone, address, currency, email, logo, logoUrl } = body;
+  let addressStr = null;
+  if (address) {
+    addressStr = typeof address === 'object'
+      ? [address.street, address.sector, address.city, address.province, address.zipCode, address.country].filter(Boolean).join(', ')
+      : address;
+  }
+  const finalName = name || companyName;
+  const logoGiven = logo !== undefined || logoUrl !== undefined;
+  return {
+    ...(finalName && { name: finalName }),
+    ...(rnc !== undefined && { rnc: rnc || null }),
+    ...(phone !== undefined && { phone: phone || null }),
+    ...(address !== undefined && { address: addressStr || null }),
+    ...(currency !== undefined && { currency: currency || 'DOP' }),
+    ...(email !== undefined && { email: email || null }),
+    ...(logoGiven && { logoUrl: logo || logoUrl || null }),
+  };
+};
+
 const router = express.Router();
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 const prisma = new PrismaClient();
@@ -226,35 +249,14 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       ? { ...currentNotifications, ...notifications }
       : currentNotifications;
 
-    // Serializar dirección para el campo address de la tabla
-    let addressStr = null;
-    if (address) {
-      if (typeof address === 'object') {
-        const parts = [address.street, address.sector, address.city, address.province, address.zipCode, address.country].filter(Boolean);
-        addressStr = parts.join(', ');
-      } else {
-        addressStr = address;
-      }
-    }
-
-    // Usar name o companyName, logo o logoUrl
-    const finalName = name || companyName;
-    const finalLogo = logo || logoUrl;
+    const data = companyUpdateData(req.body);
+    data.settings = newSettings;
+    data.notifications = newNotifications;
 
     // Actualizar la empresa
     const updated = await tx.company.update({
       where: { id: user.companyId },
-      data: {
-        name: finalName,
-        rnc: rnc || null,
-        phone: phone || null,
-        address: addressStr || null,
-        currency: currency || 'DOP',
-        email: email || null,
-        logoUrl: finalLogo || null,
-        settings: newSettings,
-        notifications: newNotifications,
-      }
+      data,
     });
     return { updated, newSettings, newNotifications };
     });

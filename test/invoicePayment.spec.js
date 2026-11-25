@@ -30,6 +30,7 @@ describe('planInvoicePayment', () => {
   });
   it('fecha de retención', () => {
     expect(planInvoicePayment(inv, { retentionDate: '2026-11-20' }, { manager: false }).data.retentionDate.toISOString()).toMatch(/^2026-11-20/);
+    for (const d of ['2026-13-01', '2026-02-31']) expect(planInvoicePayment(inv, { retentionDate: d }, { manager: false }).error).toBe('Fecha de retención inválida.');
     expect(planInvoicePayment(inv, { retentionDate: 'x' }, { manager: false }).error).toBeTruthy();
   });
 });

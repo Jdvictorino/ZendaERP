@@ -28,7 +28,7 @@ describe('asientos de factura con retenciones', () => {
 });
 
 describe('asientos de gasto con retenciones', () => {
-  const exp = { id: 'e1', montoFacturado: 1180, itbisFacturado: 180, invoiceDate: '2026-03-10' };
+  const exp = { id: 'e1', montoFacturado: 1000, itbisFacturado: 180, invoiceDate: '2026-03-10' };
   it('sin retenciones quedan igual', () => {
     const es = expenseToJournalEntries(exp);
     expect(sum(es, 'debit')).toBe(sum(es, 'credit'));
@@ -43,6 +43,21 @@ describe('asientos de gasto con retenciones', () => {
     }
     const es = expenseToJournalEntries({ ...exp, itbisRetenido: 180, montoRetencionIsr: 100 });
     expect(by(es, ACCOUNTS.ACCOUNTS_PAYABLE)[0].credit).toBe(900);
+  });
+});
+
+describe('asientos de gasto: base neta y propina', () => {
+  it('sin retenciones: gasto = neto, ITBIS aparte, cuenta por pagar = total', () => {
+    const es = expenseToJournalEntries({ id: 'e2', montoFacturado: 1000, itbisFacturado: 180, invoiceDate: '2026-03-10' });
+    expect(by(es, ACCOUNTS.ACCOUNTS_PAYABLE)[0].credit).toBe(1180);
+    expect(sum(es, 'debit')).toBe(1180);
+    expect(sum(es, 'debit')).toBe(sum(es, 'credit'));
+  });
+  it('con propina cuadra', () => {
+    const es = expenseToJournalEntries({ id: 'e3', montoFacturado: 1000, itbisFacturado: 180, propina: 100, itbisRetenido: 180, invoiceDate: '2026-03-10', paymentDate: '2026-03-11' });
+    expect(sum(es, 'debit')).toBe(1280);
+    expect(by(es, ACCOUNTS.CASH)[0].credit).toBe(1100);
+    expect(sum(es, 'debit')).toBe(sum(es, 'credit'));
   });
 });
 

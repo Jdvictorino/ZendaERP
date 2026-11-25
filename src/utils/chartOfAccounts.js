@@ -1,3 +1,4 @@
+import { expensePayable } from './expensePayable.js';
 /**
  * Plan de Cuentas Contable estándar para Zenda ERP.
  * Mapea transacciones del sistema a asientos de doble partida.
@@ -115,9 +116,11 @@ export function invoiceToJournalEntries(invoice) {
  */
 export function expenseToJournalEntries(expense) {
   const entries = [];
-  const amount = Number(expense.montoFacturado || expense.totalMontoFacturado || expense.total || 0);
-  const tax = Number(expense.itbisFacturado || 0);
-  const net = amount - tax;
+  // montoFacturado es el neto (bienes + servicios, sin ITBIS); la propina va al gasto
+  const num = (v) => Number(v) || 0;
+  const base = num(expense.montoFacturado) || num(expense.montoBienes) + num(expense.montoServicios) || num(expense.totalMontoFacturado);
+  const tax = num(expense.itbisFacturado);
+  const net = base + num(expense.propina);
   const date = new Date(expense.invoiceDate || expense.date || expense.createdAt);
   const ref = expense.ncf || expense.id;
   const desc = expense.supplierName || expense.description || 'Gasto registrado';
@@ -134,7 +137,8 @@ export function expenseToJournalEntries(expense) {
   }
 
   // Crédito: lo retenido al suplidor (se entrega a la DGII)
-  const retained = Number(expense.itbisRetenido || 0) + Number(expense.montoRetencionIsr || 0);
+  const retained = num(expense.itbisRetenido) + num(expense.montoRetencionIsr);
+  const payable = expensePayable(expense);
   if (retained > 0) {
     entries.push({ date, account: ACCOUNTS.WITHHOLDINGS_PAYABLE, debit: 0, credit: retained, ref, desc: `Retenciones: ${desc}`, sourceType: 'expense', sourceId: expense.id });
   }
@@ -142,9 +146,9 @@ export function expenseToJournalEntries(expense) {
   // Crédito: efectivo o proveedor
   const isPaid = expense.paymentDate || expense.paymentType;
   if (isPaid) {
-    entries.push({ date, account: ACCOUNTS.CASH, debit: 0, credit: amount - retained, ref, desc, sourceType: 'expense', sourceId: expense.id });
+    entries.push({ date, account: ACCOUNTS.CASH, debit: 0, credit: payable, ref, desc, sourceType: 'expense', sourceId: expense.id });
   } else {
-    entries.push({ date, account: ACCOUNTS.ACCOUNTS_PAYABLE, debit: 0, credit: amount - retained, ref, desc, sourceType: 'expense', sourceId: expense.id });
+    entries.push({ date, account: ACCOUNTS.ACCOUNTS_PAYABLE, debit: 0, credit: payable, ref, desc, sourceType: 'expense', sourceId: expense.id });
   }
 
   return entries;
