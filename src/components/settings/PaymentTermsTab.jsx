@@ -24,9 +24,11 @@ const PaymentTermsTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
     const changeDisc = (t, patch) => change(t.id, { discount: { percent: '', days: '', ...t.discount, ...patch } });
 
     const restore = async () => {
-        if (!(await confirmDialog('Se reemplazará la tabla por los valores iniciales. Los cambios sin guardar se pierden.', { title: 'Restaurar valores iniciales', confirmText: 'Restaurar' }))) return;
+        if (!(await confirmDialog('Se restaurarán los valores iniciales. Los plazos propios ya guardados se conservan desactivados; los cambios sin guardar se pierden.', { title: 'Restaurar valores iniciales', confirmText: 'Restaurar' }))) return;
         setError(null);
-        setRows(DEFAULT_PAYMENT_TERMS.map(clone));
+        const initial = new Set(DEFAULT_PAYMENT_TERMS.map((t) => t.id));
+        const own = rows.filter((t) => !t.isNew && !initial.has(t.id)).map((t) => ({ ...clone(t), active: false }));
+        setRows([...DEFAULT_PAYMENT_TERMS.map(clone), ...own]);
     };
 
     const add = () => {
@@ -37,7 +39,7 @@ const PaymentTermsTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
         setRows((r) => [...r, { isNew: true, id, name: '', installments: [{ percent: 100, days: 30, fromMonthEnd: false }], discount: null, active: true }]);
     };
 
-    const remove = (id) => setRows((r) => r.filter((t) => t.id !== id));
+    const remove = (id) => { setError(null); setRows((r) => r.filter((t) => t.id !== id)); };
 
     const save = async () => {
         const list = rows.map((t) => {
@@ -46,6 +48,7 @@ const PaymentTermsTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
             const { isNew, ...rest } = t;
             return { ...rest, name: t.name.trim(), installments: t.installments.map((c) => ({ percent: toNum(c.percent), days: toNum(c.days), fromMonthEnd: !!c.fromMonthEnd })), discount: d };
         });
+        if (list.some((t) => t.installments.some((c) => Number.isNaN(c.percent)))) { setError('Escribe el porcentaje de cada cuota.'); return; }
         const problem = validatePaymentTerms(list);
         if (problem) { setError(problem); return; }
         setSaving(true);

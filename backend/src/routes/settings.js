@@ -4,7 +4,7 @@ import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
 import { withholdingsOf, validateWithholdings } from '../services/withholdings.js';
-import { paymentTermsOf, validatePaymentTerms } from '../services/paymentTerms.js';
+import { paymentTermsOf, validatePaymentTerms, missingTermId } from '../services/paymentTerms.js';
 import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
 
@@ -185,7 +185,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    const { updated, newSettings, newNotifications } = await withSettingsLock(user.companyId, async (tx) => {
+    const locked = await withSettingsLock(user.companyId, async (tx) => {
     // Obtener settings y notifications actuales para merge
     const currentCompany = await tx.company.findUnique({
       where: { id: user.companyId },
@@ -197,6 +197,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     
     // Construir nuevo objeto settings con todos los campos extendidos
     const newSettings = { ...currentSettings };
+    if (paymentTerms !== undefined && missingTermId(currentSettings.paymentTerms, paymentTerms)) return { rejected: 'No se puede quitar un plazo guardado; desactívalo.' };
     
     if (customerCategories !== undefined) {
       // Renombres y borrados de categorías: precios siempre; clientes solo si el usuario lo aceptó
@@ -271,6 +272,9 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     });
     return { updated, newSettings, newNotifications };
     });
+
+    if (locked.rejected) return res.status(400).json({ error: locked.rejected });
+    const { updated, newSettings, newNotifications } = locked;
 
     // Devolver respuesta en el mismo formato que GET
     const settings = newSettings;

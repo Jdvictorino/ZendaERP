@@ -63,6 +63,12 @@ export const validatePaymentTerms = (list) => {
   return null;
 };
 
+// Id de un plazo ya guardado que falta en la lista nueva (los plazos guardados no se borran, se desactivan).
+export const missingTermId = (current, next) => {
+  const ids = new Set((next || []).map((t) => t?.id));
+  return paymentTermsOf({ paymentTerms: current }).find((t) => !ids.has(t.id))?.id ?? null;
+};
+
 // Fechas 'YYYY-MM-DD' con aritmética de calendario en UTC (sin hora local).
 const parts = (s) => String(s).slice(0, 10).split('-').map(Number);
 const fmt = (ms) => new Date(ms).toISOString().slice(0, 10);

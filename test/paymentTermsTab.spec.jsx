@@ -8,6 +8,7 @@ vi.mock('../src/utils/confirmDialog.jsx', () => ({ confirmDialog: vi.fn(async ()
 vi.mock('react-hot-toast', () => ({ default: { success: vi.fn(), error: vi.fn() } }));
 
 import toast from 'react-hot-toast';
+import { DEFAULT_PAYMENT_TERMS } from '../src/utils/paymentTerms.js';
 import PaymentTermsTab from '../src/components/settings/PaymentTermsTab.jsx';
 
 beforeEach(() => { toast.success.mockClear(); update.mockReset().mockImplementation(async (p) => p); });
@@ -61,6 +62,27 @@ describe('PaymentTermsTab', () => {
     fireEvent.click(screen.getByText('Agregar plazo'));
     fireEvent.click(screen.getByLabelText('Quitar plazo nuevo'));
     expect(screen.queryByLabelText('Nombre de plazo nuevo')).toBeNull();
+  });
+
+  it('restaurar conserva los plazos propios ya guardados, desactivados', async () => {
+    const own = { id: 'plazo-x', name: 'Propio', installments: [{ percent: 100, days: 90, fromMonthEnd: false }], discount: null, active: true };
+    render(<PaymentTermsTab companyProfile={{ paymentTerms: [...DEFAULT_PAYMENT_TERMS, own] }} canEdit />);
+    fireEvent.click(screen.getByText('Agregar plazo'));
+    fireEvent.click(screen.getByText('Restaurar valores iniciales'));
+    await waitFor(() => expect(screen.queryByLabelText('Nombre de plazo nuevo')).toBeNull());
+    expect(screen.getByLabelText('Activo: Propio').checked).toBe(false);
+    fireEvent.click(screen.getByText('Guardar condiciones'));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    const sent = update.mock.calls[0][0].paymentTerms.find((x) => x.id === 'plazo-x');
+    expect(sent.active).toBe(false);
+  });
+
+  it('cuota con porcentaje vacío pide escribirlo', async () => {
+    render(<PaymentTermsTab companyProfile={{}} canEdit />);
+    fireEvent.change(screen.getByLabelText('Porcentaje de la cuota 1 de 15 días'), { target: { value: '' } });
+    fireEvent.click(screen.getByText('Guardar condiciones'));
+    expect((await screen.findByRole('alert')).textContent).toBe('Escribe el porcentaje de cada cuota.');
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('es de solo lectura sin permiso', () => {

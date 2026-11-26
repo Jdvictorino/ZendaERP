@@ -70,6 +70,14 @@ describe.each([['app', app], ['backend', srv]])('paymentTerms (%s)', (_n, p) => 
     expect(bad((l) => { l[2].installments[0].days = 400; })).toMatch(/entre 0 y 365/);
   });
 
+  it('missingTermId: detecta un plazo guardado que falta', () => {
+    const own = { ...structuredClone(p.DEFAULT_PAYMENT_TERMS[1]), id: 'propio' };
+    const cur = [...structuredClone(p.DEFAULT_PAYMENT_TERMS), own];
+    expect(p.missingTermId(cur, p.DEFAULT_PAYMENT_TERMS)).toBe('propio');
+    expect(p.missingTermId(cur, [...p.DEFAULT_PAYMENT_TERMS, { ...own, active: false }])).toBeNull();
+    expect(p.missingTermId(undefined, p.DEFAULT_PAYMENT_TERMS.slice(1))).toBe('contado');
+  });
+
   it('invoiceBalance con nota de crédito', async () => {
     const w = _n === 'app' ? await import('../src/utils/withholdings.js') : await import('../backend/src/services/withholdings.js');
     expect(w.invoiceBalance({ total: 1000, amountPaid: 0, creditedAmount: 200 })).toBe(800);
