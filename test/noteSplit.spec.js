@@ -85,6 +85,13 @@ describe('noteSplit', () => {
     expect(e.map((x) => [x.account.code, x.debit, x.credit])).toEqual([['4103', 300, 0], ['5106', 54, 0], ['1102', 0, 354]]);
     expect(e.reduce((t, x) => t + x.debit - x.credit, 0)).toBeCloseTo(0, 2);
     expect(e.some((x) => x.account.code === '2102')).toBe(false);
+    // calendario RD: el día 30 a una hora posterior a la de la factura no es tardía; el día 31 a primera hora sí
+    const inv2 = { ...invoice, billedDate: new Date('2026-11-01T13:00:00Z') }; // 9:00 en RD
+    const at = (d) => ({ createdAt: new Date(d) });
+    expect(srv.isLateNote(at('2026-12-01T20:00:00Z'), inv2)).toBe(false); // 1/12 16:00 RD
+    expect(srv.isLateNote(at('2026-12-02T04:00:00Z'), inv2)).toBe(true); // 2/12 00:00 RD
+    expect(srv.isLateNote(at('2026-12-02T03:59:00Z'), inv2)).toBe(false); // 1/12 23:59 RD
+    expect(app.isLateNote(at('2026-12-02T04:00:00Z'), inv2)).toBe(true);
     expect(creditNoteToJournalEntries(ok).map((x) => [x.account.code, x.debit, x.credit])).toEqual([['4103', 300, 0], ['2102', 54, 0], ['1102', 0, 354]]);
   });
 });

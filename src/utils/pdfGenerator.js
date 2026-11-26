@@ -246,11 +246,11 @@ const drawInfoCards = (doc, theme, { customerDetails, docData, emitterInfo, star
 
 const drawModificationSummary = (doc, theme, { startY, docType, docData, currency }) => {
     const title = `Detalles de la Nota de ${docType === 'credit-note' ? 'Crédito' : 'Débito'}`;
-    const late = docType === 'credit-note' ? docData.lateNote : null; // nota tardía: sin ITBIS
+    const late = docType === 'credit-note' ? docData.lateNote : null;
     const detailsLines = [
         `Tipo: ${docData.noteType || 'N/A'}`,
         `Factura original afectada: ${docData.originalInvoiceNumber || 'N/A'}`,
-        ...(late ? [`Monto: ${formatCurrency(late.total, currency)}`, `ITBIS: ${formatCurrency(0, currency)}`] : [`Monto: ${formatCurrency(docData.amount || 0, currency)}`]),
+        `Monto: ${formatCurrency(docData.amount || 0, currency)}`,
         `Motivo: ${docData.reason || 'N/A'}`,
         ...(late ? [LATE_NOTE_LEGEND] : []),
     ];

@@ -87,9 +87,8 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
     let bodyHtml = '';
     if (docType === 'credit-note' || docType === 'debit-note') {
         bodyHtml += `<div>Motivo: ${esc(docData?.reason || '—')}</div>`;
-        const late = docType === 'credit-note' ? docData?.lateNote : null; // nota tardía: sin ITBIS
-        if (late) bodyHtml += `<div class="sep"></div>${row('ITBIS', formatCurrency(0, currency))}${row('MONTO', formatCurrency(late.total, currency), 'bold text-lg')}<div class="center">${LATE_NOTE_LEGEND}</div>`;
-        else bodyHtml += `<div class="sep"></div>${row('MONTO', formatCurrency(docData?.amount || 0, currency), 'bold text-lg')}`;
+        bodyHtml += `<div class="sep"></div>${row('MONTO', formatCurrency(docData?.amount || 0, currency), 'bold text-lg')}`;
+        if (docType === 'credit-note' && docData?.lateNote) bodyHtml += `<div class="center">${LATE_NOTE_LEGEND}</div>`;
     } else {
         const words = isEcfDoc(docData);
         const lines = (docData?.items || []).map((item) => {

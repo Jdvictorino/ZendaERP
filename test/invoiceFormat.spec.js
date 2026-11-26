@@ -165,7 +165,7 @@ describe('lateNoteInfo: nota tardía', () => {
     { id: 'i2', productName: 'Libro', quantity: 1, unitPrice: 354, discountPercent: 0, taxRate: 0 } ] };
   const note = (d) => ({ amount: 354, createdAt: new Date(d), items: [{ itemId: 'i1', quantity: 1 }] });
   it('tardía: total = base + exento e ITBIS que asume la empresa', () => {
-    expect(lateNoteInfo(note('2026-12-02T15:00:00Z'), inv)).toEqual({ total: 300, itbis: 54 });
+    expect(lateNoteInfo(note('2026-12-02T15:00:00Z'), inv)).toEqual({ itbis: 54 });
   });
   it('30 días o menos, o sin factura: null', () => {
     expect(lateNoteInfo(note('2026-12-01T15:00:00Z'), inv)).toBeNull();
@@ -175,11 +175,10 @@ describe('lateNoteInfo: nota tardía', () => {
 
 describe('impresión térmica de la nota tardía', () => {
   const base = { ncfNumber: 'B0400000002', reason: 'Reembolso: x', amount: 354, originalNcf: 'B0100000012' };
-  it('muestra ITBIS 0, total sin ITBIS y la leyenda', () => {
-    const html = generateThermalReceiptHTML({ ...base, lateNote: { total: 300, itbis: 54 } }, 'credit-note', {}, null, null);
-    expect(html).toContain('Nota emitida después de 30 días: sin ITBIS (Reglamento 293-11)');
-    expect(html).toContain('ITBIS');
-    expect(html).toContain('300.00');
+  it('conserva el monto acreditado y agrega la leyenda', () => {
+    const html = generateThermalReceiptHTML({ ...base, lateNote: { itbis: 54 } }, 'credit-note', {}, null, null);
+    expect(html).toContain('Nota emitida después de 30 días: el ITBIS no es deducible (Reglamento 293-11)');
+    expect(html).toContain('354.00');
   });
   it('nota de 30 días o menos: sin leyenda', () => {
     expect(generateThermalReceiptHTML(base, 'credit-note', {}, null, null)).not.toContain('Reglamento 293-11');

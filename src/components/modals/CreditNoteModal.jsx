@@ -56,7 +56,7 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
         setReturnQty((prev) => ({ ...prev, [item.id]: qty }));
     };
 
-    // Más de 30 días desde la factura (mismo criterio del servidor y del e-CF): la nota sale sin ITBIS y la empresa lo asume
+    // Más de 30 días desde la factura (mismo criterio del servidor y del e-CF): la nota no rebaja ITBIS y la empresa lo asume
     const returnLines = isFull ? [] : items.filter((i) => returnQty[i.id] > 0).map((i) => ({ ...i, quantity: returnQty[i.id] }));
     const absorbedItbis = isLateNote({}, invoice) && parseFloat(amount) > 0 ? noteAmounts({ amount: parseFloat(amount) }, invoice, { lines: returnLines }).itbis : 0;
 
@@ -160,7 +160,7 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
                     </div>
                     {isLateNote({}, invoice) && (
                         <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                            Esta factura tiene más de 30 días: la nota se emite sin ITBIS. El ITBIS ({formatCurrency(absorbedItbis, currency)}) lo asume la empresa como gasto.
+                            Esta factura tiene más de 30 días: la nota no rebaja el ITBIS.{absorbedItbis > 0 && <> El ITBIS ({formatCurrency(absorbedItbis, currency)}) lo asume la empresa como gasto.</>}
                         </p>
                     )}
                     <div>

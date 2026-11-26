@@ -252,16 +252,14 @@ export function discountedAmounts(invoice) {
  */
 export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, sequence, { lines, full = false } = {}) {
   const noteDate = new Date(note.createdAt || Date.now());
-  // Nota tardía: no rebaja ITBIS (Formato e-CF v1.0 pág. 7); sus líneas van exentas (indicador 4) por la base y el ITBIS queda fuera
-  const late = tipoEcf === 'E34' && isLateNote(note, originalInvoice);
-  const items = noteLines(note, originalInvoice, { lines }).map((l) => (late ? { ...l, taxRate: 0, storedBase: lineCalc(l).base, storedGross: undefined } : l));
+  const items = noteLines(note, originalInvoice, { lines });
 
   // Las líneas ya van sin ITBIS: no se normalizan de nuevo
   const ecfData = buildEcfFromInvoice({ ...originalInvoice, paymentTerm: null, pricesIncludeTax: false, discountAmount: 0, date: noteDate, items }, company, tipoEcf, eNcf, sequence);
   const { TablaFormasPago, ...idDoc } = ecfData.ECF.Encabezado.IdDoc; // opcional/no corresponde en notas
   if (tipoEcf === 'E34') {
     const { TipoeCF, eNCF, ...rest } = idDoc;
-    ecfData.ECF.Encabezado.IdDoc = { TipoeCF, eNCF, IndicadorNotaCredito: late ? '1' : '0', ...rest };
+    ecfData.ECF.Encabezado.IdDoc = { TipoeCF, eNCF, IndicadorNotaCredito: isLateNote(note, originalInvoice) ? '1' : '0', ...rest };
   } else {
     ecfData.ECF.Encabezado.IdDoc = idDoc;
   }

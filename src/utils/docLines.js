@@ -125,11 +125,11 @@ export function termLines(invoice) {
     return lines;
 }
 
-// Nota de crédito tardía (más de 30 días, sin ITBIS): total de la nota (base + exento) e ITBIS que asume la empresa; null si no aplica.
+// Nota de crédito tardía (más de 30 días): no rebaja ITBIS; devuelve el ITBIS que asume la empresa; null si no aplica.
 export function lateNoteInfo(note, invoice) {
     if (!note || !invoice || !isLateNote(note, invoice)) return null;
     const a = noteAmounts(note, invoice, { lines: noteReturnLines(note, invoice) });
-    return { total: round2(a.base + a.exempt), itbis: a.itbis };
+    return { itbis: a.itbis };
 }
 
-export const LATE_NOTE_LEGEND = 'Nota emitida después de 30 días: sin ITBIS (Reglamento 293-11)';
+export const LATE_NOTE_LEGEND = 'Nota emitida después de 30 días: el ITBIS no es deducible (Reglamento 293-11)';
