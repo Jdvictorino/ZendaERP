@@ -5,7 +5,7 @@ import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
 import { paymentTermsOf } from '../services/paymentTerms.js';
-import { termIdForCreditDays } from '../services/invoiceTerms.js';
+import { legacyCustomerTermId } from '../services/invoiceTerms.js';
 import { customerTaxFields, exemptionChangeError, normalizeCustomerId, customerIdError } from '../services/customerTax.js';
 
 const router = Router();
@@ -66,10 +66,10 @@ function transformCustomerData(data) {
 // paymentTermId explícito (o null para quitarlo); si solo llega creditDays (apps viejas) se busca el plazo equivalente
 async function applyPaymentTerm(data, parsed, companyId) {
   if (parsed.paymentTermId !== undefined) data.paymentTermId = parsed.paymentTermId || null;
-  else if (parsed.creditDays > 0) {
+  else if (parsed.creditDays > 0 || parsed.creditDays === 0 || parsed.accountType === 'contado') {
     const company = await prisma.company.findUnique({ where: { id: companyId }, select: { settings: true } });
-    const id = termIdForCreditDays(parsed.creditDays, paymentTermsOf(company?.settings));
-    if (id) data.paymentTermId = id;
+    const id = legacyCustomerTermId(parsed, paymentTermsOf(company?.settings));
+    if (id !== undefined) data.paymentTermId = id;
   }
 }
 

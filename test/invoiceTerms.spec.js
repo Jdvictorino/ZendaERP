@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { planInvoiceTerms, termIdForCreditDays } from '../backend/src/services/invoiceTerms.js';
+import { todayRD } from '../backend/src/services/tax.js';
+import { planInvoiceTerms, termIdForCreditDays, legacyCustomerTermId } from '../backend/src/services/invoiceTerms.js';
 import { DEFAULT_PAYMENT_TERMS as T } from '../backend/src/services/paymentTerms.js';
 
 describe('planInvoiceTerms', () => {
@@ -7,7 +8,7 @@ describe('planInvoiceTerms', () => {
     const r = planInvoiceTerms({ paymentTermId: '30-dias' }, T, '2026-11-25', 1180);
     expect(r.paymentTerm.schedule).toEqual([{ dueDate: '2026-12-25', amount: 1180 }]);
     expect(r.paymentTermDays).toBe(30);
-    expect(r.dueDate.toISOString()).toMatch(/^2026-12-25/);
+    expect(todayRD(r.dueDate)).toBe('2026-12-25');
   });
   it('contado: todo null', () => {
     expect(planInvoiceTerms({ paymentTermId: 'contado' }, T, '2026-11-25', 100)).toEqual({ paymentTerm: null, paymentTermDays: null, dueDate: null });
@@ -33,5 +34,14 @@ describe('termIdForCreditDays', () => {
     expect(termIdForCreditDays(20, T)).toBeUndefined();
     expect(termIdForCreditDays(0, T)).toBeUndefined();
     expect(termIdForCreditDays(30, T.map((t) => ({ ...t, active: false })))).toBeUndefined();
+  });
+});
+
+describe('legacyCustomerTermId', () => {
+  it('contado o 0 días quita el plazo; días mapea; sin datos no cambia', () => {
+    expect(legacyCustomerTermId({ accountType: 'contado' }, T)).toBeNull();
+    expect(legacyCustomerTermId({ creditDays: 0 }, T)).toBeNull();
+    expect(legacyCustomerTermId({ creditDays: 30 }, T)).toBe('30-dias');
+    expect(legacyCustomerTermId({}, T)).toBeUndefined();
   });
 });

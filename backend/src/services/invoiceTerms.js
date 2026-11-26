@@ -16,8 +16,12 @@ export function planInvoiceTerms(body, terms, saleDate, total) {
   } else return NONE;
   const last = snap.schedule[snap.schedule.length - 1].dueDate;
   const days = Math.round((Date.parse(last) - Date.parse(saleDate)) / 864e5);
-  return { paymentTerm: snap, paymentTermDays: days || null, dueDate: new Date(`${last}T00:00:00.000Z`) };
+  return { paymentTerm: snap, paymentTermDays: days || null, dueDate: new Date(`${last}T12:00:00.000Z`) };
 }
+
+// Apps viejas: contado explícito quita el plazo (null); undefined = sin cambio.
+export const legacyCustomerTermId = (parsed, terms) =>
+  parsed.accountType === 'contado' || parsed.creditDays === 0 ? null : termIdForCreditDays(parsed.creditDays, terms);
 
 // Cliente con creditDays y sin paymentTermId: plazo activo de una cuota, sin fin de mes, con esos días.
 export function termIdForCreditDays(creditDays, terms) {

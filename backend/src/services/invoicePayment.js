@@ -22,7 +22,10 @@ export function planInvoicePayment(invoice, body, { manager }) {
   if (!(next.amountPaid >= 0) || !(next.itbisRetenido >= 0) || !(next.retencionRenta >= 0)) {
     return bad(400, 'Los montos no pueden ser negativos.');
   }
-  if (next.amountPaid + next.itbisRetenido + next.retencionRenta + next.creditedAmount > total + 0.01) {
+  // Solo rechaza si la petición sube lo saldado: una factura con nota parcial ya sobrepasada puede seguir editándose
+  const settled = next.amountPaid + next.itbisRetenido + next.retencionRenta + next.creditedAmount;
+  const before = Number(invoice.amountPaid) + Number(invoice.itbisRetenido || 0) + Number(invoice.retencionRenta || 0) + next.creditedAmount;
+  if (settled > total + 0.01 && settled > before + 0.01) {
     return bad(400, 'El monto pagado más las retenciones no puede ser mayor que el total de la factura.');
   }
   if (next.itbisRetenido > Number(invoice.taxAmount) + 0.01) {

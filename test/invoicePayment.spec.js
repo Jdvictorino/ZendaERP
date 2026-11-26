@@ -29,6 +29,12 @@ describe('planInvoicePayment', () => {
     expect(planInvoicePayment(c, { amountPaid: 800 }, { manager: false }).data.status).toBe('Pagado');
     expect(planInvoicePayment(c, { amountPaid: 900 }, { manager: false }).error).toBeTruthy();
   });
+  it('factura ya sobrepasada por una nota parcial sigue editable sin subir lo saldado', () => {
+    const c = { ...inv, total: '1000', taxAmount: '0', amountPaid: '1000', creditedAmount: '200' };
+    expect(planInvoicePayment(c, { amountPaid: 1000 }, { manager: false }).error).toBeUndefined();
+    expect(planInvoicePayment(c, { retentionDate: '2026-11-20' }, { manager: false }).error).toBeUndefined();
+    expect(planInvoicePayment({ ...c, amountPaid: '800' }, { amountPaid: 900 }, { manager: false }).error).toBeTruthy();
+  });
   it('sin campos de cobro no cambia nada; anulada no cambia estado', () => {
     expect(planInvoicePayment(inv, { notes: 'x' }, { manager: false })).toEqual({ data: {} });
     expect(planInvoicePayment({ ...inv, voided: true }, { amountPaid: 10 }, { manager: false }).data).toEqual({ amountPaid: 10 });
