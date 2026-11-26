@@ -11,7 +11,7 @@ import { enqueueInvoicePaymentUpdate } from '../../utils/offlineQueue.js';
 import { isGatewayConfigured, createPaymentIntent, fetchPaymentIntentStatus, mapGatewayStatusToPaymentStatus } from '../../utils/paymentGateway.js';
 import { useEffect } from 'react';
 
-const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, allowWithholdings = false }) => {
+const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, allowWithholdings = false, minAmount = 0 }) => {
     const paidBefore = Number(invoice.paidAmount ?? invoice.amountPaid ?? 0) || 0;
     const [itbisRet, setItbisRet] = useState(() => String(Number(invoice.itbisRetenido) || 0));
     const [isrRet, setIsrRet] = useState(() => String(Number(invoice.retencionRenta) || 0));
@@ -180,6 +180,10 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             toast.error("El monto a pagar debe ser mayor que cero.");
             return;
         }
+        if (paidBefore + totalPaid < minAmount - 0.001) {
+            toast.error(`El cobro mínimo hoy es ${formatCurrency(minAmount, currency)}.`);
+            return;
+        }
         if (totalPaid > amountDue + 0.01) { // Pequeña tolerancia para errores de redondeo
             toast.error("El monto pagado no puede ser mayor que el monto pendiente.");
             return;
@@ -274,6 +278,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
                     <div className="p-4 bg-surface-muted rounded-lg text-center">
                         <p className="text-ink-soft">Monto Pendiente</p>
                         <p className="text-3xl font-bold text-brand-600">{formatCurrency(amountDue, currency)}</p>
+                        {minAmount > 0 && <p className="mt-1 text-sm font-medium text-ink">Cobro mínimo hoy: {formatCurrency(minAmount, currency)}</p>}
                     </div>
                     
                     <fieldset className="border p-4 rounded-lg">

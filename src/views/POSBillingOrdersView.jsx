@@ -30,6 +30,8 @@ import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import { confirmDialog } from '../utils/confirmDialog.jsx';
 import useApproval from '../hooks/useApproval.js';
 import { round2, lineAmounts, isTaxExempt, exemptionStatus, suggestedVoucher, todayRD, voucherError } from '../utils/tax.js';
+import { paymentTermsOf, isCashTerm, downPayment } from '../utils/paymentTerms.js';
+import { cashTermId, proposedTermId, toggledTermId } from '../utils/saleTerms.js';
 import { buildVoucherOptions, missingVoucherWarning } from '../utils/voucherOptions.js';
 
 const TAX_RATE = 0.18;
@@ -67,8 +69,6 @@ export function ExemptionNote({ customer, today }) {
   return null;
 }
 
-const CONDICIONES = ['Contado', 'Crédito 30d', 'Crédito 60d'];
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function TopBar({ children, badge }) {
@@ -84,7 +84,7 @@ function TopBar({ children, badge }) {
   );
 }
 
-function HeaderFields({ idPrefix, comprobante, setComprobante, options, ncfPreview, condicion, setCondicion, deliveryType, setDeliveryType }) {
+function HeaderFields({ idPrefix, comprobante, setComprobante, options, ncfPreview, condicion, setCondicion, terms, deliveryType, setDeliveryType }) {
   const today = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return (
     <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -94,7 +94,7 @@ function HeaderFields({ idPrefix, comprobante, setComprobante, options, ncfPrevi
       </Field>
       <Field label="Condición" htmlFor={`${idPrefix}-condicion`}>
         <select id={`${idPrefix}-condicion`} className="input-base" value={condicion} onChange={e => setCondicion(e.target.value)}>
-          {CONDICIONES.map(c => <option key={c}>{c}</option>)}
+          {terms.filter(t => t.active !== false).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </Field>
       <Field label="Entrega" htmlFor={`${idPrefix}-entrega`}>
@@ -406,8 +406,7 @@ function TotalRow({ label, value, valueClass = "" }) {
   );
 }
 
-function StatusBar({ rows, payMethod, condicion, comprobanteLabel, userLabel }) {
-  const isCredit = condicion !== 'Contado';
+function StatusBar({ rows, payMethod, condicion, isCredit, comprobanteLabel, userLabel }) {
   return (
     <div className="hidden lg:flex items-center justify-between px-5 h-10 bg-surface-muted border-t border-line">
       <div className="flex gap-2">
@@ -443,7 +442,8 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   const invoicesData = Array.isArray(iData) ? iData : (iData?.data || []);
 
   const [rows, setRows] = useState([]);
-  const [condicion, setCondicion] = useState("Contado");
+  const terms = useMemo(() => paymentTermsOf(companyProfile), [companyProfile]);
+  const [condicion, setCondicion] = useState(() => cashTermId(terms)); // id del plazo
   const [deliveryType, setDeliveryType] = useState("pickup");
   const [payMethod, setPayMethod] = useState("Efectivo");
   const [globalDisc, setGlobalDisc] = useState(0);
@@ -501,7 +501,10 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
   useEffect(() => {
     if (!comprobanteOptions.some(o => o.value === comprobante)) setComprobante('NoFiscal');
   }, [comprobanteOptions, comprobante]);
-  const isCredit = condicion !== 'Contado';
+  const term = terms.find(t => t.id === condicion);
+  const isCredit = !!term && !isCashTerm(term);
+  // el plazo del cliente se propone al elegirlo; sin cliente, contado
+  useEffect(() => { setCondicion(proposedTermId(selectedCustomer, terms)); }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Shifts logic
   const cashShifts = Array.isArray(shiftsData) ? shiftsData : (shiftsData?.data || []);
@@ -552,9 +555,9 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
         focusCustomer();
       } else if (e.key === 'F9') {
         e.preventDefault();
-        const next = condicion === 'Contado' ? 'Crédito 30d' : 'Contado';
+        const next = toggledTermId(condicion, selectedCustomer, terms);
         setCondicion(next);
-        toast(`Condición: ${next}`, { icon: '💳' });
+        toast(`Condición: ${terms.find(t => t.id === next)?.name || next}`, { icon: '💳' });
       } else if (e.key === 'F10') {
         e.preventDefault();
         actionsRef.current.submit();
@@ -563,7 +566,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [paymentForOrder, showAddCustomerModal, showScannerModal, showOpenShift, showCloseShift, showCierreCajaModal, showCierreReports, condicion]);
+  }, [paymentForOrder, showAddCustomerModal, showScannerModal, showOpenShift, showCloseShift, showCierreCajaModal, showCierreReports, condicion, selectedCustomer, terms]);
 
   // Focus product search on mount
   useEffect(() => {
@@ -777,8 +780,8 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       paymentMethod: isCredit ? 'Crédito' : payMethod,
       amountPaid: 0,
       deliveryType,
-      // "Crédito 30d" → 30 días; el backend calcula el vencimiento y CxC lo usa para la antigüedad
-      ...(isCredit ? { paymentTermDays: parseInt(condicion.replace(/\D/g, ''), 10) || 30 } : {}),
+      // el servidor guarda la copia del plazo y calcula cuotas y vencimiento
+      ...(isCredit ? { paymentTermId: condicion } : {}),
       notes: '',
       status: 'Pendiente',
     };
@@ -807,8 +810,9 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       playSuccessSound();
       if (isCredit) {
         toast.success(`Venta a crédito ${finalOrder.orderNumber || ''} registrada en Cuentas por Cobrar.`);
-        // sin ventana de cobro: el comprobante se imprime al registrar la venta
-        handleDocumentPrint(finalOrder, 'invoice', selectedCustomer).catch(err => toast.error('No se pudo imprimir: ' + err.message));
+        // con cuota a 0 días se abre el cobro (mínimo = esa cuota); si no, el comprobante se imprime al registrar la venta
+        if (downPayment(finalOrder.paymentTerm) > 0) setPaymentForOrder(finalOrder);
+        else handleDocumentPrint(finalOrder, 'invoice', selectedCustomer).catch(err => toast.error('No se pudo imprimir: ' + err.message));
       } else {
         setPaymentForOrder(finalOrder);
       }
@@ -865,7 +869,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
         <div className="grid grid-cols-[1fr_320px] overflow-hidden">
           <div className="flex flex-col p-4 pb-0 bg-surface-muted overflow-hidden">
-            <HeaderFields idPrefix="pos-d" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
+            <HeaderFields idPrefix="pos-d" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} terms={terms} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
             {voucherWarning && <p role="alert" className="mt-2 text-xs text-warning-700 dark:text-warning-400">{voucherWarning}</p>}
             {comprobanteOptions.length === 1 && (
               <p className="mt-2 text-xs text-ink-muted">
@@ -913,7 +917,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
             <Totals rows={rows} globalDisc={globalDisc} exempt={exempt} onSubmit={handleProcessOrder} isSubmitting={isSubmitting} hasCustomer={!!selectedCustomer} submitLabel={isCredit ? 'Registrar venta a crédito' : 'Cobrar y facturar'} />
           </div>
         </div>
-        <StatusBar rows={rows} payMethod={payMethod} condicion={condicion} comprobanteLabel={selectedComprobante.label} userLabel={[currentUserProfile?.name, currentUserProfile?.role].filter(Boolean).join(' · ')} />
+        <StatusBar rows={rows} payMethod={payMethod} condicion={term?.name} isCredit={isCredit} comprobanteLabel={selectedComprobante.label} userLabel={[currentUserProfile?.name, currentUserProfile?.role].filter(Boolean).join(' · ')} />
       </div>
 
       {/* Mobile Layout — single scrollable column */}
@@ -980,7 +984,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
                 Datos fiscales · {selectedComprobante.label}
               </summary>
               <div className="mt-2">
-                <HeaderFields idPrefix="pos-m" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
+                <HeaderFields idPrefix="pos-m" comprobante={selectedComprobante.value} setComprobante={setComprobante} options={comprobanteOptions} ncfPreview={selectedComprobante.preview} condicion={condicion} setCondicion={setCondicion} terms={terms} deliveryType={deliveryType} setDeliveryType={setDeliveryType} />
             {voucherWarning && <p role="alert" className="mt-2 text-xs text-warning-700 dark:text-warning-400">{voucherWarning}</p>}
               </div>
             </details>
@@ -1007,6 +1011,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
               invoice={paymentForOrder}
               customers={customersList}
               companyProfile={companyProfile}
+              minAmount={downPayment(paymentForOrder.paymentTerm)}
               onClose={() => {
                   setPaymentForOrder(null);
                   if (isBillAndPayFlow) setIsBillAndPayFlow(false);

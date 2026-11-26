@@ -23,6 +23,8 @@ import Button from '../components/ui/Button.jsx';
 import Segmented from '../components/ui/Segmented.jsx';
 import api from '../api/client.js';
 import { lineAmounts, round2, isTaxExempt, todayRD } from '../utils/tax.js';
+import { paymentTermsOf, isCashTerm, downPayment } from '../utils/paymentTerms.js';
+import { cashTermId, proposedTermId } from '../utils/saleTerms.js';
 import { ExemptionNote } from './POSBillingOrdersView.jsx';
 import useApproval from '../hooks/useApproval.js';
 import { useApiCrud } from '../hooks/useApi.js';
@@ -96,6 +98,8 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
     const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
     const [createdOrder, setCreatedOrder] = useState(null);
     const [deliveryType, setDeliveryType] = useState('pickup');
+    const terms = useMemo(() => paymentTermsOf(companyProfile), [companyProfile]);
+    const [termId, setTermId] = useState(() => cashTermId(terms));
     const [guestAddress, setGuestAddress] = useState({ street: '', city: '', postalCode: '', phone: '' });
     const [billingOrder, setBillingOrder] = useState(null);
     const [paymentForOrder, setPaymentForOrder] = useState(null);
@@ -298,6 +302,8 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
     const customerRecord = useMemo(() => safeCustomers.find(c => c.id === selectedCustomer) || null, [safeCustomers, selectedCustomer]);
     const today = todayRD();
     const exempt = isTaxExempt(customerRecord, today);
+    // el plazo del cliente se propone al elegirlo; sin cliente, contado
+    useEffect(() => { setTermId(proposedTermId(customerRecord, terms)); }, [selectedCustomer]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Precios sin ITBIS: igual que el servidor, el descuento baja la base de cada línea y el ITBIS sale de esa base
     const taxSummary = useMemo(() => {
@@ -432,6 +438,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 paymentMethod: 'pendiente',
                 amountPaid: 0,
                 deliveryType,
+                ...(isCashTerm(terms.find(t => t.id === termId)) ? {} : { paymentTermId: termId }),
                 notes: '',
                 status: 'Pendiente',
             };
@@ -755,6 +762,12 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                         </div>
 
                             <ExemptionNote customer={customerRecord} today={today} />
+                        <div className="mb-4">
+                            <label htmlFor="order-condicion" className="text-sm font-medium text-ink mb-2 block">Condición</label>
+                            <select id="order-condicion" className="input-base" value={termId} onChange={e => setTermId(e.target.value)}>
+                                {terms.filter(t => t.active !== false).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                        </div>
                         <div className="mb-4 border-t border-line pt-4">
                             <p className="text-sm font-medium text-ink mb-2">Tipo de entrega</p>
                             <Segmented
@@ -953,6 +966,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                     invoice={paymentForOrder} 
                     customers={customers} 
                     companyProfile={companyProfile} 
+                    minAmount={downPayment(paymentForOrder.paymentTerm)}
                     onClose={() => setPaymentForOrder(null)} 
                     onSuccess={handlePaymentSuccess}
                     useApi={true}
