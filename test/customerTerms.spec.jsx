@@ -31,25 +31,36 @@ describe('Condición de pago del cliente', () => {
         fireEvent.change(screen.getByLabelText('Condición de pago'), { target: { value: '30-dias' } });
         fireEvent.click(screen.getByText('Guardar Cliente'));
         await waitFor(() => expect(onSave).toHaveBeenCalled());
-        expect(onSave.mock.calls[0][0]).toMatchObject({ paymentTermId: '30-dias', accountType: 'credito', creditDays: 30 });
+        expect(onSave.mock.calls[0][0]).toMatchObject({ paymentTermId: '30-dias' });
     });
 
-    it('contado: límite deshabilitado y en 0, paymentTermId null', async () => {
+    it('cliente viejo con límite y sin plazo guarda el mismo límite', async () => {
+        const p = await save({ id: 1, ...base, creditLimit: 5000 });
+        expect(p).toMatchObject({ paymentTermId: null, creditLimit: 5000 });
+    });
+
+    it('contado y de vuelta a 30-dias conserva el límite', async () => {
+        render(<CustomerModal customer={{ id: 1, ...base, paymentTermId: '30-dias', creditLimit: 5000 }} onClose={() => {}} onSave={() => {}} />);
+        fireEvent.change(screen.getByLabelText('Condición de pago'), { target: { value: 'contado' } });
+        expect(screen.getByLabelText('Límite de Crédito').value).toBe('5000');
+        fireEvent.change(screen.getByLabelText('Condición de pago'), { target: { value: '30-dias' } });
+        expect(screen.getByLabelText('Límite de Crédito').value).toBe('5000');
+    });
+
+    it('plazo borrado muestra Plazo eliminado, no Contado', () => {
+        expect(customerTermName({ paymentTermId: 'zzz' }, paymentTermsOf())).toBe('Plazo eliminado');
+    });
+
+    it('contado: límite deshabilitado, paymentTermId null', async () => {
         const onSave = vi.fn();
         render(<CustomerModal customer={{ id: 1, ...base, paymentTermId: '30-dias', creditLimit: 500 }} onClose={() => {}} onSave={onSave} />);
         expect(screen.getByLabelText('Límite de Crédito').disabled).toBe(false);
         fireEvent.change(screen.getByLabelText('Condición de pago'), { target: { value: 'contado' } });
         const limit = screen.getByLabelText('Límite de Crédito');
         expect(limit.disabled).toBe(true);
-        expect(limit.value).toBe('0');
         fireEvent.click(screen.getByText('Guardar Cliente'));
         await waitFor(() => expect(onSave).toHaveBeenCalled());
-        expect(onSave.mock.calls[0][0]).toMatchObject({ paymentTermId: null, accountType: 'contado', creditLimit: 0, creditDays: 0 });
-    });
-
-    it('cliente viejo con creditDays 30 propone 30-dias', async () => {
-        const p = await save({ id: 1, ...base, accountType: 'credito', creditDays: 30, creditLimit: 100 });
-        expect(p).toMatchObject({ paymentTermId: '30-dias', accountType: 'credito', creditLimit: 100 });
+        expect(onSave.mock.calls[0][0]).toMatchObject({ paymentTermId: null });
     });
 
     it('plazo ya inactivo sigue seleccionado', () => {

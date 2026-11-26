@@ -59,8 +59,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
         const selectedTerm = terms.find(t => t.id === formData.paymentTermId);
         const isCash = !selectedTerm || isCashTerm(selectedTerm);
         const handleTermChange = (e) => {
-            const t = terms.find(x => x.id === e.target.value);
-            setFormData(prev => ({ ...prev, paymentTermId: e.target.value, creditLimit: !t || isCashTerm(t) ? 0 : prev.creditLimit }));
+            setFormData(prev => ({ ...prev, paymentTermId: e.target.value }));
         };
     const handleAddressChange = (e) => setFormData({ ...formData, address: { ...formData.address, [e.target.name]: e.target.value } });
     const handleImageChange = (e) => {
@@ -107,11 +106,9 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 exemptionNumber: exemptible ? formData.exemptionNumber.trim() : '',
                 exemptionExpiresAt: exemptible ? formData.exemptionExpiresAt : '',
                 defaultDiscount: Number(formData.defaultDiscount || 0),
-                // paymentTermId manda; accountType/creditDays se derivan para lo que aún los lee
                 paymentTermId: isCash ? null : formData.paymentTermId,
-                accountType: isCash ? 'contado' : 'credito',
-                creditDays: isCash ? 0 : Math.max(...selectedTerm.installments.map(i => Number(i.days) || 0)),
-                creditLimit: isCash ? 0 : Number(formData.creditLimit || 0),
+                // El límite se conserva aunque el plazo sea contado (el servidor lo guarda tal cual)
+                creditLimit: Number(formData.creditLimit || 0),
                 identificationNumber: hasLetters(formData.identificationNumber) ? passportOf(formData.identificationNumber) : onlyDigits(formData.identificationNumber),
                 // Normaliza status y category
                 status: formData.status || 'active',

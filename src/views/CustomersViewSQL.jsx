@@ -14,7 +14,7 @@ import Card, { CardBody } from '../components/ui/Card.jsx';
 import { TAXPAYER_TYPES, exemptionStatus, todayRD } from '../utils/tax.js';
 import { badgeClass } from '../components/ui/Badge.jsx';
 import { paymentTermsOf } from '../utils/paymentTerms.js';
-import { customerTermName } from '../utils/saleTerms.js';
+import { customerTermName, isCashCustomer } from '../utils/saleTerms.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
 // API PostgreSQL
