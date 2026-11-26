@@ -13,6 +13,8 @@ import { useEffect } from 'react';
 import { discountFor } from '../../utils/paymentTerms.js';
 import { todayRD } from '../../utils/tax.js';
 
+const OFFLINE_DISCOUNT_MSG = 'Sin conexión: el cobro con descuento necesita el servidor. No se registró; inténtalo de nuevo o desmarca el descuento.';
+
 const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, allowWithholdings = false, minAmount = 0 }) => {
     const paidBefore = Number(invoice.paidAmount ?? invoice.amountPaid ?? 0) || 0;
     const [itbisRet, setItbisRet] = useState(() => String(Number(invoice.itbisRetenido) || 0));
@@ -202,6 +204,11 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             return;
         }
         
+        if (discountAmount && totalPaid < amountDue - 0.01) {
+            toast.error('Con el descuento por pronto pago hay que saldar la factura.');
+            return;
+        }
+
         const taxAmount = Number(invoice.taxAmount) || 0;
         const total = Number(invoice.total) || 0;
         if (itbisNum < 0 || isrNum < 0) { toast.error('Las retenciones no pueden ser negativas.'); return; }
@@ -234,7 +241,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             await toast.promise(promise, {
                 loading: 'Registrando pago...',
                 success: () => { playSuccessSound(); return '¡Pago registrado con éxito!'; },
-                error: (e) => { playErrorSound(); return e?.message || 'No se pudo registrar el pago.'; }
+                error: (e) => { playErrorSound(); return discountAmount && !e?.status ? OFFLINE_DISCOUNT_MSG : (e?.message || 'No se pudo registrar el pago.'); }
             });
             
             // Notificación del dispositivo - Pago registrado
@@ -246,7 +253,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             onSuccess({ ...invoice, ...retention, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown], ...(discountAmount && { creditedAmount: (Number(invoice.creditedAmount) || 0) + discountAmount }) });
         } catch (err) {
             // Con descuento no hay cola sin conexión: el servidor crea la nota y el cobro juntos, y ya se mostró su error
-            if (discountAmount) return;
+            if (discountAmount) { if (err?.status === 409) onClose(); return; }
             // Un rechazo del servidor (400/403) no se encola ni se aplica: ya se avisó con su mensaje
             if (err?.status) return;
             // Fallback offline: encola la operación y actualiza UI de forma optimista
@@ -321,7 +328,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
                     {discount && (
                     <label className="flex items-center gap-2 p-3 rounded-lg border border-line bg-surface-muted">
                         <input type="checkbox" checked={useDiscount} onChange={handleToggleDiscount} />
-                        <span>Descuento por pronto pago {Number(invoice.paymentTerm.discount.percent)} %: {formatCurrency(discount.amount, currency)} (hasta {discount.until.split('-').reverse().join('/')})</span>
+                        <span>Descuento por pronto pago {Number(invoice.paymentTerm.discount.percent).toLocaleString('es-DO')} %: {formatCurrency(discount.amount, currency)} (hasta {discount.until.split('-').reverse().join('/')})</span>
                     </label>
                     )}
 

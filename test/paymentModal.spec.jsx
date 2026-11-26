@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../src/api/client.js', () => ({ default: { invoices: { update: vi.fn().mockResolvedValue({}), earlyPayment: vi.fn().mockResolvedValue({}) } } }));
 vi.mock('react-hot-toast', () => {
-    const toast = Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn(), promise: (p) => p });
+    const toast = Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn(), promise: (p, m) => p.catch((e) => { toast.error(m.error(e)); throw e; }) });
     return { default: toast };
 });
 vi.mock('../src/utils/offlineQueue.js', () => ({ enqueueInvoicePaymentUpdate: vi.fn() }));
@@ -13,6 +13,7 @@ vi.mock('../src/utils/notificationService.js', () => ({ default: { notify: vi.fn
 
 import { enqueueInvoicePaymentUpdate } from '../src/utils/offlineQueue.js';
 import api from '../src/api/client.js';
+import toast from 'react-hot-toast';
 import { todayRD } from '../src/utils/tax.js';
 import PaymentModal from '../src/components/modals/PaymentModal.jsx';
 
@@ -151,5 +152,34 @@ describe('PaymentModal con descuento por pronto pago', () => {
         await new Promise((r) => setTimeout(r, 20));
         expect(enqueueInvoicePaymentUpdate).not.toHaveBeenCalled();
         expect(onSuccess).not.toHaveBeenCalled();
+        const msg = 'Sin conexión: el cobro con descuento necesita el servidor. No se registró; inténtalo de nuevo o desmarca el descuento.';
+        expect(toast.error.mock.calls.filter((c) => c[0] === msg)).toHaveLength(1);
+        expect(toast.error).toHaveBeenCalledTimes(1);
+    });
+
+    it('un error HTTP se muestra tal cual y el 409 cierra el modal', async () => {
+        api.invoices.earlyPayment.mockRejectedValueOnce(Object.assign(new Error('La factura cambió; vuelve a cargarla.'), { status: 409 }));
+        const onClose = vi.fn();
+        render(<PaymentModal allowWithholdings invoice={termInvoice(todayRD())} customers={[]} companyProfile={{}} onClose={onClose} onSuccess={vi.fn()} />);
+        fireEvent.click(screen.getByText('Confirmar Pago'));
+        await waitFor(() => expect(onClose).toHaveBeenCalled());
+        expect(toast.error).toHaveBeenCalledTimes(1);
+        expect(toast.error).toHaveBeenCalledWith('La factura cambió; vuelve a cargarla.');
+    });
+
+    it('con la casilla marcada y un monto menor al saldo avisa sin llamar al servidor', async () => {
+        setup(termInvoice(todayRD()));
+        fireEvent.change(screen.getByLabelText('Efectivo'), { target: { value: '1000' } });
+        fireEvent.click(screen.getByText('Confirmar Pago'));
+        await new Promise((r) => setTimeout(r, 20));
+        expect(toast.error).toHaveBeenCalledWith('Con el descuento por pronto pago hay que saldar la factura.');
+        expect(api.invoices.earlyPayment).not.toHaveBeenCalled();
+    });
+
+    it('el porcentaje se muestra con el formato es-DO de la app (igual que los montos)', () => {
+        const inv = termInvoice(todayRD());
+        inv.paymentTerm.discount.percent = 2.5;
+        setup(inv);
+        expect(screen.getByText(`Descuento por pronto pago ${(2.5).toLocaleString('es-DO')} %`, { exact: false })).toBeTruthy();
     });
 });
