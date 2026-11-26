@@ -2,6 +2,7 @@ import { netUnitPrice, round2 } from './tax.js';
 import { formatQty, unitOf } from './units.js';
 import { ECF_TYPE_MAP } from './ecfConstants.js';
 import { installmentsOf } from './paymentTerms.js';
+import { isLateNote, noteAmounts, noteReturnLines } from './noteSplit.js';
 
 // Cédula/RNC/pasaporte del cliente: la copia guardada al facturar o la del cliente. Nunca el id interno.
 export function customerTaxId(customerDetails, docData) {
@@ -123,3 +124,12 @@ export function termLines(invoice) {
     }
     return lines;
 }
+
+// Nota de crédito tardía (más de 30 días, sin ITBIS): total de la nota (base + exento) e ITBIS que asume la empresa; null si no aplica.
+export function lateNoteInfo(note, invoice) {
+    if (!note || !invoice || !isLateNote(note, invoice)) return null;
+    const a = noteAmounts(note, invoice, { lines: noteReturnLines(note, invoice) });
+    return { total: round2(a.base + a.exempt), itbis: a.itbis };
+}
+
+export const LATE_NOTE_LEGEND = 'Nota emitida después de 30 días: sin ITBIS (Reglamento 293-11)';

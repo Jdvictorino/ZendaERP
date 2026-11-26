@@ -1,7 +1,7 @@
 import { formatCurrency } from './formatCurrency.js';
 import { invoiceBalance } from './withholdings.js';
 import { qrSvg } from './ecfPrint.js';
-import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, isEcfDoc, lineDiscount, modificationInfo, baseSplit, termLines } from './docLines.js';
+import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, isEcfDoc, lineDiscount, modificationInfo, baseSplit, termLines, LATE_NOTE_LEGEND } from './docLines.js';
 import { round2 } from './tax.js';
 
 // Montos de las líneas sin símbolo de moneda (caben en 80 mm); el símbolo va en el total
@@ -87,7 +87,9 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
     let bodyHtml = '';
     if (docType === 'credit-note' || docType === 'debit-note') {
         bodyHtml += `<div>Motivo: ${esc(docData?.reason || '—')}</div>`;
-        bodyHtml += `<div class="sep"></div>${row('MONTO', formatCurrency(docData?.amount || 0, currency), 'bold text-lg')}`;
+        const late = docType === 'credit-note' ? docData?.lateNote : null; // nota tardía: sin ITBIS
+        if (late) bodyHtml += `<div class="sep"></div>${row('ITBIS', formatCurrency(0, currency))}${row('MONTO', formatCurrency(late.total, currency), 'bold text-lg')}<div class="center">${LATE_NOTE_LEGEND}</div>`;
+        else bodyHtml += `<div class="sep"></div>${row('MONTO', formatCurrency(docData?.amount || 0, currency), 'bold text-lg')}`;
     } else {
         const words = isEcfDoc(docData);
         const lines = (docData?.items || []).map((item) => {

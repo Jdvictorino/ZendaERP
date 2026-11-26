@@ -4,7 +4,7 @@ import { getCouponByCode, validateCoupon, applyCouponToCart, couponCart, redeemC
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
-import { docLine, docTotals, qtyText } from '../../utils/docLines.js';
+import { docLine, docTotals, qtyText, lateNoteInfo } from '../../utils/docLines.js';
 import { generateThermalReceiptHTML } from '../../utils/escposGenerator.js';
 import { withEcfPrintData } from '../../utils/ecfPrint.js';
 import { printEscPosReceipt } from '../../utils/printer.js';
@@ -128,7 +128,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
     const canManage = isMasterUser || ['admin', 'manager'].includes(currentUserProfile?.role);
     // originalNcf: la nota impresa indica el comprobante que modifica (DGII)
     const withOriginalNcf = (note) => note && { ...note, originalNcf: invoice.ncfNumber };
-    const associatedCreditNote = useMemo(() => withOriginalNcf((creditNotes || []).find(cn => cn.originalInvoiceId === invoice.id)), [creditNotes, invoice.id, invoice.ncfNumber]);
+    const associatedCreditNote = useMemo(() => { const n = withOriginalNcf((creditNotes || []).find(cn => cn.originalInvoiceId === invoice.id)); return n && { ...n, lateNote: lateNoteInfo(n, invoice) }; }, [creditNotes, invoice.id, invoice.ncfNumber]);
     const associatedDebitNote = useMemo(() => withOriginalNcf((debitNotes || []).find(dn => dn.originalInvoiceId === invoice.id)), [debitNotes, invoice.id, invoice.ncfNumber]);
 
     const emitterInfoForPDF = invoice.emitterInfo || (currentUserProfile ? {

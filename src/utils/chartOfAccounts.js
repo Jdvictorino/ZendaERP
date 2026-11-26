@@ -34,6 +34,7 @@ export const ACCOUNTS = {
   RENT:               { code: '5103', name: 'Alquiler',                 type: 'gasto' },
   UTILITIES:          { code: '5104', name: 'Servicios Públicos',       type: 'gasto' },
   DEPRECIATION:       { code: '5105', name: 'Depreciación',             type: 'gasto' },
+  ABSORBED_TAX:       { code: '5106', name: 'ITBIS asumido (notas de crédito tardías)', type: 'gasto' },
 
   // Costo de Ventas
   COGS:               { code: '6101', name: 'Costo de Mercancías Vendidas', type: 'costo' },
@@ -157,7 +158,7 @@ export function expenseToJournalEntries(expense) {
 
 /**
  * Convierte una nota de crédito en asientos (reverso de venta). Con la factura (`note.invoice`) reparte el ITBIS
- * como el 607 y el e-CF (devoluciones por la base, ITBIS por pagar por el impuesto); sin ella, todo a devoluciones.
+ * como el 607 y el e-CF (devoluciones por la base, ITBIS por pagar por el impuesto; en nota tardía, ITBIS asumido); sin ella, todo a devoluciones.
  */
 export function creditNoteToJournalEntries(note) {
   const amount = Math.abs(Number(note.amount || 0));
@@ -165,10 +166,12 @@ export function creditNoteToJournalEntries(note) {
   const ref = note.ncfNumber || note.id;
   const desc = note.reason || 'Nota de crédito';
   const a = note.invoice ? noteAmounts(note, note.invoice, { lines: noteReturnLines(note, note.invoice) }) : null;
-  const tax = a && !isLateNote(note, note.invoice) ? a.itbis : 0; // nota tardía: no devuelve ITBIS (Reglamento 293-11, arts. 8 y 28)
+  const late = !!a && isLateNote(note, note.invoice);
+  // Nota tardía: no devuelve ITBIS (Reglamento 293-11, arts. 8 y 28); el ya pagado a la DGII lo asume la empresa como gasto
+  const tax = a ? a.itbis : 0;
   const returns = Math.round((amount - tax) * 100) / 100; // base + exento; el centavo de redondeo queda aquí para que cuadre
   const entries = [{ date, account: ACCOUNTS.SALES_RETURNS, debit: returns, credit: 0, ref, desc, sourceType: 'creditNote', sourceId: note.id }];
-  if (tax) entries.push({ date, account: ACCOUNTS.TAXES_PAYABLE, debit: tax, credit: 0, ref, desc: `ITBIS: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
+  if (tax) entries.push({ date, account: late ? ACCOUNTS.ABSORBED_TAX : ACCOUNTS.TAXES_PAYABLE, debit: tax, credit: 0, ref, desc: late ? `ITBIS asumido: ${desc}` : `ITBIS: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
   entries.push({ date, account: ACCOUNTS.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount, ref, desc, sourceType: 'creditNote', sourceId: note.id });
   return entries;
 }

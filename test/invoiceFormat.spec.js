@@ -49,7 +49,7 @@ describe('recibo', () => {
   });
 });
 
-import { qtyText, lineDiscount, isEcfDoc, modificationInfo } from '../src/utils/docLines.js';
+import { qtyText, lineDiscount, isEcfDoc, modificationInfo, lateNoteInfo } from '../src/utils/docLines.js';
 
 describe('representación impresa e-CF', () => {
   it('en e-CF la unidad va en palabras; fuera de e-CF, abreviada', () => {
@@ -156,5 +156,32 @@ describe('termLines: condición de pago impresa', () => {
     expect(termLines(snap('30 días, 2 % a 10 días', [{ dueDate: at('2026-12-25'), amount: 1000 }], { percent: 2, days: 10 }))).toEqual([
       'Condición: 30 días, 2 % a 10 días', 'Vence: 25/12/2026', '2 % de descuento si paga todo antes del 05/12/2026',
     ]);
+  });
+});
+
+describe('lateNoteInfo: nota tardía', () => {
+  const inv = { date: new Date('2026-11-01T15:00:00Z'), billedDate: new Date('2026-11-01T15:00:00Z'), pricesIncludeTax: false, items: [
+    { id: 'i1', productName: 'Taza', quantity: 2, unitPrice: 300, discountPercent: 0, taxRate: 18 },
+    { id: 'i2', productName: 'Libro', quantity: 1, unitPrice: 354, discountPercent: 0, taxRate: 0 } ] };
+  const note = (d) => ({ amount: 354, createdAt: new Date(d), items: [{ itemId: 'i1', quantity: 1 }] });
+  it('tardía: total = base + exento e ITBIS que asume la empresa', () => {
+    expect(lateNoteInfo(note('2026-12-02T15:00:00Z'), inv)).toEqual({ total: 300, itbis: 54 });
+  });
+  it('30 días o menos, o sin factura: null', () => {
+    expect(lateNoteInfo(note('2026-12-01T15:00:00Z'), inv)).toBeNull();
+    expect(lateNoteInfo(note('2026-12-02T15:00:00Z'), null)).toBeNull();
+  });
+});
+
+describe('impresión térmica de la nota tardía', () => {
+  const base = { ncfNumber: 'B0400000002', reason: 'Reembolso: x', amount: 354, originalNcf: 'B0100000012' };
+  it('muestra ITBIS 0, total sin ITBIS y la leyenda', () => {
+    const html = generateThermalReceiptHTML({ ...base, lateNote: { total: 300, itbis: 54 } }, 'credit-note', {}, null, null);
+    expect(html).toContain('Nota emitida después de 30 días: sin ITBIS (Reglamento 293-11)');
+    expect(html).toContain('ITBIS');
+    expect(html).toContain('300.00');
+  });
+  it('nota de 30 días o menos: sin leyenda', () => {
+    expect(generateThermalReceiptHTML(base, 'credit-note', {}, null, null)).not.toContain('Reglamento 293-11');
   });
 });

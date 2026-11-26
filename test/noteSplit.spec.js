@@ -81,9 +81,10 @@ describe('noteSplit', () => {
     expect(row['Monto Facturado']).toBe(300);
     expect(generate607Data([], [ok])[0]['ITBIS Facturado']).toBe(54);
     const e = creditNoteToJournalEntries(late);
-    expect(e.map((x) => [x.account.code, x.debit, x.credit])).toEqual([['4103', 354, 0], ['1102', 0, 354]].map((r, i) => [e[i].account.code, r[1], r[2]]));
-    expect(e).toHaveLength(2);
+    // devoluciones por la base (300), ITBIS asumido (54) y CxC por lo acreditado (354)
+    expect(e.map((x) => [x.account.code, x.debit, x.credit])).toEqual([['4103', 300, 0], ['5106', 54, 0], ['1102', 0, 354]]);
     expect(e.reduce((t, x) => t + x.debit - x.credit, 0)).toBeCloseTo(0, 2);
-    expect(creditNoteToJournalEntries(ok)).toHaveLength(3);
+    expect(e.some((x) => x.account.code === '2102')).toBe(false);
+    expect(creditNoteToJournalEntries(ok).map((x) => [x.account.code, x.debit, x.credit])).toEqual([['4103', 300, 0], ['2102', 54, 0], ['1102', 0, 354]]);
   });
 });

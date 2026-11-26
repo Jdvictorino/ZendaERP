@@ -2,7 +2,7 @@ import { formatCurrency } from './formatCurrency.js';
 import toast from 'react-hot-toast';
 import { loadScript } from './loadScript.js';
 import { withEcfPrintData, qrModules } from './ecfPrint.js';
-import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, showNotesColumn, isEcfDoc, lineDiscount, modificationInfo, baseSplit, termLines } from './docLines.js';
+import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, showNotesColumn, isEcfDoc, lineDiscount, modificationInfo, baseSplit, termLines, LATE_NOTE_LEGEND } from './docLines.js';
 import { round2 } from './tax.js';
 
 let pdfLibrariesPromise = null;
@@ -246,11 +246,13 @@ const drawInfoCards = (doc, theme, { customerDetails, docData, emitterInfo, star
 
 const drawModificationSummary = (doc, theme, { startY, docType, docData, currency }) => {
     const title = `Detalles de la Nota de ${docType === 'credit-note' ? 'Crédito' : 'Débito'}`;
+    const late = docType === 'credit-note' ? docData.lateNote : null; // nota tardía: sin ITBIS
     const detailsLines = [
         `Tipo: ${docData.noteType || 'N/A'}`,
         `Factura original afectada: ${docData.originalInvoiceNumber || 'N/A'}`,
-        `Monto: ${formatCurrency(docData.amount || 0, currency)}`,
+        ...(late ? [`Monto: ${formatCurrency(late.total, currency)}`, `ITBIS: ${formatCurrency(0, currency)}`] : [`Monto: ${formatCurrency(docData.amount || 0, currency)}`]),
         `Motivo: ${docData.reason || 'N/A'}`,
+        ...(late ? [LATE_NOTE_LEGEND] : []),
     ];
 
     const content = doc.splitTextToSize(detailsLines, 174);

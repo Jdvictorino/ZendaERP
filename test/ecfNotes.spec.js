@@ -37,8 +37,32 @@ describe('E34 nota de crédito', () => {
     expect(ECF.Encabezado.IdDoc.IndicadorNotaCredito).toBe('1');
     expect(ECF.InformacionReferencia.CodigoModificacion).toBe('3');
     expect([ECF.DetallesItems.Item].flat()).toHaveLength(1);
-    expect(Number(ECF.Encabezado.Totales.MontoTotal)).toBeCloseTo(354, 2);
+    expect(Number(ECF.Encabezado.Totales.MontoTotal)).toBeCloseTo(300, 2); // tardía: sin ITBIS, solo la base
     expect(Number(ECF.Encabezado.Totales.MontoTotal)).toBeCloseTo(sumTotals(ECF.Encabezado.Totales), 2);
+  });
+});
+
+describe('E34 tardío (más de 30 días): sin ITBIS', () => {
+  const lines = [{ productName: 'Taza', quantity: 1, unitPrice: 300, discountPercent: 0, taxRate: 18 }];
+  const mk = (createdAt) => buildEcfFromNote({ amount: 354, reason: 'Taza rota', createdAt }, invoice, company, 'E34', 'E340000000005', sequence, { lines });
+
+  it('líneas exentas (indicador 4), MontoExento = base y sin ITBIS; total = base', () => {
+    const { ECF } = mk(new Date('2026-12-20T15:00:00Z'));
+    const { Totales, IdDoc } = ECF.Encabezado;
+    expect(IdDoc.IndicadorNotaCredito).toBe('1');
+    const items = [ECF.DetallesItems.Item].flat();
+    expect(items.map((i) => i.IndicadorFacturacion)).toEqual(['4']);
+    expect(Totales.MontoExento).toBe('300.00');
+    expect(Number(Totales.MontoGravadoTotal || 0)).toBe(0);
+    expect(Number(Totales.TotalITBIS || 0)).toBe(0); // igual que cualquier factura toda exenta (el builder emite los totales ITBIS en 0)
+    expect(Totales.MontoTotal).toBe('300.00');
+    expect(items[0].MontoItem).toBe('300.00');
+  });
+  it('30 días justos: sigue con ITBIS 18% (354 = 300 + 54)', () => {
+    const { ECF } = mk(new Date('2026-11-30T15:00:00Z'));
+    expect(ECF.Encabezado.IdDoc.IndicadorNotaCredito).toBe('0');
+    expect([ECF.DetallesItems.Item].flat()[0].IndicadorFacturacion).toBe('1');
+    expect(ECF.Encabezado.Totales).toMatchObject({ MontoGravadoTotal: '300.00', TotalITBIS: '54.00', MontoTotal: '354.00' });
   });
 });
 

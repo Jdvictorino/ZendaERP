@@ -6,6 +6,8 @@ import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import { generatePDF } from '../../utils/pdfGenerator.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Button from '../ui/Button.jsx';
+import { lateNoteInfo } from '../../utils/docLines.js';
+import { isLateNote, noteAmounts } from '../../utils/noteSplit.js';
 import { roundQty, formatQty, unitOf } from '../../utils/units.js';
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -54,6 +56,10 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
         setReturnQty((prev) => ({ ...prev, [item.id]: qty }));
     };
 
+    // Más de 30 días desde la factura (mismo criterio del servidor y del e-CF): la nota sale sin ITBIS y la empresa lo asume
+    const returnLines = isFull ? [] : items.filter((i) => returnQty[i.id] > 0).map((i) => ({ ...i, quantity: returnQty[i.id] }));
+    const absorbedItbis = isLateNote({}, invoice) && parseFloat(amount) > 0 ? noteAmounts({ amount: parseFloat(amount) }, invoice, { lines: returnLines }).itbis : 0;
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         const creditAmount = parseFloat(amount);
@@ -80,6 +86,7 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
                 originalNcf: invoice.ncfNumber,
                 customerName: invoice.customerName,
                 noteType,
+                lateNote: lateNoteInfo(creditNote, invoice),
                 date: new Date()
             };
             generatePDF(creditNoteData, 'credit-note', companyProfile, customerDetails, invoice.emitterInfo, 'view');
@@ -151,6 +158,11 @@ const CreditNoteModal = ({ invoice, onClose, onSuccess, companyProfile, customer
                         <label htmlFor="cn-amount" className="block text-ink-soft mb-1">Valor a Acreditar (Máx: {formatCurrency(remaining, currency)})</label>
                         <input id="cn-amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} className="input-base" required max={remaining} min="0.01" step="0.01" disabled={isFull} />
                     </div>
+                    {isLateNote({}, invoice) && (
+                        <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                            Esta factura tiene más de 30 días: la nota se emite sin ITBIS. El ITBIS ({formatCurrency(absorbedItbis, currency)}) lo asume la empresa como gasto.
+                        </p>
+                    )}
                     <div>
                         <label htmlFor="cn-reason" className="block text-ink-soft mb-1">Descripción / Motivo</label>
                         <textarea id="cn-reason" value={reason} onChange={e => setReason(e.target.value)} className="input-base" rows="3" required placeholder="Ej: Devolución de mercancía por defecto, corrección en precio..."/>
