@@ -46,7 +46,6 @@ export function scaleToTotal(lines, target, reason = 'Ajuste') {
 
 /**
  * Calcula los totales desglosados por tasa de ITBIS, redondeando cada línea
-
  */
 export function calcularTotalesPorTasa(items) {
   const t = { montoGravadoI1: 0, montoGravadoI2: 0, montoGravadoI3: 0, montoExento: 0, totalITBIS1: 0, totalITBIS2: 0, totalITBIS3: 0 };
@@ -78,4 +77,10 @@ export function noteLines(note, invoice, { lines } = {}) {
 export function noteAmounts(note, invoice, opts) {
   const t = calcularTotalesPorTasa(noteLines(note, invoice, opts));
   return { base: t.montoGravadoTotal, itbis: t.totalITBIS, exempt: t.montoExento, byRate: t };
+}
+
+/** Artículos que devolvió una nota guardada (`note.items` = [{ itemId, quantity }]) tomados de la factura; sin items, queda vacío y la nota usa toda la factura. */
+export function noteReturnLines(note, invoice) {
+  const rows = Array.isArray(note.items) ? note.items : [];
+  return rows.map((r) => { const it = (invoice.items || []).find((i) => i.id === r.itemId); return it && { ...it, quantity: r.quantity }; }).filter(Boolean);
 }

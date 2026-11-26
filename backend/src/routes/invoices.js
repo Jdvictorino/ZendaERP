@@ -163,7 +163,7 @@ router.get('/', async (req, res, next) => {
             }
           },
           ecfDocuments: LAST_RECEIVED_ECF,
-          _count: { select: { items: true } }
+          _count: { select: { items: true, creditNotes: true } }
         },
         orderBy: { date: 'desc' },
         skip: take ? (parseInt(page) - 1) * take : undefined,

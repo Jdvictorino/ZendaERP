@@ -8,6 +8,7 @@ import { Download, RefreshCcw, BookOpen, Layers, Scale, Sliders, ShoppingCart, T
 import KpiCard from '../components/ui/KpiCard.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
+import toast from 'react-hot-toast';
 import { generateAllJournalEntries, filterByPeriod } from '../utils/chartOfAccounts.js';
 
 // Tab components
@@ -75,7 +76,7 @@ const AccountingViewSQL = ({ companyProfile }) => {
   const products = productsRaw || [];
   // Las notas se piden todas y generateAllJournalEntries/filterByPeriod las limitan al período, igual que las facturas
   const [creditNotes, setCreditNotes] = useState([]);
-  useEffect(() => { api.invoices.creditNotes().then((r) => setCreditNotes(Array.isArray(r) ? r : [])).catch(() => setCreditNotes([])); }, []);
+  useEffect(() => { api.invoices.creditNotes().then((r) => setCreditNotes(Array.isArray(r) ? r : [])).catch(() => { setCreditNotes([]); toast.error('No se pudieron cargar las notas de crédito; el diario puede estar incompleto.'); }); }, []);
   const debitNotes = [];
   
   const loading = loadingInvoices || loadingExpenses || loadingProducts;

@@ -1,7 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { isVoidInvoice } from './invoiceStatus.js';
 import { filterByDateRange } from './reportFilters.js';
-import { noteAmounts } from './noteSplit.js';
+import { noteAmounts, noteReturnLines } from './noteSplit.js';
 
 // Función para determinar el Tipo de ID según la longitud del RNC/Cédula
 const getTypeId = (rnc) => {
@@ -44,6 +44,9 @@ const formatDateToDGII = (dateValue) => {
 // Las facturas llegan de la API con ncfNumber / customerRnc / taxAmount; "ncf" es el formato anterior
 const ncfOf = (inv) => inv.ncf?.number || inv.ncfNumber || '';
 const rncOf = (inv) => inv.ncf?.customerRnc || inv.customerRnc || '';
+
+// GET /invoices trae _count.creditNotes; una factura con notas anulada por una nota total no es una anulación del 608
+const hasNotes = (inv) => Number(inv._count?.creditNotes || 0) > 0;
 
 // Fecha del comprobante: un e-CF lleva la de la venta (FechaEmision); un NCF en papel, la de facturación
 export const voucherDateOf = (inv) => (ncfOf(inv).startsWith('E') ? inv.date || inv.billedDate : inv.billedDate || inv.date);
@@ -133,11 +136,9 @@ export const generate609Data = (expenses = []) => {
 export const generate607Data = (invoices = [], creditNotes = []) => {
     // Notas de crédito (con su `invoice`): línea propia con su NCF y el NCF modificado, montos positivos.
     // Fuente: Instructivo 607 de la DGII (campo "Número Comprobante Fiscal Modificado") y Consulta 17 (las notas se remiten en el 607); el signo no lo dice el instructivo (SIN VERIFICAR).
-    const noteRows = creditNotes.filter(n => n.invoice).map(n => {
+    const noteRows = creditNotes.filter(n => n.invoice && n.ncfNumber).map(n => {
         const inv = n.invoice;
-        const rows = Array.isArray(n.items) ? n.items : [];
-        const lines = rows.map(r => { const it = (inv.items || []).find(i => i.id === r.itemId); return it && { ...it, quantity: r.quantity }; }).filter(Boolean);
-        const { base, itbis, exempt } = noteAmounts(n, inv, { lines });
+        const { base, itbis, exempt } = noteAmounts(n, inv, { lines: noteReturnLines(n, inv) });
         return {
             "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
             "Tipo Id": getTypeId(rncOf(inv)),
@@ -155,7 +156,8 @@ export const generate607Data = (invoices = [], creditNotes = []) => {
         };
     });
     const invoiceRows = invoices
-        .filter(inv => !isVoidInvoice(inv))
+        // Anulada por una nota total (tiene notas): sigue en el 607 de su período; solo las anuladas con "Anular" salen
+        .filter(inv => !isVoidInvoice(inv) || hasNotes(inv))
         .map(inv => {
             // Agregamos por formas de pago a partir del historial de pagos si existe
             const pagos = Array.isArray(inv.payments) ? inv.payments : [];
@@ -206,7 +208,7 @@ export const generate607Data = (invoices = [], creditNotes = []) => {
  */
 export const generate608Data = (invoices = []) => {
     return invoices
-        .filter(isVoidInvoice)
+        .filter(inv => isVoidInvoice(inv) && !hasNotes(inv))
         .map(inv => ({
             "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
             "Tipo Id": getTypeId(rncOf(inv)),

@@ -3,8 +3,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as app from '../src/utils/noteSplit.js';
 import * as srv from '../backend/src/services/noteSplit.js';
+import { creditNoteToJournalEntries } from '../src/utils/chartOfAccounts.js';
 import { buildEcfFromNote } from '../backend/src/services/ecfXmlBuilder.js';
-import { generate607Data } from '../src/utils/dgiiReportGenerator.js';
+import { generate607Data, generate608Data } from '../src/utils/dgiiReportGenerator.js';
 
 const invoice = {
   id: 'f1', date: new Date('2026-11-01T15:00:00Z'), billedDate: new Date('2026-11-01T15:00:00Z'), ncfNumber: 'E310000000010', ncfType: 'E31', customerRnc: '101010101',
@@ -46,5 +47,25 @@ describe('noteSplit', () => {
     expect(rows).toHaveLength(2);
     expect(rows[1]).toMatchObject({ NCF: 'E340000000001', 'NCF ó Documento Modificado': 'E310000000010', 'Monto Facturado': 300, 'ITBIS Facturado': 54, 'Fecha Comprobante': '20261110' });
     expect(rows[0]['NCF ó Documento Modificado']).toBe('');
+  });
+  it('factura anulada por una nota total: sigue en el 607 con su nota y no va al 608', () => {
+    const voided = { ...invoice, status: 'Anulado', itbis: 108, subtotal: 954, _count: { creditNotes: 1 } };
+    const note = { id: 'n2', amount: 1062, ncfNumber: 'E340000000002', createdAt: new Date('2026-11-12T15:00:00Z'), items: [], invoice: voided };
+    const rows = generate607Data([voided], [note]);
+    expect(rows.map((r) => r.NCF)).toEqual(['E310000000010', 'E340000000002']);
+    expect(rows[1]['Monto Facturado'] + rows[1]['ITBIS Facturado']).toBeCloseTo(1062, 2);
+    expect(generate608Data([voided])).toEqual([]);
+    expect(generate608Data([{ ...voided, _count: { creditNotes: 0 } }])).toHaveLength(1);
+  });
+  it('607: una nota sin NCF no se declara', () => {
+    expect(generate607Data([], [{ id: 'n3', amount: 100, invoice, items: [] }])).toEqual([]);
+  });
+  it('contabilidad: asientos balanceados con ITBIS por pagar', () => {
+    const note = { id: 'n1', amount: 354, ncfNumber: 'E340000000001', createdAt: new Date('2026-11-10T15:00:00Z'), items: [{ itemId: 'i1', quantity: 1 }], invoice };
+    const e = creditNoteToJournalEntries(note);
+    expect(e.reduce((s, x) => s + x.debit - x.credit, 0)).toBeCloseTo(0, 2);
+    expect(e[0].debit).toBe(300);
+    expect(e[1].debit).toBe(54);
+    expect(e[0].ref).toBe('E340000000001');
   });
 });

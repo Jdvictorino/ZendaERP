@@ -1,3 +1,4 @@
+import { noteAmounts, noteReturnLines } from './noteSplit.js';
 import { expensePayable } from './expensePayable.js';
 /**
  * Plan de Cuentas Contable estándar para Zenda ERP.
@@ -155,16 +156,21 @@ export function expenseToJournalEntries(expense) {
 }
 
 /**
- * Convierte una nota de crédito en asientos (reverso de venta).
+ * Convierte una nota de crédito en asientos (reverso de venta). Con la factura (`note.invoice`) reparte el ITBIS
+ * como el 607 y el e-CF (devoluciones por la base, ITBIS por pagar por el impuesto); sin ella, todo a devoluciones.
  */
 export function creditNoteToJournalEntries(note) {
   const amount = Math.abs(Number(note.amount || 0));
   const date = new Date(note.createdAt || note.date);
-  const ref = note.creditNoteNumber || note.id;
-  return [
-    { date, account: ACCOUNTS.SALES_RETURNS, debit: amount, credit: 0, ref, desc: note.reason || 'Nota de crédito', sourceType: 'creditNote', sourceId: note.id },
-    { date, account: ACCOUNTS.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount, ref, desc: note.reason || 'Nota de crédito', sourceType: 'creditNote', sourceId: note.id },
-  ];
+  const ref = note.ncfNumber || note.id;
+  const desc = note.reason || 'Nota de crédito';
+  const a = note.invoice ? noteAmounts(note, note.invoice, { lines: noteReturnLines(note, note.invoice) }) : null;
+  const tax = a ? a.itbis : 0;
+  const returns = Math.round((amount - tax) * 100) / 100; // base + exento; el centavo de redondeo queda aquí para que cuadre
+  const entries = [{ date, account: ACCOUNTS.SALES_RETURNS, debit: returns, credit: 0, ref, desc, sourceType: 'creditNote', sourceId: note.id }];
+  if (tax) entries.push({ date, account: ACCOUNTS.TAXES_PAYABLE, debit: tax, credit: 0, ref, desc: `ITBIS: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
+  entries.push({ date, account: ACCOUNTS.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount, ref, desc, sourceType: 'creditNote', sourceId: note.id });
+  return entries;
 }
 
 /**

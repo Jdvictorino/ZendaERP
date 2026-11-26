@@ -56,28 +56,30 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
         }
         const filteredInvoices = reportFilters.filterInvoices(invoices || [], criteria);
         const filteredExpenses = reportFilters.filterExpenses(expenses || [], criteria);
-        const filteredCreditNotes = reportFilters.filterByDateRange(creditNotes || [], 'date', criteria.from, criteria.to);
-        return { filteredInvoices, filteredExpenses, filteredCreditNotes, criteria };
-    }, [invoices, expenses, creditNotes, reportMonth, reportYear, fromDate, toDate]);
+        return { filteredInvoices, filteredExpenses, criteria };
+    }, [invoices, expenses, reportMonth, reportYear, fromDate, toDate]);
 
-    // Notas de crédito del período (por fecha de la nota) para el 607
+    // Notas del período (por fecha de la nota): la tarjeta de resumen las muestra; el 607 pide las suyas al generarse
+    const dayOf = (d) => (d && d.length > 10 ? format(new Date(d), 'yyyy-MM-dd') : d);
     useEffect(() => {
-        const { from, to } = filteredData.criteria;
-        const day = (d) => (d && d.length > 10 ? format(new Date(d), 'yyyy-MM-dd') : d);
-        api.invoices.creditNotes({ from: day(from), to: day(to) }).then((r) => setCreditNotes(Array.isArray(r) ? r : [])).catch(() => setCreditNotes([]));
+        let current = true;
+        api.invoices.creditNotes({ from: dayOf(filteredData.criteria.from), to: dayOf(filteredData.criteria.to) })
+            .then((r) => { if (current) setCreditNotes(Array.isArray(r) ? r : []); })
+            .catch(() => { if (current) setCreditNotes([]); });
+        return () => { current = false; };
     }, [filteredData.criteria.from, filteredData.criteria.to]);
 
     const fiscalInvoices = useMemo(() => filterByVoucherDate((invoices || []).filter(isFiscalInvoice), filteredData.criteria.from, filteredData.criteria.to), [invoices, filteredData]);
     const fiscalExpenses = useMemo(() => filteredData.filteredExpenses.filter(exp => exp.ncf && exp.ncf.trim() !== ''), [filteredData]);
-    const cancelledInvoices = useMemo(() => fiscalInvoices.filter(inv => isVoidInvoice(inv)), [fiscalInvoices]);
-    const fiscalCreditNotes = useMemo(() => (filteredData.filteredCreditNotes || []).filter(note => note.ncf?.number || note.ncfNumber), [filteredData]);
+    const cancelledInvoices = useMemo(() => fiscalInvoices.filter(inv => isVoidInvoice(inv) && !(inv._count?.creditNotes > 0)), [fiscalInvoices]);
+    const fiscalCreditNotes = useMemo(() => creditNotes.filter(note => note.ncfNumber), [creditNotes]);
 
     const overview = useMemo(() => {
         const totalSales = fiscalInvoices.reduce((sum, inv) => sum + Number(inv.total || 0), 0);
         const totalPurchases = fiscalExpenses.reduce((sum, exp) => sum + Number(exp.totalMontoFacturado || exp.montoFacturado || 0), 0);
         const itbisVentas = fiscalInvoices.reduce((sum, inv) => sum + Number(inv.itbis ?? inv.taxAmount ?? 0), 0);
         const itbisCompras = fiscalExpenses.reduce((sum, exp) => sum + Number(exp.itbisFacturado || 0), 0);
-        const totalCreditNotes = fiscalCreditNotes.reduce((sum, note) => sum + Number(note.total || note.totalAmount || 0), 0);
+        const totalCreditNotes = fiscalCreditNotes.reduce((sum, note) => sum + Number(note.amount || 0), 0);
         return {
             totalSales,
             totalPurchases,
@@ -90,7 +92,7 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
 
 
 
-    const handleGenerateReport = (type) => {
+    const handleGenerateReport = async (type) => {
         let data = [];
         let title = '';
         let headers = [];
@@ -105,11 +107,18 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
             headers = Object.keys(data[0] || {});
         }
         if (type === '607') {
-            if (fiscalInvoices.length === 0 && creditNotes.length === 0) {
+            let notes;
+            try {
+                notes = await api.invoices.creditNotes({ from: dayOf(filteredData.criteria.from), to: dayOf(filteredData.criteria.to) });
+            } catch (error) {
+                toast.error('No se pudieron cargar las notas de crédito del período; el 607 no se generó.');
+                return;
+            }
+            if (fiscalInvoices.length === 0 && !notes.some(n => n.ncfNumber)) {
                 toast.error('No se encontraron ventas con NCF en el período seleccionado.');
                 return;
             }
-            data = generate607Data(fiscalInvoices, creditNotes);
+            data = generate607Data(fiscalInvoices, notes);
             title = 'Reporte 607 - Ventas de Bienes y Servicios';
             headers = Object.keys(data[0] || {});
         }
