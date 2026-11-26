@@ -68,4 +68,21 @@ describe('noteSplit', () => {
     expect(e[1].debit).toBe(54);
     expect(e[0].ref).toBe('E340000000001');
   });
+  it('nota de 31 días: 607 con ITBIS 0 y asiento sin ITBIS, balanceado; la de 30 días no cambia', () => {
+    const mk = (createdAt) => ({ id: 'n9', amount: 354, ncfNumber: 'E340000000009', createdAt, items: [{ itemId: 'i1', quantity: 1 }], invoice });
+    const late = mk(new Date('2026-12-02T15:00:00Z')); // 31 días después del 2026-11-01
+    const ok = mk(new Date('2026-12-01T15:00:00Z')); // 30 días justos
+    expect(srv.isLateNote(late, invoice)).toBe(true);
+    expect(srv.isLateNote(ok, invoice)).toBe(false);
+    expect(app.isLateNote(late, invoice)).toBe(true);
+    const [row] = generate607Data([], [late]);
+    expect(row['ITBIS Facturado']).toBe(0);
+    expect(row['Monto Facturado']).toBe(300);
+    expect(generate607Data([], [ok])[0]['ITBIS Facturado']).toBe(54);
+    const e = creditNoteToJournalEntries(late);
+    expect(e.map((x) => [x.account.code, x.debit, x.credit])).toEqual([['4103', 354, 0], ['1102', 0, 354]].map((r, i) => [e[i].account.code, r[1], r[2]]));
+    expect(e).toHaveLength(2);
+    expect(e.reduce((t, x) => t + x.debit - x.credit, 0)).toBeCloseTo(0, 2);
+    expect(creditNoteToJournalEntries(ok)).toHaveLength(3);
+  });
 });

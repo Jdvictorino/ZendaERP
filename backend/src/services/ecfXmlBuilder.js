@@ -6,7 +6,7 @@ import { Transformer } from 'dgii-ecf';
 import { netUnitPrice, round2 } from './tax.js';
 import { unitOf } from './units.js';
 import { installmentsOf } from './paymentTerms.js';
-import { lineCalc, scaleToTotal, calcularTotalesPorTasa, noteLines } from './noteSplit.js';
+import { lineCalc, scaleToTotal, calcularTotalesPorTasa, noteLines, isLateNote } from './noteSplit.js';
 
 // Mapeo de tipos e-CF a código numérico DGII
 const ECF_TYPE_CODES = {
@@ -258,9 +258,8 @@ export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, 
   const ecfData = buildEcfFromInvoice({ ...originalInvoice, paymentTerm: null, pricesIncludeTax: false, discountAmount: 0, date: noteDate, items }, company, tipoEcf, eNcf, sequence);
   const { TablaFormasPago, ...idDoc } = ecfData.ECF.Encabezado.IdDoc; // opcional/no corresponde en notas
   if (tipoEcf === 'E34') {
-    const originalDate = new Date(originalInvoice.billedDate || originalInvoice.date);
     const { TipoeCF, eNCF, ...rest } = idDoc;
-    ecfData.ECF.Encabezado.IdDoc = { TipoeCF, eNCF, IndicadorNotaCredito: noteDate - originalDate > 30 * 86400000 ? '1' : '0', ...rest };
+    ecfData.ECF.Encabezado.IdDoc = { TipoeCF, eNCF, IndicadorNotaCredito: isLateNote(note, originalInvoice) ? '1' : '0', ...rest };
   } else {
     ecfData.ECF.Encabezado.IdDoc = idDoc;
   }

@@ -1,4 +1,4 @@
-import { noteAmounts, noteReturnLines } from './noteSplit.js';
+import { isLateNote, noteAmounts, noteReturnLines } from './noteSplit.js';
 import { expensePayable } from './expensePayable.js';
 /**
  * Plan de Cuentas Contable estándar para Zenda ERP.
@@ -165,7 +165,7 @@ export function creditNoteToJournalEntries(note) {
   const ref = note.ncfNumber || note.id;
   const desc = note.reason || 'Nota de crédito';
   const a = note.invoice ? noteAmounts(note, note.invoice, { lines: noteReturnLines(note, note.invoice) }) : null;
-  const tax = a ? a.itbis : 0;
+  const tax = a && !isLateNote(note, note.invoice) ? a.itbis : 0; // nota tardía: no devuelve ITBIS (Reglamento 293-11, arts. 8 y 28)
   const returns = Math.round((amount - tax) * 100) / 100; // base + exento; el centavo de redondeo queda aquí para que cuadre
   const entries = [{ date, account: ACCOUNTS.SALES_RETURNS, debit: returns, credit: 0, ref, desc, sourceType: 'creditNote', sourceId: note.id }];
   if (tax) entries.push({ date, account: ACCOUNTS.TAXES_PAYABLE, debit: tax, credit: 0, ref, desc: `ITBIS: ${desc}`, sourceType: 'creditNote', sourceId: note.id });

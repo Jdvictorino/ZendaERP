@@ -84,3 +84,8 @@ export function noteReturnLines(note, invoice) {
   const rows = Array.isArray(note.items) ? note.items : [];
   return rows.map((r) => { const it = (invoice.items || []).find((i) => i.id === r.itemId); return it && { ...it, quantity: r.quantity }; }).filter(Boolean);
 }
+
+/** Nota tardía: más de 30 días entre la factura y la nota; no rebaja ni devuelve ITBIS (Reglamento 293-11, arts. 8 y 28). Mismo criterio del IndicadorNotaCredito del E34. */
+export function isLateNote(note, invoice) {
+  return new Date(note.createdAt || Date.now()) - new Date(invoice.billedDate || invoice.date) > 30 * 86400000;
+}
