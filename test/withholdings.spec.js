@@ -62,3 +62,12 @@ it('las dos copias son idénticas desde la línea 2', () => {
   const body = (p) => readFileSync(p, 'utf8').replace(/\r/g, '').split('\n').slice(1).join('\n');
   expect(body('src/utils/withholdings.js')).toBe(body('backend/src/services/withholdings.js'));
 });
+
+describe.each([['app', app], ['backend', srv]])('saldo con notas de crédito (%s)', (_n, w) => {
+  it('creditedAmount resta del saldo y cuenta en el estado', () => {
+    expect(w.invoiceBalance({ total: 1000, amountPaid: '0', creditedAmount: '200' })).toBe(800);
+    expect(w.invoiceBalance({ total: 1000, amountPaid: 800 })).toBe(200);
+    expect(w.invoiceStatus({ total: 1000, amountPaid: 800, creditedAmount: 200 })).toBe('Pagado');
+    expect(w.invoiceStatus({ total: 1000, amountPaid: 0, creditedAmount: 200 })).toBe('Pagado Parcialmente');
+  });
+});
