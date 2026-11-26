@@ -24,6 +24,11 @@ describe('planInvoicePayment', () => {
     const saved = { ...inv, itbisRetenido: '180' };
     expect(planInvoicePayment(saved, { amountPaid: 1000 }, { manager: false }).data.status).toBe('Pagado');
   });
+  it('las notas de crédito parciales cuentan como saldado', () => {
+    const c = { ...inv, total: '1000', taxAmount: '0', creditedAmount: '200' };
+    expect(planInvoicePayment(c, { amountPaid: 800 }, { manager: false }).data.status).toBe('Pagado');
+    expect(planInvoicePayment(c, { amountPaid: 900 }, { manager: false }).error).toBeTruthy();
+  });
   it('sin campos de cobro no cambia nada; anulada no cambia estado', () => {
     expect(planInvoicePayment(inv, { notes: 'x' }, { manager: false })).toEqual({ data: {} });
     expect(planInvoicePayment({ ...inv, voided: true }, { amountPaid: 10 }, { manager: false }).data).toEqual({ amountPaid: 10 });

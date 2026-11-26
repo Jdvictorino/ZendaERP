@@ -1,6 +1,8 @@
 import { assertSameCompany } from '../services/ownership.js';
 import { appendPayments } from '../services/payments.js';
 import { invoiceBalance } from '../services/withholdings.js';
+import { paymentTermsOf } from '../services/paymentTerms.js';
+import { planInvoiceTerms } from '../services/invoiceTerms.js';
 import { planInvoicePayment } from '../services/invoicePayment.js';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -127,6 +129,7 @@ const invoiceSchema = z.object({
   notes: z.string().optional(),
   status: z.string().default('Pendiente'),
   paymentTermDays: z.number().int().min(0).max(365).optional(),
+  paymentTermId: z.string().nullable().optional(),
   pricesExcludeTax: z.boolean().optional()
 });
 
@@ -257,13 +260,16 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
     const { items: itemsWithTotals, subtotal, taxAmount, total } = priceInvoiceLines(data.items, { pricesExcludeTax, exempt });
     const changeAmount = data.amountPaid > total ? data.amountPaid - total : 0;
 
+    const terms = planInvoiceTerms(data, paymentTermsOf(company?.settings), todayRD(), total);
+    if (terms.error) return res.status(400).json({ error: terms.error });
+
     // Venta a crédito: no puede pasar el límite del cliente (límite 0 = sin límite)
     if (customer && /cr[eé]dito/i.test(data.paymentMethod || '')) {
       const open = await prisma.invoice.aggregate({
         where: { companyId: req.companyId, customerId: customer.id, status: { notIn: VOID_STATUSES } },
-        _sum: { total: true, amountPaid: true, itbisRetenido: true, retencionRenta: true }
+        _sum: { total: true, amountPaid: true, itbisRetenido: true, retencionRenta: true, creditedAmount: true }
       });
-      const pendingBalance = Number(open._sum.total || 0) - Number(open._sum.amountPaid || 0) - Number(open._sum.itbisRetenido || 0) - Number(open._sum.retencionRenta || 0);
+      const pendingBalance = Number(open._sum.total || 0) - Number(open._sum.amountPaid || 0) - Number(open._sum.itbisRetenido || 0) - Number(open._sum.retencionRenta || 0) - Number(open._sum.creditedAmount || 0);
       if (creditExceeded({ creditLimit: customer.creditLimit, pendingBalance, newTotal: total })) {
         return res.status(400).json({ error: 'La venta pasa el límite de crédito del cliente' });
       }
@@ -299,8 +305,9 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
           exemptionNumber: exempt ? customer.exemptionNumber : null,
           paymentMethod: data.paymentMethod,
           // venta a crédito: vence en la fecha de la venta + plazo; de contado no lleva vencimiento propio
-          paymentTermDays: data.paymentTermDays || null,
-          dueDate: data.paymentTermDays ? new Date(Date.now() + data.paymentTermDays * 24 * 60 * 60 * 1000) : null,
+          ...(terms.paymentTerm && { paymentTerm: terms.paymentTerm }),
+          paymentTermDays: terms.paymentTermDays,
+          dueDate: terms.dueDate,
           amountPaid: data.amountPaid,
           changeAmount,
           deliveryType: data.deliveryType,
@@ -690,6 +697,7 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
         data: { companyId: req.companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber, items: lines.map((l) => ({ itemId: l.id, quantity: l.quantity })) }
       });
       if (full) await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'Anulado' } });
+      else await tx.invoice.update({ where: { id: invoice.id }, data: { creditedAmount: { increment: value } } });
       if (lines.length) await restoreStock(tx, { ...invoice, items: lines }, req.user.id, `Nota de Crédito - ${note.ncfNumber || note.id}`, 'credit_note', note.id);
       return note;
     });
