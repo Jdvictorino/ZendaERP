@@ -13,6 +13,8 @@ import Button from '../components/ui/Button.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import { TAXPAYER_TYPES, exemptionStatus, todayRD } from '../utils/tax.js';
 import { badgeClass } from '../components/ui/Badge.jsx';
+import { paymentTermsOf } from '../utils/paymentTerms.js';
+import { customerTermName } from '../utils/saleTerms.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
 // API PostgreSQL
@@ -58,6 +60,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
     const [q, setQ] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
     const currency = companyProfile?.currency || 'USD';
+    const terms = useMemo(() => paymentTermsOf(companyProfile), [companyProfile]);
 
     const handleSave = async (customerData) => {
         try {
@@ -237,7 +240,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
     }, [safeCustomers, showInactive, q, typeFilter]);
 
     const exportCSV = () => {
-        const headers = ['Código','Nombre','Categoría','Tipo Cuenta','Identificación','Teléfono','Email','Estado'];
+        const headers = ['Código','Nombre','Categoría','Condición de pago','Identificación','Teléfono','Email','Estado'];
         const escape = (v) => {
             const s = String(v ?? '');
             const needsQuotes = /[",\n]/.test(s);
@@ -247,7 +250,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
         const lines = [headers.join(',')];
         filteredCustomers.forEach(c => {
             lines.push([
-                c.customerCode || '', c.name || '', c.category || '', (c.accountType || 'contado'), c.identificationNumber || '', c.phone || '', c.email || '', c.status || ''
+                c.customerCode || '', c.name || '', c.category || '', customerTermName(c, terms), c.identificationNumber || '', c.phone || '', c.email || '', c.status || ''
             ].map(escape).join(','));
         });
         const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -411,7 +414,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                     <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Código</th>
                                     <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Nombre</th>
                                     <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Categoría</th>
-                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Tipo Cuenta</th>
+                                    <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Condición de pago</th>
                                     <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Identificación</th>
                                     <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Teléfono</th>
                                     <th className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Acciones</th>
@@ -423,7 +426,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                         <td className="p-3 text-sm font-mono dark:text-gray-400">{c.customerCode}</td>
                                         <td className="p-3 text-sm font-medium dark:text-gray-100">{c.name}</td>
                                         <td className="p-3 text-sm text-ink-soft dark:text-gray-400">{c.category || 'Sin categoría'}</td>
-                                        <td className="p-3 text-sm text-ink-soft dark:text-gray-400">{(c.accountType || 'contado') === 'credito' ? 'Crédito' : 'Contado'}</td>
+                                        <td className="p-3 text-sm text-ink-soft dark:text-gray-400">{customerTermName(c, terms)}</td>
                                         <td className="p-3 text-sm dark:text-gray-400">{c.identificationNumber}{c.taxpayerType ? ` (${TAXPAYER_TYPES.find(t => t.value === c.taxpayerType)?.label || c.taxpayerType})` : ''}
                                             {exemptionStatus(c, todayRD()) === 'valid' && <span className={`${badgeClass('success')} ml-2`}>Exento</span>}
                                             {exemptionStatus(c, todayRD()) === 'expired' && <span className={`${badgeClass('danger')} ml-2`}>Carnet vencido</span>}
@@ -457,9 +460,9 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                         </div>
                                         <div className="flex flex-col items-end">
                                             <span className={`text-xs uppercase font-bold px-2 py-0.5 rounded-full ${
-                                                (c.accountType || 'contado') === 'credito' ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'
+                                                customerTermName(c, terms) !== 'Contado' ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'
                                             }`}>
-                                                {(c.accountType || 'contado') === 'credito' ? 'Crédito' : 'Contado'}
+                                                {customerTermName(c, terms)}
                                             </span>
                                             {c.phone && <span className="text-xs text-ink-muted mt-2">{c.phone}</span>}
                                         </div>

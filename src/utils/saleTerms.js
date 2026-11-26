@@ -22,6 +22,18 @@ export const termPayload = (terms, id) => {
   return t && !isCashTerm(t) ? { paymentTermId: id } : {};
 };
 
+// Plazo del cliente: el guardado; si es viejo (solo creditDays), el activo de una cuota con esos días
+// (misma regla que termIdForCreditDays del servidor); si no, contado.
+export const customerTermId = (customer, terms) => {
+  if (customer?.paymentTermId && terms.some((t) => t.id === customer.paymentTermId)) return customer.paymentTermId;
+  const days = Number(customer?.creditDays);
+  const t = days > 0 && terms.find((x) => isActive(x) && x.installments?.length === 1 && !x.installments[0].fromMonthEnd && Number(x.installments[0].days) === days);
+  return t?.id || cashTermId(terms);
+};
+
+export const customerTermName = (customer, terms) =>
+  terms.find((t) => t.id === customerTermId(customer, terms))?.name || 'Contado';
+
 // ¿Cobra algo hoy? Mismo criterio que downPayment (cuota que vence el día de la venta, con fin de mes incluido).
 export const paysToday = (term, today) =>
   !!term && scheduleFor(term, 100, today).some((c) => c.dueDate === today && c.amount > 0);
