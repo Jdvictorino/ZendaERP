@@ -1,7 +1,7 @@
 import { formatCurrency } from './formatCurrency.js';
 import { invoiceBalance } from './withholdings.js';
 import { qrSvg } from './ecfPrint.js';
-import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, isEcfDoc, lineDiscount, modificationInfo, baseSplit } from './docLines.js';
+import { docLine, docTotals, qtyText, customerTaxId, invoiceTitle, isEcfDoc, lineDiscount, modificationInfo, baseSplit, termLines } from './docLines.js';
 import { round2 } from './tax.js';
 
 // Montos de las líneas sin símbolo de moneda (caben en 80 mm); el símbolo va en el total
@@ -125,6 +125,7 @@ export const generateThermalReceiptHTML = (docData, docType, companyProfile, cus
         }
         bodyHtml += row('ITBIS', amountText(tax));
         bodyHtml += row('TOTAL', formatCurrency(total, currency), 'bold total');
+        termLines(docData).forEach((line) => { bodyHtml += `<div>${esc(line)}</div>`; });
         if (docData?.exemptionNumber) bodyHtml += `<div>Exento de ITBIS — Carnet N.º ${esc(docData.exemptionNumber)}</div>`;
 
         const paid = docData?.amountPaid ?? docData?.paidAmount ?? 0;

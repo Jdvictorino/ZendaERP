@@ -5,6 +5,7 @@
 import { Transformer } from 'dgii-ecf';
 import { netUnitPrice, round2 } from './tax.js';
 import { unitOf } from './units.js';
+import { installmentsOf } from './paymentTerms.js';
 import { lineCalc, scaleToTotal, calcularTotalesPorTasa, noteLines } from './noteSplit.js';
 
 // Mapeo de tipos e-CF a código numérico DGII
@@ -99,6 +100,8 @@ export function buildEcfFromInvoice(invoice, company, tipoEcf, eNcf, sequence) {
 
   // Determinar forma de pago
   const formaPago = PAYMENT_METHOD_MAP[invoice.paymentMethod] || 1;
+  const ultimaCuota = invoice.paymentTerm?.schedule?.length ? installmentsOf(invoice, '').at(-1) : null;
+  const aCredito = invoice.paymentMethod === 'Crédito' || !!ultimaCuota;
 
   // Construir el objeto ECF según la interfaz IECF
   const ecfData = {
@@ -111,7 +114,9 @@ export function buildEcfFromInvoice(invoice, company, tipoEcf, eNcf, sequence) {
           FechaVencimientoSecuencia: fechaVencimiento,
           IndicadorMontoGravado: '0',
           TipoIngresos: '01', // Ingresos por operaciones (no financieros)
-          TipoPago: invoice.paymentMethod === 'Crédito' ? '2' : '1', // 1=Contado, 2=Crédito
+          TipoPago: aCredito ? '2' : '1', // 1=Contado, 2=Crédito
+          // Condicional a TipoPago=2: la última cuota, dd-MM-AAAA (fecha del día guardado, sin pasar por la hora local)
+          ...(ultimaCuota ? { FechaLimitePago: ultimaCuota.dueDate.slice(0, 10).split('-').reverse().join('-') } : {}),
           TablaFormasPago: {
             FormaDePago: {
               FormaPago: String(formaPago),

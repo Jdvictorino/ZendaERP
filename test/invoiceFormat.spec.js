@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { customerTaxId, invoiceTitle, showNotesColumn } from '../src/utils/docLines.js';
+import { customerTaxId, invoiceTitle, showNotesColumn, termLines } from '../src/utils/docLines.js';
 import { generateThermalReceiptHTML } from '../src/utils/escposGenerator.js';
 
 describe('identificación del cliente en documentos', () => {
@@ -129,5 +129,27 @@ describe('ticket térmico (representación impresa)', () => {
     const nota = generateThermalReceiptHTML({ ncfNumber: 'B0400000002', reason: 'Anulación de Factura: error', amount: 100, originalNcf: 'B0100000012' }, 'credit-note', profile, null, null);
     expect(nota).toContain('NCF modificado B0100000012');
     expect(nota).toContain('Anula el NCF modificado');
+  });
+});
+
+describe('termLines: condición de pago impresa', () => {
+  const snap = (name, schedule, discount = null) => ({ total: 1000, paymentTerm: { id: 'x', name, saleDate: '2026-11-25', discount, schedule } });
+  const at = (d) => `${d}T12:00:00.000Z`;
+  it('contado: sin líneas', () => {
+    expect(termLines({ total: 1000 })).toEqual([]);
+    expect(termLines({ total: 1000, paymentTerm: null })).toEqual([]);
+  });
+  it('un solo vencimiento', () => {
+    expect(termLines(snap('30 días', [{ dueDate: at('2026-12-25'), amount: 1000 }]))).toEqual(['Condición: 30 días', 'Vence: 25/12/2026']);
+  });
+  it('varias cuotas', () => {
+    expect(termLines(snap('50/50', [{ dueDate: at('2026-11-25'), amount: 500 }, { dueDate: at('2026-12-25'), amount: 500 }]))).toEqual([
+      'Condición: 50/50', 'Cuota 1: 25/11/2026 — RD$ 500.00', 'Cuota 2: 25/12/2026 — RD$ 500.00',
+    ]);
+  });
+  it('con descuento por pronto pago', () => {
+    expect(termLines(snap('30 días, 2 % a 10 días', [{ dueDate: at('2026-12-25'), amount: 1000 }], { percent: 2, days: 10 }))).toEqual([
+      'Condición: 30 días, 2 % a 10 días', 'Vence: 25/12/2026', '2 % de descuento si paga todo antes del 05/12/2026',
+    ]);
   });
 });

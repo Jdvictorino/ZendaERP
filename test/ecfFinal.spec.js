@@ -125,3 +125,18 @@ test('una línea con descuento lleva su TablaSubDescuento en el orden del format
   expect(at('DescuentoMonto')).toBeLessThan(at('TablaSubDescuento'));
   expect(at('TablaSubDescuento')).toBeLessThan(at('MontoItem'));
 });
+
+describe('Condición de pago en el e-CF', () => {
+  const items = [{ productName: 'A', quantity: 1, unitPrice: 100, discountPercent: 0, taxRate: 0 }];
+  const idDoc = (extra) => buildEcfFromInvoice({ ...base, items, total: 100, ...extra }, company, 'E31', 'E310000000009', sequence).ECF.Encabezado.IdDoc;
+  it('con plazo: TipoPago 2 y FechaLimitePago = última cuota', () => {
+    const d = idDoc({ paymentTerm: { id: 'x', name: '30 días', saleDate: '2026-11-25', discount: null, schedule: [{ dueDate: '2026-12-25T12:00:00.000Z', amount: 100 }] } });
+    expect(d.TipoPago).toBe('2');
+    expect(d.FechaLimitePago).toBe('25-12-2026');
+  });
+  it('contado: TipoPago 1 y sin FechaLimitePago', () => {
+    const d = idDoc({});
+    expect(d.TipoPago).toBe('1');
+    expect('FechaLimitePago' in d).toBe(false);
+  });
+});

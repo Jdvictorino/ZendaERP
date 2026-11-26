@@ -1,6 +1,7 @@
 import { netUnitPrice, round2 } from './tax.js';
 import { formatQty, unitOf } from './units.js';
 import { ECF_TYPE_MAP } from './ecfConstants.js';
+import { installmentsOf } from './paymentTerms.js';
 
 // Cédula/RNC/pasaporte del cliente: la copia guardada al facturar o la del cliente. Nunca el id interno.
 export function customerTaxId(customerDetails, docData) {
@@ -102,4 +103,23 @@ export function docTotals(doc) {
     }
     const subtotal = round2(items.reduce((sum, i) => sum + round2(Number(i.subtotal)), 0));
     return { subtotal, discount: round2(subtotal - Number(doc.subtotal)), itbis, total };
+}
+
+// 'YYYY-MM-DD…' → 'dd/MM/yyyy' sin pasar por Date (el día no se corre por la zona horaria)
+const dmy = (iso, sep = '/') => String(iso).slice(0, 10).split('-').reverse().join(sep);
+
+// Condición de pago impresa (factura y ticket). Contado o factura vieja sin plazo guardado: [].
+export function termLines(invoice) {
+    const t = invoice?.paymentTerm;
+    if (!t?.schedule?.length) return [];
+    const list = installmentsOf(invoice, '');
+    const lines = [`Condición: ${t.name}`];
+    if (list.length === 1) lines.push(`Vence: ${dmy(list[0].dueDate)}`);
+    else list.forEach((c, i) => lines.push(`Cuota ${i + 1}: ${dmy(c.dueDate)} — RD$ ${c.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`));
+    if (t.discount) {
+        const d = new Date(`${String(t.saleDate).slice(0, 10)}T12:00:00Z`); // UTC: el día no se corre
+        d.setUTCDate(d.getUTCDate() + Number(t.discount.days));
+        lines.push(`${t.discount.percent} % de descuento si paga todo antes del ${dmy(d.toISOString())}`);
+    }
+    return lines;
 }
