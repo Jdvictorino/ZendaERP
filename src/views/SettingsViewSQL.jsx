@@ -10,6 +10,7 @@ import { buildCategoryMigrations } from '../utils/categoryMigrations.js';
 import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import NcfModal from '../components/modals/NcfModal.jsx';
 import WithholdingsTab from '../components/settings/WithholdingsTab.jsx';
+import PaymentTermsTab from '../components/settings/PaymentTermsTab.jsx';
 import EcfConfigPanel from '../components/ecf/EcfConfigPanel.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -270,7 +271,8 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
         { id: 'talonarios', label: 'Talonarios NCF', icon: Settings },
         { id: 'ecf', label: 'Configuración e-CF', icon: Shield },
         { id: 'correo', label: 'Servicio de Correo', icon: Mail },
-        { id: 'retenciones', label: 'Retenciones', icon: DollarSign }
+        { id: 'retenciones', label: 'Retenciones', icon: DollarSign },
+        { id: 'plazos', label: 'Condiciones de pago', icon: DollarSign }
     ];
 
     return (
@@ -1009,6 +1011,10 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
 
                     {activeTab === 'retenciones' && (
                         <WithholdingsTab companyProfile={companyProfile} canEdit={!!isMasterUser} onProfileUpdate={onProfileUpdate} />
+                    )}
+
+                    {activeTab === 'plazos' && (
+                        <PaymentTermsTab companyProfile={companyProfile} canEdit={!!isMasterUser} onProfileUpdate={onProfileUpdate} />
                     )}
 
                     {/* Servicio de Correo */}
