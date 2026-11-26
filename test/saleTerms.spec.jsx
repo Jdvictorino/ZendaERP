@@ -55,7 +55,7 @@ vi.mock('../src/components/modals/CierreCajaReportModal.jsx', () => ({ default: 
 
 import POSBillingOrdersView from '../src/views/POSBillingOrdersView.jsx';
 import PaymentModal from '../src/components/modals/PaymentModal.jsx';
-import { proposedTermId, toggledTermId } from '../src/utils/saleTerms.js';
+import { proposedTermId, toggledTermId, termPayload, paysToday } from '../src/utils/saleTerms.js';
 
 const profile = { orderMode: 'distributor', currency: 'DOP' };
 const term = (id) => DEFAULT_PAYMENT_TERMS.find((t) => t.id === id);
@@ -100,6 +100,27 @@ describe('condición de pago propuesta', () => {
   });
 });
 
+describe('plazo en la venta (Distribuidor y craft)', () => {
+  const T = DEFAULT_PAYMENT_TERMS;
+  it('payload: crédito lleva paymentTermId, contado no', () => {
+    expect(termPayload(T, '30-dias')).toEqual({ paymentTermId: '30-dias' });
+    expect(termPayload(T, 'contado')).toEqual({});
+  });
+  it('paysToday coincide con downPayment', () => {
+    const hoy = '2026-11-26';
+    expect(paysToday(term('50-ahora-50-30'), hoy)).toBe(true);
+    expect(paysToday(term('30-dias'), hoy)).toBe(false);
+    expect(paysToday(term('30-dias-fin-mes'), hoy)).toBe(false);
+    const finMes = { ...term('50-ahora-50-30'), installments: [{ percent: 50, days: 0, fromMonthEnd: true }, { percent: 50, days: 30, fromMonthEnd: false }] };
+    expect(paysToday(finMes, '2026-11-30')).toBe(true);
+    expect(paysToday(finMes, hoy)).toBe(false);
+  });
+  it('mínimo de craft: downPayment del plazo de la factura', () => {
+    expect(downPayment(snapshotOf('50-ahora-50-30', 1000))).toBe(500);
+    expect(downPayment(snapshotOf('30-dias', 1000))).toBe(0);
+  });
+});
+
 describe('PaymentModal con cobro mínimo', () => {
   const inv = { id: 'i1', invoiceNumber: 'F-1', total: 1000, taxAmount: 0, paidAmount: 0, paymentMethod: 'Crédito', payments: [] };
   const setup = (props) => {
@@ -124,6 +145,14 @@ describe('PaymentModal con cobro mínimo', () => {
     fireEvent.click(screen.getByText('Confirmar Pago'));
     await waitFor(() => expect(mocks.update).toHaveBeenCalled());
     expect(mocks.update.mock.calls[0][1]).toMatchObject({ paidAmount: 500, paymentStatus: 'Pagado Parcialmente' });
+  });
+
+  it('no deja llegar al mínimo escribiendo 500 en Venta a Crédito', async () => {
+    setup({ minAmount: 500 });
+    fireEvent.change(document.querySelector('input[name="credito"]'), { target: { value: '500' } });
+    fireEvent.click(screen.getByText('Confirmar Pago'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it('sin minAmount funciona como siempre', async () => {

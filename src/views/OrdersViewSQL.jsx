@@ -23,8 +23,8 @@ import Button from '../components/ui/Button.jsx';
 import Segmented from '../components/ui/Segmented.jsx';
 import api from '../api/client.js';
 import { lineAmounts, round2, isTaxExempt, todayRD } from '../utils/tax.js';
-import { paymentTermsOf, isCashTerm, downPayment } from '../utils/paymentTerms.js';
-import { cashTermId, proposedTermId } from '../utils/saleTerms.js';
+import { paymentTermsOf, downPayment } from '../utils/paymentTerms.js';
+import { cashTermId, proposedTermId, termPayload } from '../utils/saleTerms.js';
 import { ExemptionNote } from './POSBillingOrdersView.jsx';
 import useApproval from '../hooks/useApproval.js';
 import { useApiCrud } from '../hooks/useApi.js';
@@ -438,7 +438,7 @@ const OrdersViewSQL = ({ companyProfile, currentUserProfile, setView }) => {
                 paymentMethod: 'pendiente',
                 amountPaid: 0,
                 deliveryType,
-                ...(isCashTerm(terms.find(t => t.id === termId)) ? {} : { paymentTermId: termId }),
+                ...termPayload(terms, termId),
                 notes: '',
                 status: 'Pendiente',
             };

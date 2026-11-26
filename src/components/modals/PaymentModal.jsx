@@ -180,7 +180,9 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             toast.error("El monto a pagar debe ser mayor que cero.");
             return;
         }
-        if (paidBefore + totalPaid < minAmount - 0.001) {
+        // "Venta a Crédito" no es dinero cobrado
+        const collected = totalPaid - (parseFloat(payments.credito) || 0);
+        if (paidBefore + collected < minAmount - 0.001) {
             toast.error(`El cobro mínimo hoy es ${formatCurrency(minAmount, currency)}.`);
             return;
         }

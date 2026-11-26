@@ -31,7 +31,7 @@ import { confirmDialog } from '../utils/confirmDialog.jsx';
 import useApproval from '../hooks/useApproval.js';
 import { round2, lineAmounts, isTaxExempt, exemptionStatus, suggestedVoucher, todayRD, voucherError } from '../utils/tax.js';
 import { paymentTermsOf, isCashTerm, downPayment } from '../utils/paymentTerms.js';
-import { cashTermId, proposedTermId, toggledTermId } from '../utils/saleTerms.js';
+import { cashTermId, proposedTermId, toggledTermId, termPayload, paysToday } from '../utils/saleTerms.js';
 import { buildVoucherOptions, missingVoucherWarning } from '../utils/voucherOptions.js';
 
 const TAX_RATE = 0.18;
@@ -740,7 +740,8 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
     const voucherProblem = voucherError(option.value, { exemptApplied: exempt, taxpayerType: selectedCustomer.taxpayerType });
     if (voucherProblem) { toast.error(voucherProblem); return; }
     // el efectivo de una venta de contado entra en la caja: sin turno abierto no cuadraría en el cierre
-    if (!isCredit && !openShift) { toast.error('Abre un turno de caja para cobrar ventas de contado.'); return; }
+    // lo cobrado hoy (contado o cuota inicial) entra en la caja: sin turno abierto no cuadraría en el cierre
+    if ((!isCredit || paysToday(term, today)) && !openShift) { toast.error('Abre un turno de caja para cobrar esta venta (contado o cuota inicial).'); return; }
 
     // No se vende más de lo que hay: se suman las líneas del mismo producto (el servidor también lo valida)
     for (const r of rows) {
@@ -781,7 +782,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
       amountPaid: 0,
       deliveryType,
       // el servidor guarda la copia del plazo y calcula cuotas y vencimiento
-      ...(isCredit ? { paymentTermId: condicion } : {}),
+      ...termPayload(terms, condicion),
       notes: '',
       status: 'Pendiente',
     };
@@ -809,7 +810,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
 
       playSuccessSound();
       if (isCredit) {
-        toast.success(`Venta a crédito ${finalOrder.orderNumber || ''} registrada en Cuentas por Cobrar.`);
+        toast.success(`Venta a crédito ${finalOrder.orderNumber || ''} registrada en Cuentas por Cobrar${downPayment(finalOrder.paymentTerm) > 0 ? '; falta cobrar la cuota inicial.' : '.'}`);
         // con cuota a 0 días se abre el cobro (mínimo = esa cuota); si no, el comprobante se imprime al registrar la venta
         if (downPayment(finalOrder.paymentTerm) > 0) setPaymentForOrder(finalOrder);
         else handleDocumentPrint(finalOrder, 'invoice', selectedCustomer).catch(err => toast.error('No se pudo imprimir: ' + err.message));
@@ -903,7 +904,7 @@ export default function POSBillingOrdersView({ companyProfile, currentUserProfil
             <div>
               <div className="text-xs font-medium text-ink-muted mb-2">Forma de pago</div>
               <PayMethods active={payMethod} setActive={setPayMethod} disabled={isCredit} />
-              {isCredit && <p className="mt-2 text-xs text-ink-muted">Venta a crédito: el cobro se registra luego en Cuentas por Cobrar.</p>}
+              {isCredit && <p className="mt-2 text-xs text-ink-muted">{paysToday(term, today) ? 'Se cobra hoy la cuota inicial; el resto queda en Cuentas por Cobrar.' : 'Venta a crédito: el cobro se registra luego en Cuentas por Cobrar.'}</p>}
             </div>
             <div>
               <label htmlFor="pos-d-desc" className="block text-xs font-medium text-ink-muted mb-2">Descuento general</label>
