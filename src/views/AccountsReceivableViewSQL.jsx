@@ -5,6 +5,8 @@ import { badgeClass } from '../components/ui/Badge.jsx';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import Button from '../components/ui/Button.jsx';
 import { invoiceBalance } from '../utils/withholdings.js';
+import { nextDue } from '../utils/paymentTerms.js';
+import { todayRD } from '../utils/tax.js';
 import PaymentModal from '../components/modals/PaymentModal.jsx';
 import ReceivableDetailModal from '../components/modals/ReceivableDetailModal.jsx';
 import { AlertTriangle, CalendarDays, Clock, Users, ChevronDown, Mail, Wallet, FileText } from 'lucide-react';
@@ -261,8 +263,10 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                 const total = Number(inv.total || 0);
                 const paid = Number(inv.paidAmount || 0);
                 const outstanding = invoiceBalance({ ...inv, amountPaid: inv.paidAmount ?? inv.amountPaid });
-                const dueDate = getDueDate(inv);
-                const overdueDays = dueDate ? getDaysBetween(today, dueDate) : 0;
+                // Con plazo guardado vence la primera cuota con saldo ('YYYY-MM-DD', sin correr el día); sin él, la fecha de siempre.
+                const due = inv.paymentTerm?.schedule?.length ? nextDue({ ...inv, amountPaid: inv.paidAmount ?? inv.amountPaid }, todayRD()) : null;
+                const dueDate = due ? new Date(...due.dueDate.split('-').map((n, i) => (i === 1 ? n - 1 : Number(n)))) : getDueDate(inv);
+                const overdueDays = due ? due.overdueDays : dueDate ? getDaysBetween(today, dueDate) : 0;
                 const bucket = agingBucketFor(overdueDays);
                 const customer = customerIndex.get(inv.customerId);
                 const status = inv.paymentStatus || (paid <= 0 ? 'Pendiente' : outstanding > 0 ? 'Parcial' : 'Pagado');

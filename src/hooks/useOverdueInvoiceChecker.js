@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { invoices as invoicesApi, alerts as alertsApi } from '../api/client.js';
 
 import { invoiceBalance } from '../utils/withholdings.js';
+import { nextDue } from '../utils/paymentTerms.js';
+import { todayRD } from '../utils/tax.js';
 const STORAGE_KEY = 'overdue_alerted_ids';
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // cada 5 minutos
 
@@ -10,7 +12,7 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000; // cada 5 minutos
  * Solo activo para roles admin/manager cuando el usuario está autenticado.
  *
  * Una factura se considera vencida si:
- * - Tiene `dueDate` en el pasado
+ * - Tiene `dueDate` en el pasado (con plazo por cuotas: alguna cuota vencida y sin cobrar)
  * - Tiene `amountPaid < total` (hay saldo pendiente)
  * - Su estado no es Cancelado, Anulado ni Pagado
  *
@@ -51,23 +53,32 @@ function useOverdueInvoiceChecker(user) {
         const now = new Date();
         const alertedIds = getAlertedIds();
 
+        const today = todayRD();
+        // Con plazo guardado vence la primera cuota con saldo (hora RD); sin él, el dueDate de siempre.
+        const termDue = (inv) => (inv.paymentTerm?.schedule?.length ? nextDue(inv, today) : null);
+        const alertKey = (inv) => { const t = termDue(inv); return t ? `${inv.id}:${t.dueDate}` : inv.id; };
+
         const overdueInvoices = allInvoices.filter(inv => {
-          if (!inv.dueDate) return false;
-          const due = new Date(inv.dueDate);
-          if (due >= now) return false;
+          if (inv.paymentTerm?.schedule?.length) {
+            if (!(termDue(inv)?.overdueDays > 0)) return false;
+          } else {
+            if (!inv.dueDate) return false;
+            const due = new Date(inv.dueDate);
+            if (due >= now) return false;
+          }
           // Excluir estados terminales
           if (['Cancelado', 'Anulado', 'Pagado'].includes(inv.status)) return false;
           // Verificar si tiene saldo pendiente
           if (invoiceBalance(inv) <= 0) return false;
           // Ya fue alertada en esta sesión
-          if (alertedIds.includes(inv.id)) return false;
+          if (alertedIds.includes(alertKey(inv))) return false;
           return true;
         });
 
         // Crear alertas para cada factura vencida nueva
         for (const inv of overdueInvoices) {
           try {
-            const daysOverdue = Math.floor((now - new Date(inv.dueDate)) / 86400000);
+            const daysOverdue = termDue(inv)?.overdueDays ?? Math.floor((now - new Date(inv.dueDate)) / 86400000);
             const outstanding = invoiceBalance(inv).toFixed(2);
             await alertsApi.create({
               type: 'overdue_invoice',
@@ -82,7 +93,7 @@ function useOverdueInvoiceChecker(user) {
                 customerName: inv.customerName || inv.customer?.name || 'Cliente General'
               }
             });
-            addAlertedId(inv.id);
+            addAlertedId(alertKey(inv));
           } catch (alertErr) {
             console.warn('No se pudo crear alerta de factura vencida:', alertErr);
           }

@@ -6,6 +6,8 @@ import { Mail, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SendEmailModal from './SendEmailModal.jsx';
 import { docLine } from '../../utils/docLines.js';
+import { installmentsOf } from '../../utils/paymentTerms.js';
+import { todayRD } from '../../utils/tax.js';
 
 const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], companyProfile = {} }) => {
   const currency = companyProfile?.currency || 'USD';
@@ -29,6 +31,10 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
     shipping: invoice?.shippingCost || invoice?.shipping || 0,
     subtotal: invoice?.subtotal || items.reduce((sum, item) => sum + item.lineTotal, 0),
   }), [entry, invoice, items]);
+
+  // Calendario de cuotas: solo si la factura guardó su plazo; fechas 'YYYY-MM-DD' tal cual.
+  const installments = invoice.paymentTerm?.schedule?.length
+    ? installmentsOf({ ...invoice, amountPaid: invoice.paidAmount ?? invoice.amountPaid }, todayRD()) : [];
 
   const formatMoney = (value) => formatCurrency(Number(value) || 0, currency);
 
@@ -266,6 +272,29 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
               </div>
             )}
           </section>
+
+          {installments.length > 0 && (
+            <section className="rounded-lg border border-line p-4">
+              <h3 className="mb-2 text-sm font-semibold text-ink">Calendario de cuotas</h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-ink-muted">
+                    <th className="py-1">Vence</th><th className="py-1 text-right">Monto</th><th className="py-1 text-right">Pendiente</th><th className="py-1 text-right">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {installments.map((c, i) => (
+                    <tr key={i} className="border-t border-line">
+                      <td className="py-1">{c.dueDate.split('-').reverse().join('/')}</td>
+                      <td className="py-1 text-right tabular-nums">{formatMoney(c.amount)}</td>
+                      <td className="py-1 text-right tabular-nums">{formatMoney(c.remaining)}</td>
+                      <td className={`py-1 text-right ${c.overdue ? 'text-red-600' : 'text-ink-muted'}`}>{c.remaining <= 0.01 ? 'Pagada' : c.overdue ? 'Vencida' : 'Pendiente'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
 
           <section className="rounded-lg border border-line">
             <header className="flex items-center justify-between border-b border-line px-4 py-2">
