@@ -133,6 +133,11 @@ describe('Condición de pago en el e-CF', () => {
     const d = idDoc({ paymentTerm: { id: 'x', name: '30 días', saleDate: '2026-11-25', discount: null, schedule: [{ dueDate: '2026-12-25T12:00:00.000Z', amount: 100 }] } });
     expect(d.TipoPago).toBe('2');
     expect(d.FechaLimitePago).toBe('25-12-2026');
+    const xml = ecfToXml(buildEcfFromInvoice({ ...base, items, total: 100, paymentTerm: { id: 'x', name: '30 días', saleDate: '2026-11-25', discount: null, schedule: [{ dueDate: '2026-12-25T12:00:00.000Z', amount: 100 }] } }, company, 'E31', 'E310000000009', sequence));
+    const at = (t) => xml.indexOf(`<${t}>`);
+    expect(at('TipoPago')).toBeGreaterThan(-1);
+    expect(at('TipoPago')).toBeLessThan(at('FechaLimitePago'));
+    expect(at('FechaLimitePago')).toBeLessThan(at('TablaFormasPago'));
   });
   it('contado: TipoPago 1 y sin FechaLimitePago', () => {
     const d = idDoc({});

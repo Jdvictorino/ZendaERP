@@ -147,6 +147,11 @@ describe('termLines: condición de pago impresa', () => {
       'Condición: 50/50', 'Cuota 1: 25/11/2026 — RD$ 500.00', 'Cuota 2: 25/12/2026 — RD$ 500.00',
     ]);
   });
+  it('descuento con saleDate inválida: omite la línea sin lanzar', () => {
+    const inv = snap('x', [{ dueDate: at('2026-12-25'), amount: 1000 }], { percent: 2, days: 10 });
+    inv.paymentTerm.saleDate = undefined;
+    expect(termLines(inv)).toEqual(['Condición: x', 'Vence: 25/12/2026']);
+  });
   it('con descuento por pronto pago', () => {
     expect(termLines(snap('30 días, 2 % a 10 días', [{ dueDate: at('2026-12-25'), amount: 1000 }], { percent: 2, days: 10 }))).toEqual([
       'Condición: 30 días, 2 % a 10 días', 'Vence: 25/12/2026', '2 % de descuento si paga todo antes del 05/12/2026',

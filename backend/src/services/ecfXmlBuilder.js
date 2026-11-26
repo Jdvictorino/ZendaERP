@@ -255,7 +255,7 @@ export function buildEcfFromNote(note, originalInvoice, company, tipoEcf, eNcf, 
   const items = noteLines(note, originalInvoice, { lines });
 
   // Las líneas ya van sin ITBIS: no se normalizan de nuevo
-  const ecfData = buildEcfFromInvoice({ ...originalInvoice, pricesIncludeTax: false, discountAmount: 0, date: noteDate, items }, company, tipoEcf, eNcf, sequence);
+  const ecfData = buildEcfFromInvoice({ ...originalInvoice, paymentTerm: null, pricesIncludeTax: false, discountAmount: 0, date: noteDate, items }, company, tipoEcf, eNcf, sequence);
   const { TablaFormasPago, ...idDoc } = ecfData.ECF.Encabezado.IdDoc; // opcional/no corresponde en notas
   if (tipoEcf === 'E34') {
     const originalDate = new Date(originalInvoice.billedDate || originalInvoice.date);

@@ -116,10 +116,10 @@ export function termLines(invoice) {
     const lines = [`Condición: ${t.name}`];
     if (list.length === 1) lines.push(`Vence: ${dmy(list[0].dueDate)}`);
     else list.forEach((c, i) => lines.push(`Cuota ${i + 1}: ${dmy(c.dueDate)} — RD$ ${c.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`));
-    if (t.discount) {
-        const d = new Date(`${String(t.saleDate).slice(0, 10)}T12:00:00Z`); // UTC: el día no se corre
-        d.setUTCDate(d.getUTCDate() + Number(t.discount.days));
-        lines.push(`${t.discount.percent} % de descuento si paga todo antes del ${dmy(d.toISOString())}`);
+    const sale = new Date(`${String(t.saleDate).slice(0, 10)}T12:00:00Z`); // UTC: el día no se corre
+    if (t.discount && !Number.isNaN(sale.getTime())) {
+        sale.setUTCDate(sale.getUTCDate() + Number(t.discount.days));
+        lines.push(`${t.discount.percent} % de descuento si paga todo antes del ${dmy(sale.toISOString())}`);
     }
     return lines;
 }

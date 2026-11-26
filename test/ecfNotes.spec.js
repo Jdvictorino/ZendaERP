@@ -81,3 +81,14 @@ describe('nota sobre factura vieja (ITBIS incluido)', () => {
     expect(Number(ECF.Encabezado.Totales.MontoTotal)).toBeCloseTo(sumTotals(ECF.Encabezado.Totales), 2);
   });
 });
+
+describe('Notas sobre una factura con plazo', () => {
+  const conPlazo = { ...invoice, paymentTerm: { id: 'x', name: '30 días', saleDate: '2026-11-01', discount: null, schedule: [{ dueDate: '2026-12-01T12:00:00.000Z', amount: 1062 }] } };
+  it.each(['E33', 'E34'])('%s no hereda FechaLimitePago ni TipoPago 2', (tipo) => {
+    const note = { amount: 118, reason: 'Flete', createdAt: new Date('2026-11-10T15:00:00Z') };
+    const a = buildEcfFromNote(note, conPlazo, company, tipo, `${tipo}0000000001`, sequence).ECF.Encabezado.IdDoc;
+    const b = buildEcfFromNote(note, invoice, company, tipo, `${tipo}0000000001`, sequence).ECF.Encabezado.IdDoc;
+    expect(a.FechaLimitePago).toBeUndefined();
+    expect(a).toEqual(b);
+  });
+});

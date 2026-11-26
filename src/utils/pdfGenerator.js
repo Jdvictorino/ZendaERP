@@ -405,7 +405,7 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
     );
 
     // Compacto para que el QR del e-CF quepa en la primera página
-    const terms = termLines(docData);
+    const terms = termLines(docData).flatMap((l) => doc.splitTextToSize(l, cardWidth - 16));
     const summaryHeight = summaryEntries.length * 8 + 20 + terms.length * 4.5;
     const bankHeight = bankDetails?.bankName ? 52 : 0;
     const boxHeight = Math.max(summaryHeight, bankHeight);
@@ -464,7 +464,7 @@ const drawFinancialSection = (doc, theme, { docData, currency, bankDetails, star
 
     if (terms.length) {
         doc.setFontSize(8);
-        terms.forEach((line, i) => doc.text(doc.splitTextToSize(line, cardWidth - 16), summaryX + 8, cursorY + 2 + i * 4.5));
+        terms.forEach((line, i) => doc.text(line, summaryX + 8, cursorY + 2 + i * 4.5));
     }
 
     return startY + adjustedHeight;
