@@ -47,6 +47,7 @@ describe('noteSplit', () => {
     expect(rows).toHaveLength(2);
     expect(rows[1]).toMatchObject({ NCF: 'E340000000001', 'NCF ó Documento Modificado': 'E310000000010', 'Monto Facturado': 300, 'ITBIS Facturado': 54, 'Fecha Comprobante': '20261110' });
     expect(rows[0]['NCF ó Documento Modificado']).toBe('');
+    for (const k of ['Efectivo', 'Cheque / Transferencia / Depósito', 'Tarjeta Débito / Crédito', 'Venta a Crédito', 'Bonos o Certificados de Regalo', 'Permuta', 'Otras Formas de Ventas']) expect(rows[1][k]).toBe(0);
   });
   it('factura anulada por una nota total: sigue en el 607 con su nota y no va al 608', () => {
     const voided = { ...invoice, status: 'Anulado', itbis: 108, subtotal: 954, _count: { creditNotes: 1 } };

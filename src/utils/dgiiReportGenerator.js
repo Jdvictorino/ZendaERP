@@ -135,7 +135,7 @@ export const generate609Data = (expenses = []) => {
  */
 export const generate607Data = (invoices = [], creditNotes = []) => {
     // Notas de crédito (con su `invoice`): línea propia con su NCF y el NCF modificado, montos positivos.
-    // Fuente: Instructivo 607 de la DGII (campo "Número Comprobante Fiscal Modificado") y Consulta 17 (las notas se remiten en el 607); el signo no lo dice el instructivo (SIN VERIFICAR).
+    // Fuente: Instructivo 607 de la DGII (campo "Número Comprobante Fiscal Modificado") y Consulta 17 (las notas se remiten en el 607); montos en positivo: la DGII resta o suma según el prefijo B04/E34 o B03/E33 (fuente: el dueño, sobre el instructivo 607); formas de pago (casillas 17 a 23) en 0.
     // Nota de más de 30 días: no rebaja ITBIS (Reglamento 293-11, arts. 8 y 28), va con ITBIS 0 y la base completa.
     const noteRows = creditNotes.filter(n => n.invoice && n.ncfNumber).map(n => {
         const inv = n.invoice;
