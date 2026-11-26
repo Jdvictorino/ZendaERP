@@ -42,6 +42,14 @@ describe.each([['app', app], ['backend', srv]])('paymentTerms (%s)', (_n, p) => 
     expect(p.installmentsOf({ total: 50, amountPaid: 0, createdAt: '2026-11-25T10:00:00Z' }, '2026-11-25')[0].dueDate).toBe('2026-11-25');
   });
 
+  it('installmentsOf: reparte por fecha y toma la fecha local de RD', () => {
+    const paymentTerm = { schedule: [{ dueDate: '2026-12-25', amount: 500 }, { dueDate: '2026-11-25', amount: 500 }] };
+    const r = p.installmentsOf({ total: 1000, amountPaid: 500, paymentTerm }, '2026-11-26');
+    expect(r.map((c) => [c.dueDate, c.remaining, c.overdue])).toEqual([['2026-11-25', 0, false], ['2026-12-25', 500, false]]);
+    expect(p.installmentsOf({ total: 10, dueDate: '2026-12-26T01:30:00.000Z' }, '2026-12-25')[0].dueDate).toBe('2026-12-25');
+    expect(p.installmentsOf({ total: 10, dueDate: new Date('2026-12-26T01:30:00.000Z') }, '2026-12-25')[0].dueDate).toBe('2026-12-25');
+  });
+
   it('discountFor', () => {
     const inv = { total: 1180, amountPaid: 0, paymentTerm: p.termSnapshot(t('30-dias-2-10'), 1180, '2026-11-25') };
     expect(p.discountFor(inv, '2026-12-05')).toEqual({ amount: 23.6, until: '2026-12-05' });
@@ -56,6 +64,9 @@ describe.each([['app', app], ['backend', srv]])('paymentTerms (%s)', (_n, p) => 
     expect(bad((l) => l.shift())).toMatch(/contado/);
     expect(bad((l) => { l[7].discount.days = 30; })).toMatch(/descuento/);
     expect(bad((l) => { l[2].id = '15-dias'; })).toMatch(/id repetido/);
+    expect(bad((l) => { l[7].discount.days = 1.5; })).toMatch(/descuento/);
+    expect(bad((l) => { l[7].discount.percent = ''; })).toMatch(/descuento/);
+    expect(bad((l) => { l[2].installments[0].percent = true; })).toMatch(/sumar 100/);
     expect(bad((l) => { l[2].installments[0].days = 400; })).toMatch(/entre 0 y 365/);
   });
 

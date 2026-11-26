@@ -1,9 +1,13 @@
 // Copia de src/utils/paymentTerms.js — mantener iguales (test/paymentTerms.spec.js prueba ambas)
 // Condiciones de pago: plazos iniciales, calendario de cuotas, saldo por cuota y descuento por pronto pago.
+import { todayRD } from './tax.js';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const num = (v) => Number(v) || 0;
-const VOID_STATUSES = ['Anulado', 'Anulada', 'Cancelado', 'Cancelada'];
+// Número real: rechaza vacío, null y booleanos que Number() convertiría en 0/1.
+const isNum = (v) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && Number.isFinite(Number(v));
+const isDays = (v) => isNum(v) && Number.isInteger(Number(v)) && v >= 0 && v <= 365;
+const VOID_STATUSES = ['Anulado', 'Cancelado'];
 
 const term = (id, name, installments, discount = null) => ({ id, name, installments, discount, active: true });
 const one = (days, fromMonthEnd = false) => [{ percent: 100, days, fromMonthEnd }];
@@ -43,14 +47,14 @@ export const validatePaymentTerms = (list) => {
     names.add(name.toLowerCase());
     const ins = t.installments;
     if (!Array.isArray(ins) || !ins.length) return `"${name}" necesita al menos una cuota`;
-    if (ins.some((c) => c.days === '' || c.days === null || !Number.isInteger(Number(c.days)) || c.days < 0 || c.days > 365))
+    if (ins.some((c) => !isDays(c.days)))
       return `Los días de "${name}" deben ser enteros entre 0 y 365`;
-    if (ins.some((c) => !(Number(c.percent) > 0)) || Math.abs(ins.reduce((s, c) => s + num(c.percent), 0) - 100) > 0.01)
+    if (ins.some((c) => !isNum(c.percent) || !(Number(c.percent) > 0)) || Math.abs(ins.reduce((s, c) => s + num(c.percent), 0) - 100) > 0.01)
       return `Los porcentajes de las cuotas de "${name}" deben sumar 100`;
     if (t.discount) {
       const { percent, days } = t.discount;
-      if (!(Number(percent) >= 0 && Number(percent) <= 100)) return `El descuento de "${name}" debe estar entre 0 y 100 %`;
-      if (!(Number(days) >= 0) || Number(days) >= Math.max(...ins.map((c) => num(c.days))))
+      if (!isNum(percent) || Number(percent) < 0 || Number(percent) > 100) return `El descuento de "${name}" debe estar entre 0 y 100 %`;
+      if (!isDays(days) || Number(days) >= Math.max(...ins.map((c) => num(c.days))))
         return `Los días del descuento de "${name}" deben ser menores que los de la última cuota`;
     }
   }
@@ -69,7 +73,8 @@ const diffDays = (a, b) => {
   const [y2, m2, d2] = parts(b);
   return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 864e5);
 };
-const day10 = (v) => (v instanceof Date ? v.toISOString() : String(v || '')).slice(0, 10);
+// 'YYYY-MM-DD' tal cual; con hora (Date o ISO) se convierte a la fecha local de RD.
+const day10 = (v) => (typeof v === 'string' && v.length === 10 ? v : v ? todayRD(new Date(v)) : '');
 
 export const scheduleFor = (t, total, saleDate) => {
   let acc = 0;
@@ -98,8 +103,9 @@ const isVoid = (inv) => VOID_STATUSES.includes(inv.status);
 
 // Sin copia de plazo: una sola cuota por el total, con su vencimiento o la fecha de la venta.
 export const installmentsOf = (inv, today) => {
-  const schedule = inv.paymentTerm?.schedule?.length
-    ? inv.paymentTerm.schedule
+  const stored = inv.paymentTerm?.schedule;
+  const schedule = stored?.length
+    ? [...stored].sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0))
     : [{ dueDate: day10(inv.dueDate || inv.date || inv.createdAt), amount: num(inv.total) }];
   let left = num(inv.amountPaid) + num(inv.itbisRetenido) + num(inv.retencionRenta) + num(inv.creditedAmount);
   return schedule.map((c) => {
