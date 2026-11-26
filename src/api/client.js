@@ -274,7 +274,8 @@ export const invoices = {
   bill: (id, ncfType, customerRnc) => post(`/invoices/${id}/bill`, { ncfType, customerRnc }),
   cancel: (id, reason) => post(`/invoices/${id}/cancel`, { reason }),
   createCreditNote: (id, data) => post(`/invoices/${id}/credit-note`, data),
-  createDebitNote: (id, data) => post(`/invoices/${id}/debit-note`, data)
+  createDebitNote: (id, data) => post(`/invoices/${id}/debit-note`, data),
+  earlyPayment: (id, data) => post(`/invoices/${id}/early-payment`, data)
 };
 
 export const expenses = {

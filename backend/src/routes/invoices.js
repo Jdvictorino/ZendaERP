@@ -4,6 +4,7 @@ import { invoiceBalance } from '../services/withholdings.js';
 import { paymentTermsOf } from '../services/paymentTerms.js';
 import { planInvoiceTerms } from '../services/invoiceTerms.js';
 import { planInvoicePayment } from '../services/invoicePayment.js';
+import { planEarlyPayment } from '../services/earlyPayment.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db.js';
@@ -407,6 +408,42 @@ router.patch('/:id/status', authorize(...rolesFor('orders', 'invoices')), async 
   }
 });
 
+// Desglose de cobros (efectivo, tarjeta, transferencia) que usa el cierre de caja: solo se agregan, no se reescriben.
+// Cada cobro queda en el turno abierto de quien cobra: con varias cajas abiertas, cada cierre suma solo lo suyo.
+async function paymentsUpdate(req, invoice, body) {
+  const previous = Array.isArray(invoice.payments) ? invoice.payments : [];
+  const added = body.paymentBreakdown ? [body.paymentBreakdown] : Array.isArray(body.payments) ? body.payments.slice(previous.length) : [];
+  if (!added.length) return undefined;
+  const openShift = await prisma.cashShift.findFirst({
+    where: { companyId: req.companyId, userId: req.user.id, status: 'open' },
+    orderBy: { openedAt: 'desc' },
+    select: { id: true }
+  });
+  return appendPayments(previous, added.map((p) => ({ ...p, shiftId: openShift?.id || null })));
+}
+
+// Nota de crédito: comprobante (B04 en papel o E34 electrónico) y registro dentro de la transacción de la ruta.
+async function reserveNoteVoucher(invoice, company) {
+  const voucher = noteVoucher(invoice, company, 'B04');
+  return { voucher, reserved: voucher === 'ecf' ? await reserveEncf(company, 'E34') : null };
+}
+
+async function createCreditNote(tx, { companyId, userId, invoice, voucher, reserved, value, reason, lines, full, kind = 'normal', invoiceData = {} }) {
+  const ncfNumber = voucher === 'paper' ? (await takeNcf(tx, companyId, 'B04')).number : reserved?.eNcf ?? null;
+  const note = await tx.creditNote.create({
+    data: { companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber, kind, items: lines.map((l) => ({ itemId: l.id, quantity: l.quantity })) }
+  });
+  if (full) await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'Anulado' } });
+  else await tx.invoice.update({ where: { id: invoice.id }, data: { creditedAmount: { increment: value }, ...invoiceData } });
+  if (lines.length) await restoreStock(tx, { ...invoice, items: lines }, userId, `Nota de Crédito - ${note.ncfNumber || note.id}`, 'credit_note', note.id);
+  return note;
+}
+
+// e-CF de la nota (E34) después del commit: si la DGII no lo recibe, queda en Facturación Electrónica para reintentar
+const sendCreditNoteEcf = (reserved, args) => reserved
+  ? emitNoteEcf({ kind: 'credit', ...args, ...reserved }).catch((error) => ({ success: false, error: error.message }))
+  : undefined;
+
 /**
  * PUT /api/invoices/:id
  * Actualizar datos de una factura (cupones, notas, descuentos, items)
@@ -480,18 +517,8 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
       updateData.status = status;
     }
 
-    // Desglose de cobros (efectivo, tarjeta, transferencia) que usa el cierre de caja: solo se agregan, no se reescriben
-    const previous = Array.isArray(invoice.payments) ? invoice.payments : [];
-    const added = body.paymentBreakdown ? [body.paymentBreakdown] : Array.isArray(body.payments) ? body.payments.slice(previous.length) : [];
-    if (added.length) {
-      // Cada cobro queda en el turno abierto de quien cobra: con varias cajas abiertas, cada cierre suma solo lo suyo
-      const openShift = await prisma.cashShift.findFirst({
-        where: { companyId: req.companyId, userId: req.user.id, status: 'open' },
-        orderBy: { openedAt: 'desc' },
-        select: { id: true }
-      });
-      updateData.payments = appendPayments(previous, added.map((p) => ({ ...p, shiftId: openShift?.id || null })));
-    }
+    const payments = await paymentsUpdate(req, invoice, body);
+    if (payments) updateData.payments = payments;
 
     // De las líneas solo se editan las notas de personalización: cantidades y precios no cambian tras crear el pedido
     // (moverían el stock y el ITBIS ya calculados)
@@ -506,6 +533,39 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
     ]);
 
     res.json(results[results.length - 1]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/invoices/:id/early-payment
+ * Cobro con descuento por pronto pago: nota de crédito (sin devolver artículos) + cobro en una transacción.
+ * Mismo cuerpo que el cobro de PUT /:id; si el cobro no salda la factura con el descuento, no se crea nada.
+ */
+router.post('/:id/early-payment', authorize(...rolesFor('orders', 'invoices')), async (req, res, next) => {
+  try {
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: req.params.id, companyId: req.companyId },
+      include: { items: true, creditNotes: { select: { kind: true, amount: true, items: true } } }
+    });
+    if (!invoice) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    const plan = planEarlyPayment(invoice, req.body, { today: todayRD(), manager: canManageInvoices(req.user) });
+    if (plan.error) return res.status(plan.status).json({ error: plan.error });
+    const data = { ...plan.paymentData };
+    const payments = await paymentsUpdate(req, invoice, req.body);
+    if (payments) data.payments = payments;
+
+    const company = await prisma.company.findUnique({ where: { id: req.companyId } });
+    const { voucher, reserved } = await reserveNoteVoucher(invoice, company);
+    const { note, updated } = await prisma.$transaction(async (tx) => {
+      const note = await createCreditNote(tx, { companyId: req.companyId, userId: req.user.id, invoice, voucher, reserved, value: plan.discount, reason: 'Descuento por pronto pago', lines: [], full: false, kind: 'pronto_pago', invoiceData: data });
+      return { note, updated: await tx.invoice.findUnique({ where: { id: invoice.id }, include: { items: true } }) };
+    });
+
+    const ecfResult = await sendCreditNoteEcf(reserved, { note, invoice, lines: [], full: false });
+    res.status(201).json({ invoice: updated, creditNote: note, ecfResult });
   } catch (error) {
     next(error);
   }
@@ -688,24 +748,11 @@ router.post('/:id/credit-note', authorize('admin', 'manager'), async (req, res, 
     }
 
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });
-    const voucher = noteVoucher(invoice, company, 'B04');
-    const reserved = voucher === 'ecf' ? await reserveEncf(company, 'E34') : null;
+    const { voucher, reserved } = await reserveNoteVoucher(invoice, company);
 
-    const creditNote = await prisma.$transaction(async (tx) => {
-      const ncfNumber = voucher === 'paper' ? (await takeNcf(tx, req.companyId, 'B04')).number : reserved?.eNcf ?? null;
-      const note = await tx.creditNote.create({
-        data: { companyId: req.companyId, invoiceId: invoice.id, amount: value, reason, ncfNumber, items: lines.map((l) => ({ itemId: l.id, quantity: l.quantity })) }
-      });
-      if (full) await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'Anulado' } });
-      else await tx.invoice.update({ where: { id: invoice.id }, data: { creditedAmount: { increment: value } } });
-      if (lines.length) await restoreStock(tx, { ...invoice, items: lines }, req.user.id, `Nota de Crédito - ${note.ncfNumber || note.id}`, 'credit_note', note.id);
-      return note;
-    });
+    const creditNote = await prisma.$transaction((tx) => createCreditNote(tx, { companyId: req.companyId, userId: req.user.id, invoice, voucher, reserved, value, reason, lines, full }));
 
-    // e-CF de la nota (E34): si la DGII no lo recibe, queda en Facturación Electrónica para reintentar
-    const ecfResult = reserved
-      ? await emitNoteEcf({ kind: 'credit', note: creditNote, invoice, ...reserved, lines, full }).catch((error) => ({ success: false, error: error.message }))
-      : undefined;
+    const ecfResult = await sendCreditNoteEcf(reserved, { note: creditNote, invoice, lines, full });
     res.status(201).json({ ...creditNote, ecfResult });
   } catch (error) {
     next(error);
