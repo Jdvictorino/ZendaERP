@@ -547,7 +547,7 @@ router.post('/:id/early-payment', authorize(...rolesFor('orders', 'invoices')), 
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, companyId: req.companyId },
-      include: { items: true, creditNotes: { select: { kind: true, amount: true, items: true } } }
+      include: { items: { include: { packaging: true, product: { select: { allowFractions: true, unit: true } } } }, creditNotes: { select: { kind: true, amount: true, items: true } } }
     });
     if (!invoice) return res.status(404).json({ error: 'Factura no encontrada' });
 
@@ -560,8 +560,14 @@ router.post('/:id/early-payment', authorize(...rolesFor('orders', 'invoices')), 
     const company = await prisma.company.findUnique({ where: { id: req.companyId } });
     const { voucher, reserved } = await reserveNoteVoucher(invoice, company);
     const { note, updated } = await prisma.$transaction(async (tx) => {
+      // Bloqueo optimista: con dos cobros a la vez solo uno pasa. shortcut: el perdedor deja gastado su e-NCF reservado (igual que /credit-note si falla su transacción)
+      const { count } = await tx.invoice.updateMany({
+        where: { id: invoice.id, companyId: req.companyId, amountPaid: 0, creditedAmount: invoice.creditedAmount, status: { notIn: VOID_STATUSES } },
+        data: { creditedAmount: invoice.creditedAmount }
+      });
+      if (count === 0) throw httpError(409, 'La factura cambió; vuelve a cargarla.');
       const note = await createCreditNote(tx, { companyId: req.companyId, userId: req.user.id, invoice, voucher, reserved, value: plan.discount, reason: 'Descuento por pronto pago', lines: [], full: false, kind: 'pronto_pago', invoiceData: data });
-      return { note, updated: await tx.invoice.findUnique({ where: { id: invoice.id }, include: { items: true } }) };
+      return { note, updated: await tx.invoice.findUnique({ where: { id: invoice.id }, include: { items: { include: { product: { select: { id: true, name: true, code: true, sku: true, unit: true, allowFractions: true } } } } } }) };
     });
 
     const ecfResult = await sendCreditNoteEcf(reserved, { note, invoice, lines: [], full: false });

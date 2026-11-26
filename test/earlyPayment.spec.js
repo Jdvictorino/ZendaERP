@@ -19,7 +19,10 @@ describe('planEarlyPayment', () => {
     expect(run(inv, { amountPaid: 1156.4 }, '2026-12-06')).toEqual({ error: 'El descuento por pronto pago ya no aplica.', status: 400 });
   });
   it('con nota de pronto pago previa', () => {
-    expect(run({ ...inv, creditNotes: [{ kind: 'pronto_pago' }] }, { amountPaid: 1156.4 }).status).toBe(400);
+    expect(run({ ...inv, creditNotes: [{ kind: 'pronto_pago' }] }, { amountPaid: 1156.4 })).toEqual({ error: 'El descuento por pronto pago ya no aplica.', status: 400 });
+  });
+  it('cobro de más (total completo con descuento)', () => {
+    expect(run(inv, { amountPaid: 1180 }).status).toBe(400);
   });
   it('retenciones que dejan el descuento mayor que el saldo', () => {
     expect(run({ ...inv, itbisRetenido: 180, retencionRenta: 990 }, { amountPaid: 0 }).status).toBe(400);
