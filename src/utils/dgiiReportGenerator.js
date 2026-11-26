@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { isVoidInvoice } from './invoiceStatus.js';
 import { filterByDateRange } from './reportFilters.js';
+import { noteAmounts } from './noteSplit.js';
 
 // Función para determinar el Tipo de ID según la longitud del RNC/Cédula
 const getTypeId = (rnc) => {
@@ -126,10 +127,34 @@ export const generate609Data = (expenses = []) => {
 /**
  * Genera los datos para el reporte 607 (Ventas de Bienes y Servicios)
  * @param {Array} invoices - Array de facturas del período.
+ * @param {Array} creditNotes - Notas de crédito del período, cada una con su `invoice` (GET /invoices/credit-notes).
  * @returns {Array} - Datos formateados para el reporte.
  */
-export const generate607Data = (invoices = []) => {
-    return invoices
+export const generate607Data = (invoices = [], creditNotes = []) => {
+    // Notas de crédito (con su `invoice`): línea propia con su NCF y el NCF modificado, montos positivos.
+    // Fuente: Instructivo 607 de la DGII (campo "Número Comprobante Fiscal Modificado") y Consulta 17 (las notas se remiten en el 607); el signo no lo dice el instructivo (SIN VERIFICAR).
+    const noteRows = creditNotes.filter(n => n.invoice).map(n => {
+        const inv = n.invoice;
+        const rows = Array.isArray(n.items) ? n.items : [];
+        const lines = rows.map(r => { const it = (inv.items || []).find(i => i.id === r.itemId); return it && { ...it, quantity: r.quantity }; }).filter(Boolean);
+        const { base, itbis, exempt } = noteAmounts(n, inv, { lines });
+        return {
+            "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
+            "Tipo Id": getTypeId(rncOf(inv)),
+            "NCF": n.ncfNumber || '',
+            "NCF ó Documento Modificado": inv.ncfNumber || '',
+            "Tipo de Ingreso": '01',
+            "Fecha Comprobante": formatDateToDGII(n.createdAt),
+            "Fecha de Retención": '',
+            "Monto Facturado": Number((base + exempt).toFixed(2)),
+            "ITBIS Facturado": itbis,
+            "ITBIS Retenido por Terceros": 0, "ITBIS Percibido": 0, "Retención Renta por Terceros": 0, "ISR Percibido": 0,
+            "Impuesto Selectivo al Consumo (ISC)": 0, "Otros Impuestos/Tasas": 0, "Monto Propina Legal": 0,
+            "Efectivo": 0, "Cheque / Transferencia / Depósito": 0, "Tarjeta Débito / Crédito": 0, "Venta a Crédito": 0,
+            "Bonos o Certificados de Regalo": 0, "Permuta": 0, "Otras Formas de Ventas": 0,
+        };
+    });
+    const invoiceRows = invoices
         .filter(inv => !isVoidInvoice(inv))
         .map(inv => {
             // Agregamos por formas de pago a partir del historial de pagos si existe
@@ -171,6 +196,7 @@ export const generate607Data = (invoices = []) => {
                 "Otras Formas de Ventas": 0,
             };
         });
+    return [...invoiceRows, ...noteRows];
 };
 
 /**

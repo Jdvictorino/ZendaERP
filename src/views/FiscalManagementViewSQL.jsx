@@ -1,7 +1,8 @@
 // Versión migrada a PostgreSQL - FiscalManagementView
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { AlertTriangle, BookOpen, Download, Zap, FileText, TrendingUp, ShoppingCart, Scale } from 'lucide-react';
+import { format } from 'date-fns';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import reportFilters from '../utils/reportFilters.js';
 import { loadScript } from '../utils/loadScript.js';
@@ -31,7 +32,7 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
     const invoices = invoicesRaw || [];
     const expenses = expensesRaw || [];
     const suppliers = suppliersRaw || [];
-    const creditNotes = []; // TODO: Agregar colección de notas de crédito si existe
+    const [creditNotes, setCreditNotes] = useState([]);
     const loading = loadingInvoices || loadingExpenses || loadingSuppliers;
 
     const [reportMonth, setReportMonth] = useState(new Date().getMonth());
@@ -58,6 +59,13 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
         const filteredCreditNotes = reportFilters.filterByDateRange(creditNotes || [], 'date', criteria.from, criteria.to);
         return { filteredInvoices, filteredExpenses, filteredCreditNotes, criteria };
     }, [invoices, expenses, creditNotes, reportMonth, reportYear, fromDate, toDate]);
+
+    // Notas de crédito del período (por fecha de la nota) para el 607
+    useEffect(() => {
+        const { from, to } = filteredData.criteria;
+        const day = (d) => (d && d.length > 10 ? format(new Date(d), 'yyyy-MM-dd') : d);
+        api.invoices.creditNotes({ from: day(from), to: day(to) }).then((r) => setCreditNotes(Array.isArray(r) ? r : [])).catch(() => setCreditNotes([]));
+    }, [filteredData.criteria.from, filteredData.criteria.to]);
 
     const fiscalInvoices = useMemo(() => filterByVoucherDate((invoices || []).filter(isFiscalInvoice), filteredData.criteria.from, filteredData.criteria.to), [invoices, filteredData]);
     const fiscalExpenses = useMemo(() => filteredData.filteredExpenses.filter(exp => exp.ncf && exp.ncf.trim() !== ''), [filteredData]);
@@ -97,11 +105,11 @@ const FiscalManagementViewSQL = ({ companyProfile = {}, onProfileUpdate }) => {
             headers = Object.keys(data[0] || {});
         }
         if (type === '607') {
-            if (fiscalInvoices.length === 0) {
+            if (fiscalInvoices.length === 0 && creditNotes.length === 0) {
                 toast.error('No se encontraron ventas con NCF en el período seleccionado.');
                 return;
             }
-            data = generate607Data(fiscalInvoices);
+            data = generate607Data(fiscalInvoices, creditNotes);
             title = 'Reporte 607 - Ventas de Bienes y Servicios';
             headers = Object.keys(data[0] || {});
         }

@@ -193,6 +193,38 @@ router.get('/', async (req, res, next) => {
 });
 
 /**
+ * GET /api/invoices/credit-notes?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * Notas de crédito de la empresa (por fecha de la nota) con la factura que modifican, para el 607 y la contabilidad.
+ */
+router.get('/credit-notes', async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const where = { companyId: req.companyId };
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(`${from}T00:00:00-04:00`); // hora de RD
+      if (to) where.createdAt.lte = new Date(`${to}T23:59:59.999-04:00`);
+    }
+    const notes = await prisma.creditNote.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+      include: {
+        invoice: {
+          select: {
+            id: true, ncfNumber: true, ncfType: true, billedDate: true, date: true, customerRnc: true, customerName: true,
+            total: true, taxAmount: true, pricesIncludeTax: true, status: true,
+            items: { include: { packaging: true, product: { select: { allowFractions: true, unit: true } } } }
+          }
+        }
+      }
+    });
+    res.json(notes);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/invoices/:id
  */
 router.get('/:id', async (req, res, next) => {

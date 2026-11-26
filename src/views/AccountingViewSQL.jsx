@@ -1,5 +1,5 @@
 // Versión migrada a PostgreSQL - AccountingView con pestañas del ciclo contable
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { invoiceBalance } from '../utils/withholdings.js';
 import Button from '../components/ui/Button.jsx';
@@ -7,6 +7,7 @@ import Card, { CardBody, CardHeader } from '../components/ui/Card.jsx';
 import { Download, RefreshCcw, BookOpen, Layers, Scale, Sliders, ShoppingCart, TrendingUp, Wallet, CreditCard } from 'lucide-react';
 import KpiCard from '../components/ui/KpiCard.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
+import api from '../api/client.js';
 import { generateAllJournalEntries, filterByPeriod } from '../utils/chartOfAccounts.js';
 
 // Tab components
@@ -72,7 +73,9 @@ const AccountingViewSQL = ({ companyProfile }) => {
   const invoices = invoicesRaw || [];
   const expenses = expensesRaw || [];
   const products = productsRaw || [];
-  const creditNotes = [];
+  // Las notas se piden todas y generateAllJournalEntries/filterByPeriod las limitan al período, igual que las facturas
+  const [creditNotes, setCreditNotes] = useState([]);
+  useEffect(() => { api.invoices.creditNotes().then((r) => setCreditNotes(Array.isArray(r) ? r : [])).catch(() => setCreditNotes([])); }, []);
   const debitNotes = [];
   
   const loading = loadingInvoices || loadingExpenses || loadingProducts;

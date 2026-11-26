@@ -1,0 +1,50 @@
+// @vitest-environment node
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import * as app from '../src/utils/noteSplit.js';
+import * as srv from '../backend/src/services/noteSplit.js';
+import { buildEcfFromNote } from '../backend/src/services/ecfXmlBuilder.js';
+import { generate607Data } from '../src/utils/dgiiReportGenerator.js';
+
+const invoice = {
+  id: 'f1', date: new Date('2026-11-01T15:00:00Z'), billedDate: new Date('2026-11-01T15:00:00Z'), ncfNumber: 'E310000000010', ncfType: 'E31', customerRnc: '101010101',
+  total: 1062, taxAmount: 108, subtotal: 954, pricesIncludeTax: false,
+  items: [
+    { id: 'i1', productName: 'Taza', quantity: 2, unitPrice: 300, discountPercent: 0, taxRate: 18 }, // 708 con ITBIS
+    { id: 'i2', productName: 'Libro', quantity: 1, unitPrice: 354, discountPercent: 0, taxRate: 0 }, // exento
+  ],
+};
+const lines = [{ ...invoice.items[0], quantity: 1 }];
+
+describe.each([['app', app], ['backend', srv]])('noteSplit (%s)', (_n, m) => {
+  it('nota parcial de una taza: base 300, ITBIS 54', () => {
+    const r = m.noteAmounts({ amount: 354, reason: 'Taza rota' }, invoice, { lines });
+    expect(r).toMatchObject({ base: 300, itbis: 54, exempt: 0 });
+  });
+  it('nota total: reparte gravado y exento y suma el total', () => {
+    const r = m.noteAmounts({ amount: 1062 }, invoice, {});
+    expect(r).toMatchObject({ base: 600, itbis: 108, exempt: 300 + 54 });
+    expect(r.base + r.itbis + r.exempt).toBeCloseTo(1062, 2);
+  });
+});
+
+describe('noteSplit', () => {
+  it('copias idénticas desde la línea 2', () => {
+    const a = readFileSync('src/utils/noteSplit.js', 'utf8').split(/\r?\n/).slice(1).join('\n');
+    const b = readFileSync('backend/src/services/noteSplit.js', 'utf8').split(/\r?\n/).slice(1).join('\n');
+    expect(a).toBe(b);
+  });
+  it('el e-CF de la nota declara lo mismo que noteAmounts', () => {
+    const note = { amount: 354, reason: 'Taza rota', createdAt: new Date('2026-11-10T15:00:00Z') };
+    const { ECF } = buildEcfFromNote(note, invoice, { rnc: '131000000', name: 'E' }, 'E34', 'E340000000001', {}, { lines });
+    expect(Number(ECF.Encabezado.Totales.MontoGravadoTotal)).toBe(300);
+    expect(Number(ECF.Encabezado.Totales.TotalITBIS)).toBe(54);
+  });
+  it('607: factura y nota parcial del período son dos líneas; la nota lleva el NCF modificado', () => {
+    const note = { id: 'n1', amount: 354, ncfNumber: 'E340000000001', createdAt: new Date('2026-11-10T15:00:00Z'), items: [{ itemId: 'i1', quantity: 1 }], invoice };
+    const rows = generate607Data([{ ...invoice, ncfNumber: 'E310000000010', itbis: 108, subtotal: 954 }], [note]);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toMatchObject({ NCF: 'E340000000001', 'NCF ó Documento Modificado': 'E310000000010', 'Monto Facturado': 300, 'ITBIS Facturado': 54, 'Fecha Comprobante': '20261110' });
+    expect(rows[0]['NCF ó Documento Modificado']).toBe('');
+  });
+});
