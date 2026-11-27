@@ -268,18 +268,20 @@ server.listen(PORT, () => {
     }, Math.max(intervalMinutes, 1) * 60 * 1000);
 
     console.log(`⏱️ Billing scheduler activo cada ${Math.max(intervalMinutes, 1)} minuto(s).`);
-
-    setInterval(async () => {
-      try {
-        const summary = await runAutoReminders({});
-        if (summary.sent || summary.failed) console.log('📧 Recordatorios de cobro automáticos:', summary);
-      } catch (error) {
-        console.error('❌ Error en los recordatorios de cobro automáticos:', error.message);
-      }
-    }, 60 * 60 * 1000);
   } else {
     console.log('⏸️ Billing scheduler deshabilitado por configuración.');
   }
+
+  // Siempre activo: cada empresa lo enciende en Configuración (viene apagado por defecto).
+  setInterval(async () => {
+    try {
+      const summary = await runAutoReminders({});
+      if (summary.sent || summary.failed) console.log('📧 Recordatorios de cobro automáticos:', summary);
+    } catch (error) {
+      console.error('❌ Error en los recordatorios de cobro automáticos:', error.message);
+    }
+  }, 60 * 60 * 1000);
+  console.log('⏱️ Recordatorios de cobro automáticos: revisión cada 60 minuto(s).');
 });
 
 export default app;
