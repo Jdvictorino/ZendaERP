@@ -119,17 +119,38 @@ export async function registerWhatsapp({ prisma = defaultPrisma, company, item, 
     .find((r) => r.invoiceId === item.invoiceId && r.dueDate === item.dueDate && r.stage === item.stage);
   if (!row) return { status: 'skipped', error: 'Ya no corresponde enviarlo' };
   if (row.phoneStatus !== 'ok') return { status: 'skipped', error: 'Sin teléfono válido' };
+  const existing = sent.find((x) => x.invoiceId === row.invoiceId && x.stage === row.stage && x.channel === 'whatsapp'
+    && new Date(x.dueDate).toISOString().slice(0, 10) === row.dueDate);
+  const plan = reservationPlan(existing, { now });
+  if (plan === 'skip') return { status: 'skipped', error: 'Ya se registró este recordatorio' };
   let id;
-  try {
-    ({ id } = await prisma.collectionReminder.create({
-      data: { companyId: company.id, invoiceId: row.invoiceId, customerId: row.customerId, dueDate: new Date(row.dueDate), stage: row.stage, channel: 'whatsapp', status: 'sent', to: row.phone, sentById: userId },
-    }));
-  } catch (e) {
-    if (e.code === 'P2002') return { status: 'skipped', error: 'Ya se registró este recordatorio' };
-    throw e;
+  if (plan === 'create') {
+    try {
+      ({ id } = await prisma.collectionReminder.create({
+        data: { companyId: company.id, invoiceId: row.invoiceId, customerId: row.customerId, dueDate: new Date(row.dueDate), stage: row.stage, channel: 'whatsapp', status: 'sent', to: row.phone, sentById: userId },
+      }));
+    } catch (e) {
+      if (e.code === 'P2002') return { status: 'skipped', error: 'Ya se registró este recordatorio' };
+      throw e;
+    }
+  } else {
+    const { count } = await prisma.collectionReminder.updateMany({
+      where: { id: existing.id, status: existing.status, updatedAt: existing.updatedAt },
+      data: { status: 'sent', sentById: userId, to: row.phone, error: null, updatedAt: new Date() },
+    });
+    if (!count) return { status: 'skipped', error: 'Ya se registró este recordatorio' };
+    id = existing.id;
   }
   const error = 'Ya salió otro recordatorio de esta factura hoy';
-  if (await otherToday(prisma, row.invoiceId, id, today, now)) {
+  let blocked;
+  try { blocked = await otherToday(prisma, row.invoiceId, id, today, now); }
+  catch (e) {
+    // Sin la comprobación no se sabe si toca: la fila no puede quedar 'sent'.
+    try { await prisma.collectionReminder.update({ where: { id }, data: { status: 'failed', error: String(e?.message || e).slice(0, 500) } }); }
+    catch (e2) { console.error('[reminderSender] no se pudo marcar failed el recordatorio', id, e2.message); }
+    throw e;
+  }
+  if (blocked) {
     await save(prisma, id, { status: 'failed', error });
     return { status: 'skipped', error };
   }

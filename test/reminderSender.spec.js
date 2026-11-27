@@ -157,6 +157,24 @@ describe('reminderSender', () => {
     it('un ítem que ya no toca devuelve skipped', async () => {
       expect((await reg(fakePrisma({ invoices: [withPhone()].map((i) => ({ ...i, status: 'Pagado', amountPaid: 1000 })) }))).status).toBe('skipped');
     });
+    it('reintenta una fila whatsapp failed con updateMany y devuelve la url', async () => {
+      const old = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'whatsapp', status: 'failed', createdAt: ago(300), updatedAt: ago(200) };
+      const p = fakePrisma({ invoices: [withPhone()], reminders: [old] });
+      const r = await reg(p);
+      expect(r.status).toBe('sent'); expect(r.url.startsWith('https://wa.me/1809')).toBe(true);
+      expect(p.calls.create).toEqual([]);
+      expect(p.calls.updateMany[0]).toMatchObject({ where: { status: 'failed', updatedAt: old.updatedAt }, data: { status: 'sent', sentById: 'u1', to: '18095551234', error: null } });
+    });
+    it('reintento con count 0 devuelve skipped', async () => {
+      const old = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'whatsapp', status: 'failed', createdAt: ago(300), updatedAt: ago(200) };
+      expect((await reg(fakePrisma({ invoices: [withPhone()], reminders: [old], count: 0 }))).status).toBe('skipped');
+    });
+    it('si otherToday lanza, la fila queda failed y se relanza el error', async () => {
+      const p = fakePrisma({ invoices: [withPhone()] });
+      p.collectionReminder.findFirst = async () => { throw new Error('BD caída'); };
+      await expect(reg(p)).rejects.toThrow('BD caída');
+      expect(p.calls.update[0]).toMatchObject({ where: { id: 'r1' }, data: { status: 'failed', error: 'BD caída' } });
+    });
     it('sendReminders: un sent por whatsapp hoy deja el correo en skipped', async () => {
       const wa = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'whatsapp', status: 'sent', createdAt: ago(5), updatedAt: ago(5) };
       const sendMail = vi.fn();
