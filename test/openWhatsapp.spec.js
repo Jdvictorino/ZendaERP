@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { waUrl } from '../src/utils/collectionReminders.js';
 import { isWhatsappUrl, openWhatsapp } from '../src/utils/openWhatsapp.js';
 
 const OK = 'https://wa.me/18095551234?text=Hola';
@@ -12,8 +13,15 @@ describe('isWhatsappUrl', () => {
   it('acepta solo https://wa.me/', () => {
     expect(isWhatsappUrl('https://wa.me/1809?text=a')).toBe(true);
   });
-  it.each(['http://wa.me/1', 'https://wa.me.evil.com/1', 'https://evil.com/https://wa.me/', 'file:///c:/x', 'javascript:alert(1)', '', null, undefined, 5])(
-    'rechaza %s', (u) => expect(isWhatsappUrl(u)).toBe(false));
+  it('acepta el enlace armado por la app con acentos, saltos y &', () => {
+    expect(isWhatsappUrl(waUrl('18095551234', 'Hola\nJosé & Cía'))).toBe(true);
+  });
+  it.each([
+    'http://wa.me/1', 'https://wa.me.evil.com/1', 'https://evil.com/https://wa.me/', 'file:///c:/x',
+    'javascript:alert(1)', 'https://wa.me@evil.com/1', 'https://wa.me:8080/1', 'HTTPS://WA.ME/1',
+    'https://wa.me/1\nx', 'https://wa.me/1\r\nx', 'https://wa.me/1\tx', 'https://wa.me/1 x',
+    '', null, undefined, 5,
+  ])('rechaza %j', (u) => expect(isWhatsappUrl(u)).toBe(false));
 });
 
 describe('openWhatsapp', () => {

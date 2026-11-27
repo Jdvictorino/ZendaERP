@@ -1,9 +1,9 @@
 // Misma regla que isWhatsappUrl en electron.js (el proceso principal no confía en el renderer): mantener iguales.
 export function isWhatsappUrl(url) {
-  if (typeof url !== 'string' || !url.startsWith('https://wa.me/')) return false;
+  if (typeof url !== 'string' || /[\s\u0000-\u001f\u007f]/.test(url) || !url.startsWith('https://wa.me/')) return false;
   try {
     const u = new URL(url);
-    return u.protocol === 'https:' && u.hostname === 'wa.me';
+    return u.protocol === 'https:' && u.hostname === 'wa.me' && !u.username && !u.password && !u.port;
   } catch { return false; }
 }
 
