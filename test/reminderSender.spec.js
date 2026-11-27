@@ -11,16 +11,17 @@ const invoice = (o = {}) => ({
 });
 const item = { invoiceId: 'i1', dueDate: '2026-12-03', stage: 7 };
 
-const fakePrisma = ({ invoices = [invoice()], reminders = [], createError } = {}) => {
+const fakePrisma = ({ invoices = [invoice()], reminders = [], createError, other = null, count = 1 } = {}) => {
   const calls = { create: [], update: [], updateMany: [] };
   return {
     calls,
     invoice: { findMany: async () => invoices },
     collectionReminder: {
       findMany: async () => reminders,
+      findFirst: async (a) => { calls.findFirst = a; return other; },
       create: async ({ data }) => { calls.create.push(data); if (createError) throw createError; return { id: 'r1', ...data }; },
       update: async (a) => { calls.update.push(a); return {}; },
-      updateMany: async (a) => { calls.updateMany.push(a); return { count: 1 }; },
+      updateMany: async (a) => { calls.updateMany.push(a); return { count }; },
     },
   };
 };
@@ -77,5 +78,45 @@ describe('reminderSender', () => {
     const r = await run(p, sendMail);
     expect(r[0].status).toBe('sent');
     expect(p.calls.updateMany[0]).toMatchObject({ where: { status: 'failed', updatedAt: old.updatedAt }, data: { status: 'sending', sentById: 'u1', error: null } });
+  });
+
+  it('si ya salió otro recordatorio de la factura hoy, pasa a failed y no envía', async () => {
+    const p = fakePrisma({ other: { id: 'x' } }); const sendMail = vi.fn();
+    const r = await run(p, sendMail);
+    expect(r[0].status).toBe('skipped'); expect(sendMail).not.toHaveBeenCalled();
+    expect(p.calls.findFirst.where).toMatchObject({ invoiceId: 'i1', channel: 'email', id: { not: 'r1' } });
+    expect(p.calls.update[0]).toMatchObject({ where: { id: 'r1' }, data: { status: 'failed', error: 'Ya salió otro recordatorio de esta factura hoy' } });
+  });
+
+  it('un sending reciente se omite sin enviar', async () => {
+    const rec = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'email', status: 'sending', createdAt: ago(5), updatedAt: ago(5) };
+    const sendMail = vi.fn();
+    expect((await run(fakePrisma({ reminders: [rec] }), sendMail))[0].status).toBe('skipped');
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('updateMany con count 0 se omite', async () => {
+    const old = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'email', status: 'failed', createdAt: ago(300), updatedAt: ago(200) };
+    const sendMail = vi.fn();
+    expect((await run(fakePrisma({ reminders: [old], count: 0 }), sendMail))[0].status).toBe('skipped');
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('un ítem con otra etapa se omite', async () => {
+    const sendMail = vi.fn();
+    expect((await run(fakePrisma(), sendMail, [{ ...item, stage: 15 }]))[0].status).toBe('skipped');
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('error de BD distinto de P2002 en create: failed y sigue', async () => {
+    const r = await run(fakePrisma({ createError: new Error('BD caída') }), vi.fn());
+    expect(r[0]).toMatchObject({ status: 'failed', error: 'BD caída' });
+  });
+
+  it('el reintento escribe updatedAt explícito', async () => {
+    const old = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'email', status: 'failed', createdAt: ago(300), updatedAt: ago(200) };
+    const p = fakePrisma({ reminders: [old] });
+    await run(p, async () => {});
+    expect(p.calls.updateMany[0].data.updatedAt).toEqual(now);
   });
 });

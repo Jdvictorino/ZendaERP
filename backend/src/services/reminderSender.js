@@ -65,28 +65,51 @@ export async function sendReminders({ prisma = defaultPrisma, sendMail = sendCom
           data: { companyId: company.id, invoiceId: row.invoiceId, customerId: row.customerId, dueDate: new Date(row.dueDate), stage: row.stage, channel: 'email', status: 'sending', to: row.email, sentById: userId },
         }));
       } catch (e) {
-        if (e.code === 'P2002') { results.push({ ...base, status: 'skipped' }); continue; }
-        throw e;
+        if (e.code === 'P2002') results.push({ ...base, status: 'skipped' });
+        else results.push({ ...base, status: 'failed', error: String(e?.message || e).slice(0, 500) });
+        continue;
       }
     } else {
       const { count } = await prisma.collectionReminder.updateMany({
         where: { id: existing.id, status: existing.status, updatedAt: existing.updatedAt },
-        data: { status: 'sending', sentById: userId, to: row.email, error: null },
+        data: { status: 'sending', sentById: userId, to: row.email, error: null, updatedAt: now },
       });
       if (!count) { results.push({ ...base, status: 'skipped' }); continue; }
       id = existing.id;
     }
 
+    // Cada llamada reserva antes de comprobar: si otra reservó o envió esta factura hoy, no salen los dos correos.
+    const other = await prisma.collectionReminder.findFirst({
+      where: {
+        invoiceId: row.invoiceId, channel: 'email', id: { not: id },
+        OR: [
+          { status: 'sent', updatedAt: { gte: new Date(`${today}T04:00:00Z`) } },
+          { status: 'sending', updatedAt: { gte: new Date(now.getTime() - STALE_MS) } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (other) {
+      await save(prisma, id, { status: 'failed', error: 'Ya salió otro recordatorio de esta factura hoy' });
+      results.push({ ...base, status: 'skipped' });
+      continue;
+    }
+
+    let outcome = { status: 'sent' };
     try {
       const { subject, text } = renderReminder(rules, row, company, today);
       await sendMail(company, { to: row.email, subject, text, html: toHtml(text) });
-      await prisma.collectionReminder.update({ where: { id }, data: { status: 'sent', error: null } });
-      results.push({ ...base, status: 'sent' });
     } catch (e) {
-      const error = String(e?.message || e).slice(0, 500);
-      await prisma.collectionReminder.update({ where: { id }, data: { status: 'failed', error } });
-      results.push({ ...base, status: 'failed', error });
+      outcome = { status: 'failed', error: String(e?.message || e).slice(0, 500) };
     }
+    await save(prisma, id, { status: outcome.status, error: outcome.error ?? null });
+    results.push({ ...base, ...outcome });
   }
   return results;
+}
+
+// Si el update final falla, se registra y la llamada sigue con el siguiente ítem.
+async function save(prisma, id, data) {
+  try { await prisma.collectionReminder.update({ where: { id }, data }); }
+  catch (e) { console.error('[reminderSender] no se pudo guardar el recordatorio', id, e.message); }
 }
