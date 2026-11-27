@@ -6,12 +6,12 @@ import Card, { CardBody } from '../ui/Card.jsx';
 import Button from '../ui/Button.jsx';
 import { settings as settingsApi } from '../../api/client.js';
 import { confirmDialog } from '../../utils/confirmDialog.jsx';
+import { todayRD } from '../../utils/tax.js';
 import { DEFAULT_REMINDERS, remindersOf, validateReminders, renderReminder } from '../../utils/collectionReminders.js';
 
 const MARKERS = ['{cliente}', '{empresa}', '{factura}', '{monto}', '{vence}', '{dias}', '{saldo}', '{vencido}', '{telefono}', '{correo}'];
 // Vacío => NaN para que la validación lo rechace en vez de guardarlo como 0.
 const toNum = (v) => (v === '' || v == null ? NaN : Number(v));
-const ymd = (d) => d.toISOString().slice(0, 10);
 
 const RemindersTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
     const [r, setR] = useState(() => remindersOf(companyProfile));
@@ -31,7 +31,7 @@ const RemindersTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
     };
 
     const save = async () => {
-        const rules = { ...r, auto: smtpOk ? !!r.auto : false, autoHour: toNum(r.autoHour), stages: r.stages.map(toNum), subject: r.subject.trim(), body: r.body.trim() };
+        const rules = { ...r, auto: !!r.auto, autoHour: toNum(r.autoHour), stages: r.stages.map(toNum), subject: r.subject.trim(), body: r.body.trim() };
         const problem = validateReminders(rules);
         if (problem) { setError(problem); return; }
         setSaving(true);
@@ -46,8 +46,8 @@ const RemindersTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
         }
     };
 
-    const today = ymd(new Date());
-    const due = ymd(new Date(Date.now() + 3 * 86400e3));
+    const today = todayRD();
+    const due = todayRD(new Date(Date.now() + 3 * 86400e3));
     const preview = renderReminder(
         { subject: r.subject, body: r.body },
         { customerName: 'Cliente de ejemplo', invoiceNumber: 'B0100000001', dueDate: due, amount: 5000, balance: 10000, overdueTotal: 0 },
@@ -87,13 +87,14 @@ const RemindersTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                     <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" aria-label="Enviar automáticamente" checked={smtpOk && !!r.auto} disabled={!canEdit || !smtpOk} onChange={(e) => change({ auto: e.target.checked })} /> Enviar automáticamente
+                        <input type="checkbox" aria-label="Enviar automáticamente" checked={!!r.auto} disabled={!canEdit || !smtpOk} onChange={(e) => change({ auto: e.target.checked })} /> Enviar automáticamente
                     </label>
                     <label className="flex items-center gap-2 text-sm">Hora
                         <input type="number" step="1" min="0" max="23" className="input-base w-20" aria-label="Hora del envío automático" value={Number.isNaN(r.autoHour) ? '' : r.autoHour} disabled={!canEdit} onChange={(e) => change({ autoHour: e.target.value })} />
                     </label>
                 </div>
                 {!smtpOk && <p className="text-sm text-slate-500">Configura el correo de la empresa para activar el envío automático.</p>}
+                {!smtpOk && r.auto && <p className="text-sm text-amber-600">El envío automático está encendido, pero no se enviará nada hasta que configures el correo de la empresa.</p>}
                 {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
                 {canEdit ? (
                     <div className="flex flex-wrap gap-2">

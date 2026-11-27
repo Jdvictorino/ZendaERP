@@ -60,4 +60,13 @@ describe('RemindersTab', () => {
     expect(screen.getByTestId('reminder-preview').textContent).toContain('B0100000001');
     expect(screen.queryByText('Guardar recordatorios')).toBeNull();
   });
+
+  it('perfil sin smtp con auto true: guardar conserva auto true y avisa', async () => {
+    render(<RemindersTab companyProfile={{ collectionReminders: { auto: true } }} canEdit />);
+    expect(screen.getByText(/está encendido, pero no se enviará nada/)).toBeTruthy();
+    expect(screen.getByLabelText('Enviar automáticamente').disabled).toBe(true);
+    fireEvent.click(screen.getByText('Guardar recordatorios'));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update.mock.calls[0][0].collectionReminders.auto).toBe(true);
+  });
 });
