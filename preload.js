@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printHTML: (htmlContent, options) => ipcRenderer.invoke('print-html', { htmlContent, options }),
   escposPrint: (blocks, printerName) => ipcRenderer.invoke('escpos-print', { blocks, printerName }),
   getPrinters: () => ipcRenderer.invoke('get-printers'),
+  openWhatsapp: (url) => ipcRenderer.invoke('open-whatsapp', url),
   openCashDrawer: () => ipcRenderer.invoke('open-cash-drawer'),
   checkForUpdates: (token, apiUrl) => ipcRenderer.send('updates:check', { token, apiUrl }),
   onUpdateReady: (callback) => {
