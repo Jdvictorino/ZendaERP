@@ -4,6 +4,7 @@ import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
 import { withholdingsOf, validateWithholdings } from '../services/withholdings.js';
+import { paymentTermsOf, validatePaymentTerms, missingTermId } from '../services/paymentTerms.js';
 import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
 
@@ -89,6 +90,7 @@ router.get('/', async (req, res) => {
       customerCategories: settings.customerCategories || DEFAULT_CUSTOMER_CATEGORIES,
       pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
       withholdings: withholdingsOf(settings),
+      paymentTerms: paymentTermsOf(settings),
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
         bankName: '',
@@ -156,6 +158,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       smtp, // Configuración SMTP
       _categoryMigrations,
       withholdings,
+      paymentTerms,
     } = req.body;
 
     if (Array.isArray(customerCategories) && customerCategories.some((c) => !String(c ?? '').trim())) {
@@ -164,6 +167,11 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
 
     if (withholdings !== undefined) {
       const bad = validateWithholdings(withholdings);
+      if (bad) return res.status(400).json({ error: bad });
+    }
+
+    if (paymentTerms !== undefined) {
+      const bad = validatePaymentTerms(paymentTerms);
       if (bad) return res.status(400).json({ error: bad });
     }
 
@@ -177,7 +185,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    const { updated, newSettings, newNotifications } = await withSettingsLock(user.companyId, async (tx) => {
+    const locked = await withSettingsLock(user.companyId, async (tx) => {
     // Obtener settings y notifications actuales para merge
     const currentCompany = await tx.company.findUnique({
       where: { id: user.companyId },
@@ -189,6 +197,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     
     // Construir nuevo objeto settings con todos los campos extendidos
     const newSettings = { ...currentSettings };
+    if (paymentTerms !== undefined && missingTermId(currentSettings.paymentTerms, paymentTerms)) return { rejected: 'No se puede quitar un plazo guardado; desactívalo.' };
     
     if (customerCategories !== undefined) {
       // Renombres y borrados de categorías: precios siempre; clientes solo si el usuario lo aceptó
@@ -240,6 +249,9 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     if (withholdings !== undefined) {
       newSettings.withholdings = withholdings;
     }
+    if (paymentTerms !== undefined) {
+      newSettings.paymentTerms = paymentTerms;
+    }
     if (smtp !== undefined) {
       newSettings.smtp = mergeSmtp(currentSettings.smtp, smtp);
     }
@@ -261,6 +273,9 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     return { updated, newSettings, newNotifications };
     });
 
+    if (locked.rejected) return res.status(400).json({ error: locked.rejected });
+    const { updated, newSettings, newNotifications } = locked;
+
     // Devolver respuesta en el mismo formato que GET
     const settings = newSettings;
     res.json({
@@ -276,6 +291,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       notifications: newNotifications || { sound: { enabled: true, volume: 0.7 } },
       pricing: settings.pricing || {},
       withholdings: withholdingsOf(settings),
+      paymentTerms: paymentTermsOf(settings),
       allowCustomization: settings.allowCustomization !== undefined ? settings.allowCustomization : true,
       customerCategories: settings.customerCategories || [],
       smtp: publicSettings({ smtp: newSettings.smtp }).smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },

@@ -49,7 +49,8 @@ export const validateWithholdings = (list) => {
   return null;
 };
 
-const retained = (i) => num(i.itbisRetenido) + num(i.retencionRenta);
+// Lo que salda la factura sin ser cobro: retenciones y notas de crédito.
+const retained = (i) => num(i.itbisRetenido) + num(i.retencionRenta) + num(i.creditedAmount);
 
 export const invoiceBalance = (i) => Math.max(0, round2(num(i.total) - num(i.amountPaid) - retained(i)));
 

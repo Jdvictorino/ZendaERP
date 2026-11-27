@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { isVoidInvoice } from './invoiceStatus.js';
 import { filterByDateRange } from './reportFilters.js';
+import { isLateNote, noteAmounts, noteReturnLines } from './noteSplit.js';
 
 // Función para determinar el Tipo de ID según la longitud del RNC/Cédula
 const getTypeId = (rnc) => {
@@ -43,6 +44,9 @@ const formatDateToDGII = (dateValue) => {
 // Las facturas llegan de la API con ncfNumber / customerRnc / taxAmount; "ncf" es el formato anterior
 const ncfOf = (inv) => inv.ncf?.number || inv.ncfNumber || '';
 const rncOf = (inv) => inv.ncf?.customerRnc || inv.customerRnc || '';
+
+// GET /invoices trae _count.creditNotes; una factura con notas anulada por una nota total no es una anulación del 608
+const hasNotes = (inv) => Number(inv._count?.creditNotes || 0) > 0;
 
 // Fecha del comprobante: un e-CF lleva la de la venta (FechaEmision); un NCF en papel, la de facturación
 export const voucherDateOf = (inv) => (ncfOf(inv).startsWith('E') ? inv.date || inv.billedDate : inv.billedDate || inv.date);
@@ -126,11 +130,37 @@ export const generate609Data = (expenses = []) => {
 /**
  * Genera los datos para el reporte 607 (Ventas de Bienes y Servicios)
  * @param {Array} invoices - Array de facturas del período.
+ * @param {Array} creditNotes - Notas de crédito del período, cada una con su `invoice` (GET /invoices/credit-notes).
  * @returns {Array} - Datos formateados para el reporte.
  */
-export const generate607Data = (invoices = []) => {
-    return invoices
-        .filter(inv => !isVoidInvoice(inv))
+export const generate607Data = (invoices = [], creditNotes = []) => {
+    // Notas de crédito (con su `invoice`): línea propia con su NCF y el NCF modificado, montos positivos.
+    // Fuente: Instructivo 607 de la DGII (campo "Número Comprobante Fiscal Modificado") y Consulta 17 (las notas se remiten en el 607); montos en positivo: la DGII resta o suma según el prefijo B04/E34 o B03/E33 (fuente: el dueño, sobre el instructivo 607); formas de pago (casillas 17 a 23) en 0.
+    // Nota de más de 30 días: no rebaja ITBIS (Reglamento 293-11, arts. 8 y 28), va con ITBIS 0 y la base completa.
+    const noteRows = creditNotes.filter(n => n.invoice && n.ncfNumber).map(n => {
+        const inv = n.invoice;
+        const a = noteAmounts(n, inv, { lines: noteReturnLines(n, inv) });
+        const { base, exempt } = a;
+        const itbis = isLateNote(n, inv) ? 0 : a.itbis;
+        return {
+            "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
+            "Tipo Id": getTypeId(rncOf(inv)),
+            "NCF": n.ncfNumber || '',
+            "NCF ó Documento Modificado": inv.ncfNumber || '',
+            "Tipo de Ingreso": '01',
+            "Fecha Comprobante": formatDateToDGII(n.createdAt),
+            "Fecha de Retención": '',
+            "Monto Facturado": Number((base + exempt).toFixed(2)),
+            "ITBIS Facturado": itbis,
+            "ITBIS Retenido por Terceros": 0, "ITBIS Percibido": 0, "Retención Renta por Terceros": 0, "ISR Percibido": 0,
+            "Impuesto Selectivo al Consumo (ISC)": 0, "Otros Impuestos/Tasas": 0, "Monto Propina Legal": 0,
+            "Efectivo": 0, "Cheque / Transferencia / Depósito": 0, "Tarjeta Débito / Crédito": 0, "Venta a Crédito": 0,
+            "Bonos o Certificados de Regalo": 0, "Permuta": 0, "Otras Formas de Ventas": 0,
+        };
+    });
+    const invoiceRows = invoices
+        // Anulada por una nota total (tiene notas): sigue en el 607 de su período; solo las anuladas con "Anular" salen
+        .filter(inv => !isVoidInvoice(inv) || hasNotes(inv))
         .map(inv => {
             // Agregamos por formas de pago a partir del historial de pagos si existe
             const pagos = Array.isArray(inv.payments) ? inv.payments : [];
@@ -171,6 +201,7 @@ export const generate607Data = (invoices = []) => {
                 "Otras Formas de Ventas": 0,
             };
         });
+    return [...invoiceRows, ...noteRows];
 };
 
 /**
@@ -180,7 +211,7 @@ export const generate607Data = (invoices = []) => {
  */
 export const generate608Data = (invoices = []) => {
     return invoices
-        .filter(isVoidInvoice)
+        .filter(inv => isVoidInvoice(inv) && !hasNotes(inv))
         .map(inv => ({
             "RNC o Cédula": rncOf(inv).replace(/-/g, ''),
             "Tipo Id": getTypeId(rncOf(inv)),

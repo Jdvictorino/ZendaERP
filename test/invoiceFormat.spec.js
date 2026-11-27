@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { customerTaxId, invoiceTitle, showNotesColumn } from '../src/utils/docLines.js';
+import { customerTaxId, invoiceTitle, showNotesColumn, termLines } from '../src/utils/docLines.js';
 import { generateThermalReceiptHTML } from '../src/utils/escposGenerator.js';
 
 describe('identificación del cliente en documentos', () => {
@@ -49,7 +49,7 @@ describe('recibo', () => {
   });
 });
 
-import { qtyText, lineDiscount, isEcfDoc, modificationInfo } from '../src/utils/docLines.js';
+import { qtyText, lineDiscount, isEcfDoc, modificationInfo, lateNoteInfo } from '../src/utils/docLines.js';
 
 describe('representación impresa e-CF', () => {
   it('en e-CF la unidad va en palabras; fuera de e-CF, abreviada', () => {
@@ -129,5 +129,58 @@ describe('ticket térmico (representación impresa)', () => {
     const nota = generateThermalReceiptHTML({ ncfNumber: 'B0400000002', reason: 'Anulación de Factura: error', amount: 100, originalNcf: 'B0100000012' }, 'credit-note', profile, null, null);
     expect(nota).toContain('NCF modificado B0100000012');
     expect(nota).toContain('Anula el NCF modificado');
+  });
+});
+
+describe('termLines: condición de pago impresa', () => {
+  const snap = (name, schedule, discount = null) => ({ total: 1000, paymentTerm: { id: 'x', name, saleDate: '2026-11-25', discount, schedule } });
+  const at = (d) => `${d}T12:00:00.000Z`;
+  it('contado: sin líneas', () => {
+    expect(termLines({ total: 1000 })).toEqual([]);
+    expect(termLines({ total: 1000, paymentTerm: null })).toEqual([]);
+  });
+  it('un solo vencimiento', () => {
+    expect(termLines(snap('30 días', [{ dueDate: at('2026-12-25'), amount: 1000 }]))).toEqual(['Condición: 30 días', 'Vence: 25/12/2026']);
+  });
+  it('varias cuotas', () => {
+    expect(termLines(snap('50/50', [{ dueDate: at('2026-11-25'), amount: 500 }, { dueDate: at('2026-12-25'), amount: 500 }]))).toEqual([
+      'Condición: 50/50', 'Cuota 1: 25/11/2026 — RD$ 500.00', 'Cuota 2: 25/12/2026 — RD$ 500.00',
+    ]);
+  });
+  it('descuento con saleDate inválida: omite la línea sin lanzar', () => {
+    const inv = snap('x', [{ dueDate: at('2026-12-25'), amount: 1000 }], { percent: 2, days: 10 });
+    inv.paymentTerm.saleDate = undefined;
+    expect(termLines(inv)).toEqual(['Condición: x', 'Vence: 25/12/2026']);
+  });
+  it('con descuento por pronto pago', () => {
+    expect(termLines(snap('30 días, 2 % a 10 días', [{ dueDate: at('2026-12-25'), amount: 1000 }], { percent: 2, days: 10 }))).toEqual([
+      'Condición: 30 días, 2 % a 10 días', 'Vence: 25/12/2026', '2 % de descuento si paga todo antes del 05/12/2026',
+    ]);
+  });
+});
+
+describe('lateNoteInfo: nota tardía', () => {
+  const inv = { date: new Date('2026-11-01T15:00:00Z'), billedDate: new Date('2026-11-01T15:00:00Z'), pricesIncludeTax: false, items: [
+    { id: 'i1', productName: 'Taza', quantity: 2, unitPrice: 300, discountPercent: 0, taxRate: 18 },
+    { id: 'i2', productName: 'Libro', quantity: 1, unitPrice: 354, discountPercent: 0, taxRate: 0 } ] };
+  const note = (d) => ({ amount: 354, createdAt: new Date(d), items: [{ itemId: 'i1', quantity: 1 }] });
+  it('tardía: total = base + exento e ITBIS que asume la empresa', () => {
+    expect(lateNoteInfo(note('2026-12-02T15:00:00Z'), inv)).toEqual({ itbis: 54 });
+  });
+  it('30 días o menos, o sin factura: null', () => {
+    expect(lateNoteInfo(note('2026-12-01T15:00:00Z'), inv)).toBeNull();
+    expect(lateNoteInfo(note('2026-12-02T15:00:00Z'), null)).toBeNull();
+  });
+});
+
+describe('impresión térmica de la nota tardía', () => {
+  const base = { ncfNumber: 'B0400000002', reason: 'Reembolso: x', amount: 354, originalNcf: 'B0100000012' };
+  it('conserva el monto acreditado y agrega la leyenda', () => {
+    const html = generateThermalReceiptHTML({ ...base, lateNote: { itbis: 54 } }, 'credit-note', {}, null, null);
+    expect(html).toContain('Nota emitida después de 30 días: el ITBIS no es deducible (Reglamento 293-11)');
+    expect(html).toContain('354.00');
+  });
+  it('nota de 30 días o menos: sin leyenda', () => {
+    expect(generateThermalReceiptHTML(base, 'credit-note', {}, null, null)).not.toContain('Reglamento 293-11');
   });
 });

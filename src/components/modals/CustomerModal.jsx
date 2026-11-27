@@ -4,6 +4,8 @@ import ProfilePicture from '../common/ProfilePicture.jsx';
 import Button from '../ui/Button.jsx';
 import toast from 'react-hot-toast';
 import { TAXPAYER_TYPES } from '../../utils/tax.js';
+import { paymentTermsOf, isCashTerm } from '../../utils/paymentTerms.js';
+import { customerTermId } from '../../utils/saleTerms.js';
 
 // Valores del selector viejo (mismo mapa que backend/src/services/customerTax.js)
 const LEGACY_TYPES = { Persona: 'consumidor_final', Empresa: 'empresa', 'Zona Franca': 'zona_franca', Gubernamental: 'gubernamental', ONG: 'ong' };
@@ -29,11 +31,12 @@ function validateRNC(rnc) {
 }
 
 const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = false }) => {
+        const terms = useMemo(() => paymentTermsOf(companyProfile), [companyProfile]);
         const [formData, setFormData] = useState({ 
                 name: '', email: '', phone: '', taxpayerType: 'consumidor_final', exemptionNumber: '', exemptionExpiresAt: '', identificationNumber: '',
                 address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana' },
                 defaultDiscount: 0, logo: '',
-                status: 'active', category: 'Retail', accountType: 'contado', creditLimit: 0, creditDays: 0, notes: '', customerCode: ''
+                status: 'active', category: 'Retail', paymentTermId: 'contado', creditLimit: 0, notes: '', customerCode: ''
         });
         const [errors, setErrors] = useState({});
     
@@ -45,23 +48,18 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                 identificationNumber: customer.identificationNumber || customer.rnc || '',
                                 address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana', ...(customer.address || {}) },
                                 defaultDiscount: customer.defaultDiscount || 0, logo: customer.logo || '',
-                                status: customer.status || 'active', category: customer.category || 'Retail', accountType: customer.accountType || 'contado',
-                                creditLimit: Number(customer.creditLimit || 0), creditDays: parseInt(customer.creditDays || 0, 10),
+                                status: customer.status || 'active', category: customer.category || 'Retail', paymentTermId: customerTermId(customer, terms),
+                                creditLimit: Number(customer.creditLimit || 0),
                                 notes: customer.notes || '', customerCode: customer.customerCode || ''
             });
         }
-    }, [customer]);
+    }, [customer, terms]);
 
         const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-        const handleAccountTypeChange = (e) => {
-            const val = e.target.value;
-            setFormData(prev => ({
-                ...prev,
-                accountType: val,
-                // Si pasa a contado, resetea campos de crédito para evitar inconsistencias
-                creditLimit: val === 'contado' ? 0 : prev.creditLimit,
-                creditDays: val === 'contado' ? 0 : prev.creditDays,
-            }));
+        const selectedTerm = terms.find(t => t.id === formData.paymentTermId);
+        const isCash = !selectedTerm || isCashTerm(selectedTerm);
+        const handleTermChange = (e) => {
+            setFormData(prev => ({ ...prev, paymentTermId: e.target.value }));
         };
     const handleAddressChange = (e) => setFormData({ ...formData, address: { ...formData.address, [e.target.name]: e.target.value } });
     const handleImageChange = (e) => {
@@ -96,7 +94,6 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 if (!rnc) errs.identificationNumber = 'Requerido';
                 else if (!validateRNC(rnc)) errs.identificationNumber = 'RNC inválido';
             }
-            if (formData.accountType === 'credito' && formData.creditDays < 0) errs.creditDays = 'No negativo';
             setErrors(errs);
             return Object.keys(errs).length === 0;
         };
@@ -109,8 +106,9 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 exemptionNumber: exemptible ? formData.exemptionNumber.trim() : '',
                 exemptionExpiresAt: exemptible ? formData.exemptionExpiresAt : '',
                 defaultDiscount: Number(formData.defaultDiscount || 0),
+                paymentTermId: isCash ? null : formData.paymentTermId,
+                // El límite se conserva aunque el plazo sea contado (el servidor lo guarda tal cual)
                 creditLimit: Number(formData.creditLimit || 0),
-                creditDays: parseInt(formData.creditDays || 0, 10),
                 identificationNumber: hasLetters(formData.identificationNumber) ? passportOf(formData.identificationNumber) : onlyDigits(formData.identificationNumber),
                 // Normaliza status y category
                 status: formData.status || 'active',
@@ -242,24 +240,16 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                         <input type="text" name="customerCode" value={formData.customerCode} onChange={handleChange} className="input-base" placeholder="Ej: CLI-0001" />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                    <div>
-                                        <label className="block text-ink-soft mb-1">Tipo de Cuenta</label>
-                                        <select name="accountType" value={formData.accountType} onChange={handleAccountTypeChange} className="input-base">
-                                            <option value="contado">Contado</option>
-                                            <option value="credito">Crédito</option>
-                                        </select>
-                                    </div>
-                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div>
-                                        <label className="block text-ink-soft mb-1">Límite de Crédito</label>
-                                        <input type="number" name="creditLimit" value={formData.creditLimit} onChange={handleChange} className={`input-base ${formData.accountType !== 'credito' ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`} min="0" disabled={formData.accountType !== 'credito'} />
+                                        <label htmlFor="paymentTermId" className="block text-ink-soft mb-1">Condición de pago</label>
+                                        <select id="paymentTermId" name="paymentTermId" value={formData.paymentTermId} onChange={handleTermChange} className="input-base">
+                                            {terms.filter(t => t.active !== false || t.id === formData.paymentTermId).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
                                     </div>
                                     <div>
-                                        <label className="block text-ink-soft mb-1">Días de Crédito</label>
-                                        <input type="number" name="creditDays" value={formData.creditDays} onChange={handleChange} aria-invalid={!!errors.creditDays} aria-describedby={errors.creditDays ? 'err-creditDays' : undefined} className={`input-base ${formData.accountType !== 'credito' ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`} min="0" disabled={formData.accountType !== 'credito'} />
-                                        {errors.creditDays && <p id="err-creditDays" className="field-error">{errors.creditDays}</p>}
+                                        <label htmlFor="creditLimit" className="block text-ink-soft mb-1">Límite de Crédito</label>
+                                        <input id="creditLimit" type="number" name="creditLimit" value={formData.creditLimit} onChange={handleChange} className={`input-base ${isCash ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`} min="0" disabled={isCash} />
                                     </div>
                                 </div>
                                 <div className="mt-4">

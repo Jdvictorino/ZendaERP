@@ -273,8 +273,10 @@ export const invoices = {
   create: (data, approvalToken) => post('/invoices', data, approvalToken ? { headers: { 'X-Approval-Token': approvalToken } } : {}),
   bill: (id, ncfType, customerRnc) => post(`/invoices/${id}/bill`, { ncfType, customerRnc }),
   cancel: (id, reason) => post(`/invoices/${id}/cancel`, { reason }),
+  creditNotes: (params) => get('/invoices/credit-notes', params),
   createCreditNote: (id, data) => post(`/invoices/${id}/credit-note`, data),
-  createDebitNote: (id, data) => post(`/invoices/${id}/debit-note`, data)
+  createDebitNote: (id, data) => post(`/invoices/${id}/debit-note`, data),
+  earlyPayment: (id, data) => post(`/invoices/${id}/early-payment`, data)
 };
 
 export const expenses = {

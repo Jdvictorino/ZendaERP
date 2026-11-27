@@ -42,6 +42,24 @@ describe('E34 nota de crédito', () => {
   });
 });
 
+describe('E34 tardío (más de 30 días): conserva el ITBIS', () => {
+  const lines = [{ productName: 'Taza', quantity: 1, unitPrice: 300, discountPercent: 0, taxRate: 18 }];
+  const mk = (createdAt) => buildEcfFromNote({ amount: 354, reason: 'Taza rota', createdAt }, invoice, company, 'E34', 'E340000000005', sequence, { lines });
+  const same = (ECF) => expect(ECF.Encabezado.Totales).toMatchObject({ MontoGravadoTotal: '300.00', TotalITBIS: '54.00', MontoTotal: '354.00' });
+
+  it('31 días de calendario: indicador 1 y los mismos montos con ITBIS', () => {
+    const { ECF } = mk(new Date('2026-12-02T15:00:00Z'));
+    expect(ECF.Encabezado.IdDoc.IndicadorNotaCredito).toBe('1');
+    expect([ECF.DetallesItems.Item].flat()[0].IndicadorFacturacion).toBe('1');
+    same(ECF);
+  });
+  it('30 días de calendario exactos (aunque sea a una hora posterior): indicador 0', () => {
+    const { ECF } = mk(new Date('2026-12-01T23:00:00Z')); // factura 2026-11-01; 1/12 en RD = día 30
+    expect(ECF.Encabezado.IdDoc.IndicadorNotaCredito).toBe('0');
+    same(ECF);
+  });
+});
+
 describe('XML de la nota', () => {
   it('respeta el orden del esquema: IndicadorNotaCredito tras eNCF; InformacionReferencia antes de FechaHoraFirma', () => {
     const ecf = buildEcfFromNote({ amount: 1062, reason: 'Devolución', createdAt: new Date('2026-11-10T15:00:00Z') }, invoice, company, 'E34', 'E340000000003', sequence, { full: true });
@@ -79,5 +97,16 @@ describe('nota sobre factura vieja (ITBIS incluido)', () => {
     const { ECF } = buildEcfFromNote({ amount: 286, reason: 'Devolución' }, inv, company, 'E34', 'E340000000001', sequence, { full: true });
     expect(ECF.Encabezado.Totales.MontoTotal).toBe('286.00');
     expect(Number(ECF.Encabezado.Totales.MontoTotal)).toBeCloseTo(sumTotals(ECF.Encabezado.Totales), 2);
+  });
+});
+
+describe('Notas sobre una factura con plazo', () => {
+  const conPlazo = { ...invoice, paymentTerm: { id: 'x', name: '30 días', saleDate: '2026-11-01', discount: null, schedule: [{ dueDate: '2026-12-01T12:00:00.000Z', amount: 1062 }] } };
+  it.each(['E33', 'E34'])('%s no hereda FechaLimitePago ni TipoPago 2', (tipo) => {
+    const note = { amount: 118, reason: 'Flete', createdAt: new Date('2026-11-10T15:00:00Z') };
+    const a = buildEcfFromNote(note, conPlazo, company, tipo, `${tipo}0000000001`, sequence).ECF.Encabezado.IdDoc;
+    const b = buildEcfFromNote(note, invoice, company, tipo, `${tipo}0000000001`, sequence).ECF.Encabezado.IdDoc;
+    expect(a.FechaLimitePago).toBeUndefined();
+    expect(a).toEqual(b);
   });
 });

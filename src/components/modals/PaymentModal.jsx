@@ -10,8 +10,12 @@ import { invoiceBalance, invoiceStatus } from '../../utils/withholdings.js';
 import { enqueueInvoicePaymentUpdate } from '../../utils/offlineQueue.js';
 import { isGatewayConfigured, createPaymentIntent, fetchPaymentIntentStatus, mapGatewayStatusToPaymentStatus } from '../../utils/paymentGateway.js';
 import { useEffect } from 'react';
+import { discountFor } from '../../utils/paymentTerms.js';
+import { todayRD } from '../../utils/tax.js';
 
-const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, allowWithholdings = false }) => {
+const OFFLINE_DISCOUNT_MSG = 'Sin conexión: el cobro con descuento necesita el servidor. No se registró; inténtalo de nuevo o desmarca el descuento.';
+
+const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, allowWithholdings = false, minAmount = 0 }) => {
     const paidBefore = Number(invoice.paidAmount ?? invoice.amountPaid ?? 0) || 0;
     const [itbisRet, setItbisRet] = useState(() => String(Number(invoice.itbisRetenido) || 0));
     const [isrRet, setIsrRet] = useState(() => String(Number(invoice.retencionRenta) || 0));
@@ -19,7 +23,12 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
     const itbisNum = parseFloat(itbisRet) || 0;
     const isrNum = parseFloat(isrRet) || 0;
     // Saldo tras lo ya cobrado y las retenciones escritas (totales acumulados).
-    const amountDue = useMemo(() => invoiceBalance({ ...invoice, amountPaid: paidBefore, itbisRetenido: itbisNum, retencionRenta: isrNum }), [invoice, paidBefore, itbisNum, isrNum]);
+    // Descuento por pronto pago: solo en Cuentas por Cobrar y dentro de su ventana (se acredita como nota de crédito).
+    const discount = useMemo(() => (allowWithholdings ? discountFor({ ...invoice, amountPaid: paidBefore }, todayRD()) : null), [invoice, paidBefore, allowWithholdings]);
+    const [useDiscount, setUseDiscount] = useState(true);
+    const discountAmount = discount && useDiscount ? discount.amount : 0;
+    const balanceWith = (i, r, disc) => invoiceBalance({ ...invoice, amountPaid: paidBefore, itbisRetenido: i, retencionRenta: r, creditedAmount: (Number(invoice.creditedAmount) || 0) + disc });
+    const amountDue = useMemo(() => balanceWith(itbisNum, isrNum, discountAmount), [invoice, paidBefore, itbisNum, isrNum, discountAmount]);
     const suggested = (due) => {
         const initial = { efectivo: 0, chequeTransferencia: 0, tarjeta: 0, credito: 0 };
         const method = invoice.paymentMethod || '';
@@ -30,13 +39,17 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
         return initial;
     };
     const [payments, setPayments] = useState(() => suggested(amountDue));
+    const handleToggleDiscount = (e) => {
+        setUseDiscount(e.target.checked);
+        setPayments(suggested(balanceWith(itbisNum, isrNum, e.target.checked ? discount.amount : 0)));
+    };
     const handleRetention = (setter) => (e) => {
         const value = e.target.value;
         setter(value);
         setRetDate(new Date().toLocaleDateString('en-CA'));
         const i = setter === setItbisRet ? parseFloat(value) || 0 : itbisNum;
         const r = setter === setIsrRet ? parseFloat(value) || 0 : isrNum;
-        setPayments(suggested(invoiceBalance({ ...invoice, amountPaid: paidBefore, itbisRetenido: i, retencionRenta: r })));
+        setPayments(suggested(balanceWith(i, r, discountAmount)));
     };
     const [gatewayInfo, setGatewayInfo] = useState(invoice.paymentGateway || null);
     const [isGatewayBusy, setIsGatewayBusy] = useState(false);
@@ -180,20 +193,31 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             toast.error("El monto a pagar debe ser mayor que cero.");
             return;
         }
+        // "Venta a Crédito" no es dinero cobrado
+        const collected = totalPaid - (parseFloat(payments.credito) || 0);
+        if (paidBefore + collected < minAmount - 0.001) {
+            toast.error(`El cobro mínimo hoy es ${formatCurrency(minAmount, currency)}.`);
+            return;
+        }
         if (totalPaid > amountDue + 0.01) { // Pequeña tolerancia para errores de redondeo
             toast.error("El monto pagado no puede ser mayor que el monto pendiente.");
             return;
         }
         
+        if (discountAmount && totalPaid < amountDue - 0.01) {
+            toast.error('Con el descuento por pronto pago hay que saldar la factura.');
+            return;
+        }
+
         const taxAmount = Number(invoice.taxAmount) || 0;
         const total = Number(invoice.total) || 0;
         if (itbisNum < 0 || isrNum < 0) { toast.error('Las retenciones no pueden ser negativas.'); return; }
         if (itbisNum > taxAmount + 0.01) { toast.error('El ITBIS retenido no puede superar el ITBIS de la factura.'); return; }
         if (isrNum > total - taxAmount + 0.01) { toast.error('El ISR retenido no puede superar el monto sin ITBIS.'); return; }
-        if (paidBefore + totalPaid + itbisNum + isrNum > total + 0.01) { toast.error('Lo cobrado más las retenciones supera el total de la factura.'); return; }
+        if (paidBefore + totalPaid + itbisNum + isrNum + discountAmount > total + 0.01) { toast.error('Lo cobrado más las retenciones supera el total de la factura.'); return; }
 
         const newPaidAmount = paidBefore + totalPaid;
-        const newPaymentStatus = invoiceStatus({ ...invoice, amountPaid: newPaidAmount, itbisRetenido: itbisNum, retencionRenta: isrNum });
+        const newPaymentStatus = invoiceStatus({ ...invoice, amountPaid: newPaidAmount, itbisRetenido: itbisNum, retencionRenta: isrNum, creditedAmount: (Number(invoice.creditedAmount) || 0) + discountAmount });
         const changed = allowWithholdings && (itbisNum !== (Number(invoice.itbisRetenido) || 0) || isrNum !== (Number(invoice.retencionRenta) || 0));
         const retention = changed ? { itbisRetenido: itbisNum, retencionRenta: isrNum, retentionDate: retDate } : {};
 
@@ -208,7 +232,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
         };
 
         try {
-            const promise = api.invoices.update(invoice.id, { 
+            const promise = (discountAmount ? api.invoices.earlyPayment : api.invoices.update)(invoice.id, { 
                 paidAmount: newPaidAmount, 
                 paymentStatus: newPaymentStatus,
                 payments: [...(invoice.payments || []), paymentBreakdown],
@@ -217,7 +241,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
             await toast.promise(promise, {
                 loading: 'Registrando pago...',
                 success: () => { playSuccessSound(); return '¡Pago registrado con éxito!'; },
-                error: (e) => { playErrorSound(); return e?.message || 'No se pudo registrar el pago.'; }
+                error: (e) => { playErrorSound(); return discountAmount && !e?.status ? OFFLINE_DISCOUNT_MSG : (e?.message || 'No se pudo registrar el pago.'); }
             });
             
             // Notificación del dispositivo - Pago registrado
@@ -226,8 +250,10 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
                 message: `Pago de ${formatCurrency(totalPaid)} para pedido #${invoice.invoiceNumber}`,
             }, ['desktop']);
             
-            onSuccess({ ...invoice, ...retention, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown] });
+            onSuccess({ ...invoice, ...retention, paidAmount: newPaidAmount, paymentStatus: newPaymentStatus, payments: [...(invoice.payments || []), paymentBreakdown], ...(discountAmount && { creditedAmount: (Number(invoice.creditedAmount) || 0) + discountAmount }) });
         } catch (err) {
+            // Con descuento no hay cola sin conexión: el servidor crea la nota y el cobro juntos, y ya se mostró su error
+            if (discountAmount) { if (err?.status === 409) onClose(); return; }
             // Un rechazo del servidor (400/403) no se encola ni se aplica: ya se avisó con su mensaje
             if (err?.status) return;
             // Fallback offline: encola la operación y actualiza UI de forma optimista
@@ -274,6 +300,7 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
                     <div className="p-4 bg-surface-muted rounded-lg text-center">
                         <p className="text-ink-soft">Monto Pendiente</p>
                         <p className="text-3xl font-bold text-brand-600">{formatCurrency(amountDue, currency)}</p>
+                        {minAmount > 0 && <p className="mt-1 text-sm font-medium text-ink">Cobro mínimo hoy: {formatCurrency(minAmount, currency)}</p>}
                     </div>
                     
                     <fieldset className="border p-4 rounded-lg">
@@ -297,6 +324,13 @@ const PaymentModal = ({ invoice, customers, companyProfile, onClose, onSuccess, 
                             </div>
                         </div>
                     </fieldset>
+
+                    {discount && (
+                    <label className="flex items-center gap-2 p-3 rounded-lg border border-line bg-surface-muted">
+                        <input type="checkbox" checked={useDiscount} onChange={handleToggleDiscount} />
+                        <span>Descuento por pronto pago {Number(invoice.paymentTerm.discount.percent).toLocaleString('es-DO')} %: {formatCurrency(discount.amount, currency)} (hasta {discount.until.split('-').reverse().join('/')})</span>
+                    </label>
+                    )}
 
                     {allowWithholdings && (
                     <fieldset className="border p-4 rounded-lg">

@@ -210,6 +210,7 @@ model Customer {
   taxpayerType        String    @default("consumidor_final")
   exemptionNumber     String? // carnet de exención de ITBIS
   exemptionExpiresAt  DateTime? @db.Date
+  paymentTermId       String?   // condición de pago por defecto (id en settings.paymentTerms)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -394,6 +395,8 @@ model Invoice {
   
   // Pago
   paymentMethod String?
+  paymentTerm     Json?     // copia de la condición de pago con su calendario de cuotas (null = contado)
+  creditedAmount  Decimal @default(0) @db.Decimal(12, 2) // notas de crédito parciales que reducen el saldo
   paymentTermDays Int?      // plazo de crédito en días (null/0 = contado)
   dueDate         DateTime? // vencimiento: fecha de la venta + plazo
   amountPaid    Decimal @default(0) @db.Decimal(12, 2)
@@ -473,6 +476,7 @@ model CreditNote {
   amount    Decimal  @db.Decimal(12, 2)
   items     Json     @default("[]") // artículos devueltos a inventario: [{ itemId, quantity }]
   status    String   @default("active")
+  kind      String   @default("normal") // normal | pronto_pago
   ecfDocuments EcfDocument[]
   
   createdAt DateTime @default(now())
