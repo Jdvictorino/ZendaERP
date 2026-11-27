@@ -5,6 +5,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
 import { withholdingsOf, validateWithholdings } from '../services/withholdings.js';
 import { paymentTermsOf, validatePaymentTerms, missingTermId } from '../services/paymentTerms.js';
+import { remindersOf, validateReminders } from '../services/collectionReminders.js';
 import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
 
@@ -91,6 +92,7 @@ router.get('/', async (req, res) => {
       pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
       withholdings: withholdingsOf(settings),
       paymentTerms: paymentTermsOf(settings),
+      collectionReminders: remindersOf(settings),
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
         bankName: '',
@@ -159,6 +161,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       _categoryMigrations,
       withholdings,
       paymentTerms,
+      collectionReminders,
     } = req.body;
 
     if (Array.isArray(customerCategories) && customerCategories.some((c) => !String(c ?? '').trim())) {
@@ -172,6 +175,13 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
 
     if (paymentTerms !== undefined) {
       const bad = validatePaymentTerms(paymentTerms);
+      if (bad) return res.status(400).json({ error: bad });
+    }
+
+    // Se valida el objeto completado con los valores iniciales: un guardado parcial (sin auto, por ejemplo) no se rechaza
+    const reminders = collectionReminders !== undefined ? remindersOf({ collectionReminders }) : undefined;
+    if (reminders) {
+      const bad = validateReminders(reminders);
       if (bad) return res.status(400).json({ error: bad });
     }
 
@@ -252,6 +262,9 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
     if (paymentTerms !== undefined) {
       newSettings.paymentTerms = paymentTerms;
     }
+    if (reminders !== undefined) {
+      newSettings.collectionReminders = reminders;
+    }
     if (smtp !== undefined) {
       newSettings.smtp = mergeSmtp(currentSettings.smtp, smtp);
     }
@@ -292,6 +305,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       pricing: settings.pricing || {},
       withholdings: withholdingsOf(settings),
       paymentTerms: paymentTermsOf(settings),
+      collectionReminders: remindersOf(settings),
       allowCustomization: settings.allowCustomization !== undefined ? settings.allowCustomization : true,
       customerCategories: settings.customerCategories || [],
       smtp: publicSettings({ smtp: newSettings.smtp }).smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },
