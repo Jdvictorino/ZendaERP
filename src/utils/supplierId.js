@@ -1,16 +1,26 @@
 export const SUPPLIER_TYPES = ['empresa', 'persona_fisica', 'informal', 'exterior'];
 
-function rncValid(d) {
+export function rncValid(d) {
   if (!/^\d{9}$/.test(d)) return false;
   const w = [7, 9, 8, 6, 5, 4, 3, 2];
   const sum = w.reduce((s, x, i) => s + x * Number(d[i]), 0);
   return (10 - (sum % 11)) % 9 + 1 === Number(d[8]);
 }
 
+// Pesos 1,2,1,2… sobre 10 dígitos; el producto >9 suma sus dígitos; verificador = (10 - suma%10)%10.
+export function cedulaValid(v) {
+  const d = String(v ?? '').replace(/[\s-]/g, '');
+  if (!/^\d{11}$/.test(d)) return false;
+  const sum = [...d.slice(0, 10)].reduce((s, c, i) => { const p = Number(c) * (i % 2 ? 2 : 1); return s + (p > 9 ? p - 9 : p); }, 0);
+  return (10 - (sum % 10)) % 10 === Number(d[10]);
+}
+export const CEDULA_WARNING = 'La cédula no pasa el dígito verificador; revísala.';
+
 export function normalizeSupplierId(type, value) {
   const raw = String(value ?? '').trim();
   const digits = raw.replace(/[\s-]/g, '');
   const fail = (error) => ({ value: null, error });
+  const cedulaOk = (v) => ({ value: v, error: null, ...(cedulaValid(v) ? {} : { warning: CEDULA_WARNING }) });
   if (type === 'exterior') {
     const v = raw.replace(/[\s-]/g, '').toUpperCase();
     if (!v) return { value: null, error: null };
@@ -25,9 +35,9 @@ export function normalizeSupplierId(type, value) {
   }
   if (type === 'persona_fisica') {
     const ok = numeric && (digits.length === 11 || rncValid(digits));
-    return ok ? { value: digits, error: null } : fail('Escribe una cédula (11 dígitos) o un RNC (9) válidos.');
+    return ok ? (digits.length === 11 ? cedulaOk(digits) : { value: digits, error: null }) : fail('Escribe una cédula (11 dígitos) o un RNC (9) válidos.');
   }
-  return numeric && digits.length === 11 ? { value: digits, error: null } : fail('La cédula del vendedor informal es obligatoria (11 dígitos).');
+  return numeric && digits.length === 11 ? cedulaOk(digits) : fail('La cédula del vendedor informal es obligatoria (11 dígitos).');
 }
 
 // 9 dígitos: 1-31-00000-1; 11: 001-1234567-8; otro: tal cual.

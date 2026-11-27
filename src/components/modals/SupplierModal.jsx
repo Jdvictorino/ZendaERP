@@ -65,6 +65,9 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
     };
     const handleBankChange = (e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, [e.target.name]: e.target.value } });
     
+    // Aviso, no error: el servidor igual guarda la cédula.
+    const idWarning = normalizeSupplierId(formData.supplierType, formData.identificationNumber).warning;
+
     const validate = () => {
         const err = {};
         if (!formData.name || !formData.name.trim()) err.name = 'El nombre es obligatorio.';
@@ -147,6 +150,7 @@ const SupplierModal = ({ supplier, onClose, onSave, isQuickAdd = false, fullPage
                                     <input id="sup-id" type="text" name="identificationNumber" value={formatSupplierId(formData.identificationNumber)} onChange={handleIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={[errors.identificationNumber && 'err-identificationNumber', ID_HELP[formData.supplierType] && 'help-id'].filter(Boolean).join(' ') || undefined} />
                                     {ID_HELP[formData.supplierType] && <p id="help-id" className="text-xs text-ink-soft mt-1">{ID_HELP[formData.supplierType]}</p>}
                                     {errors.identificationNumber && <p id="err-identificationNumber" className="field-error">{errors.identificationNumber}</p>}
+                                    {idWarning && <p className="text-xs mt-1 text-amber-700 dark:text-amber-400" role="status">{idWarning}</p>}
                                 </div>
                                 <div>
                                     <label htmlFor="sup-contact" className="block text-ink-soft mb-1">Persona de contacto</label>
