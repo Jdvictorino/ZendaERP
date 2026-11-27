@@ -48,6 +48,22 @@ export const remindersUpdate = (settings, body) => {
   return error ? { error } : { value };
 };
 
+// Número de WhatsApp de RD: 809/829/849 con o sin el 1 inicial; lo demás es inválido.
+export const waNumber = (phone) => {
+  const d = String(phone ?? '').replace(/\D/g, '');
+  return /^(809|829|849)\d{7}$/.test(d) ? `1${d}` : /^1(809|829|849)\d{7}$/.test(d) ? d : null;
+};
+export const waUrl = (number, text) => `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+
+const invoiceNumberOf = (inv) => inv.ncfNumber || inv.invoiceNumber || inv.orderNumber || inv.id;
+const moneyOf = (company) => (n) => {
+  try { return new Intl.NumberFormat('es-DO', { style: 'currency', currency: company?.currency || 'DOP' }).format(n); }
+  catch { return `RD$${Number(n).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`; }
+};
+
+export const invoiceWhatsappText = (invoice, customer, company) =>
+  `Hola ${customer?.name || ''}, le enviamos su factura ${invoiceNumberOf(invoice)} por ${moneyOf(company)(invoice.total)}. Gracias por preferir ${company?.name || ''}.`;
+
 export const stageLabel = (n) =>
   n < 0 ? `${-n} ${n === -1 ? 'día' : 'días'} antes` : n === 0 ? 'vence hoy' : `${n} ${n === 1 ? 'día' : 'días'} de atraso`;
 
@@ -81,13 +97,16 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
         .filter((x) => same(x) && (x.status === 'failed' || x.status === 'sending'))
         .sort((a, b) => time(b.createdAt) - time(a.createdAt))[0];
       const email = String(c.email || '').trim();
+      const phone = waNumber(c.phone);
       rows.push({
         invoiceId: inv.id,
         customerId: inv.customerId || c.id || null,
         customerName: c.name || '',
         email,
         emailStatus: !email ? 'missing' : isValidEmail(email) ? 'ok' : 'invalid',
-        invoiceNumber: inv.ncfNumber || inv.invoiceNumber || inv.orderNumber || inv.id,
+        phone,
+        phoneStatus: phone ? 'ok' : String(c.phone || '').trim() ? 'invalid' : 'missing',
+        invoiceNumber: invoiceNumberOf(inv),
         dueDate: ins.dueDate,
         stage,
         amount: ins.remaining,
@@ -103,10 +122,7 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
 };
 
 export const renderReminder = (rules, row, company, today) => {
-  const money = (n) => {
-    try { return new Intl.NumberFormat('es-DO', { style: 'currency', currency: company?.currency || 'DOP' }).format(n); }
-    catch { return `RD$${Number(n).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`; }
-  };
+  const money = moneyOf(company);
   const d = diffDays(today, row.dueDate);
   const [y, m, dd] = row.dueDate.slice(0, 10).split('-');
   const vars = {
