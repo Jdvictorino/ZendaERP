@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { dueRows, rdDay, reservationPlan, smtpReady, sendReminders, autoItems, shouldRunAuto, runAutoReminders } from '../backend/src/services/reminderSender.js';
+import { dueRows, rdDay, reservationPlan, smtpReady, sendReminders, registerWhatsapp, autoItems, shouldRunAuto, runAutoReminders } from '../backend/src/services/reminderSender.js';
 
 const now = new Date('2026-12-10T15:00:00Z'); // 11:00 en RD
 const ago = (min) => new Date(now.getTime() - min * 60000);
@@ -84,7 +84,8 @@ describe('reminderSender', () => {
     const p = fakePrisma({ other: { id: 'x' } }); const sendMail = vi.fn();
     const r = await run(p, sendMail);
     expect(r[0].status).toBe('skipped'); expect(sendMail).not.toHaveBeenCalled();
-    expect(p.calls.findFirst.where).toMatchObject({ invoiceId: 'i1', channel: 'email', id: { not: 'r1' } });
+    expect(p.calls.findFirst.where).toMatchObject({ invoiceId: 'i1', id: { not: 'r1' } });
+    expect(p.calls.findFirst.where).not.toHaveProperty('channel');
     expect(p.calls.update[0]).toMatchObject({ where: { id: 'r1' }, data: { status: 'failed', error: 'Ya salió otro recordatorio de esta factura hoy' } });
   });
 
@@ -126,6 +127,42 @@ describe('reminderSender', () => {
     const p = fakePrisma({ reminders: [old] });
     await run(p, async () => {});
     expect(p.calls.updateMany[0].data.updatedAt).toBeInstanceOf(Date); // la hora real, no el inicio de la llamada
+  });
+
+  describe('registerWhatsapp', () => {
+    const withPhone = (phone = '809-555-1234') => invoice({ customer: { ...invoice().customer, phone } });
+    const reg = (p) => registerWhatsapp({ prisma: p, company, item, userId: 'u1', now });
+    it('crea la fila whatsapp sent y devuelve la url', async () => {
+      const p = fakePrisma({ invoices: [withPhone()] });
+      const r = await reg(p);
+      expect(r.status).toBe('sent'); expect(r.url.startsWith('https://wa.me/1809')).toBe(true);
+      expect(p.calls.create[0]).toMatchObject({ channel: 'whatsapp', status: 'sent', to: '18095551234', sentById: 'u1', dueDate: new Date('2026-12-03') });
+    });
+    it('P2002 devuelve skipped', async () => {
+      const r = await reg(fakePrisma({ invoices: [withPhone()], createError: Object.assign(new Error('dup'), { code: 'P2002' }) }));
+      expect(r.status).toBe('skipped'); expect(r.url).toBeUndefined();
+    });
+    it('si hoy ya salió otro envío, queda failed y no hay url', async () => {
+      const p = fakePrisma({ invoices: [withPhone()], other: { id: 'x' } });
+      const r = await reg(p);
+      expect(r.status).toBe('skipped'); expect(r.url).toBeUndefined();
+      expect(p.calls.findFirst.where).not.toHaveProperty('channel');
+      expect(p.calls.update[0]).toMatchObject({ where: { id: 'r1' }, data: { status: 'failed', error: 'Ya salió otro recordatorio de esta factura hoy' } });
+    });
+    it('sin teléfono válido devuelve skipped', async () => {
+      const p = fakePrisma({ invoices: [withPhone('12345')] });
+      expect(await reg(p)).toMatchObject({ status: 'skipped', error: 'Sin teléfono válido' });
+      expect(p.calls.create).toEqual([]);
+    });
+    it('un ítem que ya no toca devuelve skipped', async () => {
+      expect((await reg(fakePrisma({ invoices: [withPhone()].map((i) => ({ ...i, status: 'Pagado', amountPaid: 1000 })) }))).status).toBe('skipped');
+    });
+    it('sendReminders: un sent por whatsapp hoy deja el correo en skipped', async () => {
+      const wa = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'whatsapp', status: 'sent', createdAt: ago(5), updatedAt: ago(5) };
+      const sendMail = vi.fn();
+      expect((await run(fakePrisma({ reminders: [wa] }), sendMail))[0].status).toBe('skipped');
+      expect(sendMail).not.toHaveBeenCalled();
+    });
   });
 
   describe('automático', () => {
