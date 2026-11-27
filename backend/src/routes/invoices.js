@@ -225,6 +225,20 @@ router.get('/credit-notes', async (req, res, next) => {
 });
 
 /**
+ * GET /api/invoices/:id/reminders: historial de recordatorios de cobro de la factura, el más reciente primero.
+ */
+router.get('/:id/reminders', authorize(...rolesFor('finance-accounts-receivable')), async (req, res, next) => {
+  try {
+    res.json(await prisma.collectionReminder.findMany({
+      where: { invoiceId: req.params.id, companyId: req.companyId },
+      orderBy: { createdAt: 'desc' },
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/invoices/:id
  */
 router.get('/:id', async (req, res, next) => {

@@ -29,6 +29,7 @@ const customerSchema = z.object({
   defaultDiscount: z.number().optional(),
   creditDays: z.number().optional(),
   paymentTermId: z.string().nullable().optional(),
+  remindersOff: z.boolean().optional(), // sin valor no cambia (las apps viejas no lo mandan); la base lo crea en false
   notes: z.string().optional(),
   logo: z.string().optional(),
 }).passthrough();
@@ -43,6 +44,7 @@ function transformCustomerData(data) {
     category: data.category || null,
     creditLimit: data.creditLimit || 0,
     status: data.status || 'active',
+    ...(data.remindersOff !== undefined && { remindersOff: data.remindersOff }),
   };
 
   // Mapear identificationNumber a rnc

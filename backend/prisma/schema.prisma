@@ -76,6 +76,7 @@ model Company {
   shipments         Shipment[]
   offers            Offer[]
   creditNotes       CreditNote[]
+  collectionReminders CollectionReminder[]
   debitNotes        DebitNote[]
   ecfSequences      EcfSequence[]
   ecfDocuments      EcfDocument[]
@@ -211,12 +212,14 @@ model Customer {
   exemptionNumber     String? // carnet de exención de ITBIS
   exemptionExpiresAt  DateTime? @db.Date
   paymentTermId       String?   // condición de pago por defecto (id en settings.paymentTerms)
+  remindersOff        Boolean   @default(false) // no enviarle recordatorios de cobro
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   // Relaciones
   invoices Invoice[]
+  collectionReminders CollectionReminder[]
 
   @@index([companyId])
   @@map("customers")
@@ -426,6 +429,7 @@ model Invoice {
   creditNotes  CreditNote[]
   debitNotes   DebitNote[]
   ecfDocuments EcfDocument[]
+  collectionReminders CollectionReminder[]
   shipment     Shipment?
 
   @@index([companyId])
@@ -482,6 +486,32 @@ model CreditNote {
   createdAt DateTime @default(now())
 
   @@map("credit_notes")
+}
+
+// Recordatorios de cobro enviados: la clave única impide enviar dos veces la misma etapa de una cuota
+model CollectionReminder {
+  id         String   @id @default(uuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceId  String
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  dueDate    DateTime @db.Date // vencimiento de la cuota
+  stage      Int      // días respecto al vencimiento
+  channel    String   // 'email' (WhatsApp agregará 'whatsapp')
+  status     String   // sending | sent | failed
+  error      String?
+  to         String
+  sentById   String?  // null = automático
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([invoiceId, dueDate, stage, channel])
+  @@index([companyId, createdAt])
+  @@index([invoiceId])
+  @@map("collection_reminders")
 }
 
 model DebitNote {

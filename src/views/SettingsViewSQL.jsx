@@ -11,6 +11,7 @@ import { playSuccessSound, playErrorSound } from '../utils/soundPlayer.js';
 import NcfModal from '../components/modals/NcfModal.jsx';
 import WithholdingsTab from '../components/settings/WithholdingsTab.jsx';
 import PaymentTermsTab from '../components/settings/PaymentTermsTab.jsx';
+import RemindersTab from '../components/settings/RemindersTab.jsx';
 import EcfConfigPanel from '../components/ecf/EcfConfigPanel.jsx';
 import Card, { CardBody } from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -172,7 +173,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
             const cleanPayload = sanitizeForBackend(formData);
             cleanPayload.emailProvider = null;
             delete cleanPayload.customerCategories; // las categorías no viajan sin _categoryMigrations
-            delete cleanPayload.paymentTerms; delete cleanPayload.withholdings; // sus pestañas los guardan; un perfil viejo no debe revertirlos
+            delete cleanPayload.paymentTerms; delete cleanPayload.withholdings; delete cleanPayload.collectionReminders; // sus pestañas los guardan; un perfil viejo no debe revertirlos
             await settingsApi.update(cleanPayload);
 
             const result = await api.email.send({
@@ -203,7 +204,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
         const payloadToSave = customPayload || formData;
         const cleanPayload = sanitizeForBackend(payloadToSave);
         cleanPayload.emailProvider = null;
-        delete cleanPayload.paymentTerms; delete cleanPayload.withholdings; // sus pestañas los guardan; un perfil viejo no debe revertirlos
+        delete cleanPayload.paymentTerms; delete cleanPayload.withholdings; delete cleanPayload.collectionReminders; // sus pestañas los guardan; un perfil viejo no debe revertirlos
 
         if (cleanPayload.customerCategories) {
             const { entries, error } = buildCategoryMigrations(origCategories, formData.customerCategories || [], pendingMigrations, loadedCategories);
@@ -274,7 +275,8 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
         { id: 'ecf', label: 'Configuración e-CF', icon: Shield },
         { id: 'correo', label: 'Servicio de Correo', icon: Mail },
         { id: 'retenciones', label: 'Retenciones', icon: DollarSign },
-        { id: 'plazos', label: 'Condiciones de pago', icon: DollarSign }
+        { id: 'plazos', label: 'Condiciones de pago', icon: DollarSign },
+        { id: 'recordatorios', label: 'Recordatorios de cobro', icon: Mail }
     ];
 
     return (
@@ -1017,6 +1019,10 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
 
                     {activeTab === 'plazos' && (
                         <PaymentTermsTab companyProfile={companyProfile} canEdit={!!isMasterUser} onProfileUpdate={onProfileUpdate} />
+                    )}
+
+                    {activeTab === 'recordatorios' && (
+                        <RemindersTab companyProfile={companyProfile} canEdit={!!isMasterUser} onProfileUpdate={onProfileUpdate} />
                     )}
 
                     {/* Servicio de Correo */}

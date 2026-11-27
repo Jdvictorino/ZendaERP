@@ -35,11 +35,13 @@ import adminBillingRoutes from './routes/adminBilling.js';
 import monitoringRoutes from './routes/monitoring.js';
 import ecfRoutes from './routes/ecf.js';
 import emailRoutes from './routes/email.js';
+import collectionRemindersRoutes from './routes/collectionReminders.js';
 import adminObservabilityRoutes from './routes/adminObservability.js';
 import adminConsoleRoutes from './routes/adminConsole.js';
 import updatesRoutes from './routes/updates.js';
 import { observabilityMiddleware, observabilityErrorCapture, log } from './middleware/observability.js';
 import { runBillingEnforcement } from './services/billingEnforcementService.js';
+import { runAutoReminders } from './services/reminderSender.js';
 
 import { requireJwtSecret } from './services/security.js';
 
@@ -147,6 +149,7 @@ app.use('/api/admin/billing', adminBillingRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/ecf', ecfRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/collection-reminders', collectionRemindersRoutes);
 app.use('/api/admin/observability', adminObservabilityRoutes);
 app.use('/api/admin/console', adminConsoleRoutes);
 app.use('/api/updates', updatesRoutes);
@@ -268,6 +271,22 @@ server.listen(PORT, () => {
   } else {
     console.log('⏸️ Billing scheduler deshabilitado por configuración.');
   }
+
+  // Siempre activo: cada empresa lo enciende en Configuración (viene apagado por defecto).
+  let remindersRunning = false; // si la pasada anterior no terminó, se salta esta
+  setInterval(async () => {
+    if (remindersRunning) return;
+    remindersRunning = true;
+    try {
+      const summary = await runAutoReminders({});
+      if (summary.sent || summary.failed) console.log('📧 Recordatorios de cobro automáticos:', summary);
+    } catch (error) {
+      console.error('❌ Error en los recordatorios de cobro automáticos:', error.message);
+    } finally {
+      remindersRunning = false;
+    }
+  }, 60 * 60 * 1000);
+  console.log('⏱️ Recordatorios de cobro automáticos: revisión cada 60 minuto(s).');
 });
 
 export default app;

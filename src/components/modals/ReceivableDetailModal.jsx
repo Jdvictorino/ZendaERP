@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { invoices as invoicesApi } from '../../api/client.js';
+import { rdDate } from '../../utils/rdDate.js';
+import { stageLabel } from '../../utils/collectionReminders.js';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF, generateAccountStatementPDF } from '../../utils/pdfGenerator.js';
@@ -35,6 +38,15 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
   // Calendario de cuotas: solo si la factura guardó su plazo; fechas 'YYYY-MM-DD' tal cual.
   const installments = invoice.paymentTerm?.schedule?.length
     ? installmentsOf({ ...invoice, amountPaid: invoice.paidAmount ?? invoice.amountPaid }, todayRD()) : [];
+
+  const [reminders, setReminders] = useState([]);
+  useEffect(() => {
+    setReminders([]);
+    if (!open || !invoice.id) return undefined;
+    let alive = true;
+    (async () => { try { const r = await invoicesApi.reminders(invoice.id); if (alive) setReminders(Array.isArray(r) ? r : []); } catch { /* el historial es opcional */ } })();
+    return () => { alive = false; };
+  }, [open, invoice.id]);
 
   const formatMoney = (value) => formatCurrency(Number(value) || 0, currency);
 
@@ -293,6 +305,21 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
                   ))}
                 </tbody>
               </table>
+            </section>
+          )}
+
+          {reminders.length > 0 && (
+            <section className="rounded-lg border border-line p-4">
+              <h3 className="mb-2 text-sm font-semibold text-ink">Recordatorios enviados</h3>
+              <ul className="space-y-1 text-sm">
+                {reminders.map((r) => (
+                  <li key={r.id} className="border-t border-line pt-1 first:border-0 first:pt-0">
+                    {rdDate(r.updatedAt || r.createdAt)} · {stageLabel(r.stage)} · {r.channel === 'email' ? 'correo' : r.channel} · {r.sentById ? 'manual' : 'automático'} ·{' '}
+                    <span className={r.status === 'failed' ? 'text-red-600' : 'text-ink-muted'}>{r.status === 'sent' ? 'enviado' : r.status === 'failed' ? 'falló' : 'en curso'}</span>
+                    {r.status === 'failed' && r.error ? <span className="text-red-600"> ({r.error})</span> : null}
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 

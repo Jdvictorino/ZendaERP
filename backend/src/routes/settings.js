@@ -5,6 +5,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { publicSettings, mergeSmtp } from '../services/security.js';
 import { withholdingsOf, validateWithholdings } from '../services/withholdings.js';
 import { paymentTermsOf, validatePaymentTerms, missingTermId } from '../services/paymentTerms.js';
+import { remindersOf, remindersUpdate } from '../services/collectionReminders.js';
 import { DEFAULT_CUSTOMER_CATEGORIES, planCategoryChanges } from '../services/categoryPrices.js';
 
 
@@ -91,6 +92,7 @@ router.get('/', async (req, res) => {
       pricing: { categoryDiscounts: {}, maxDiscountPercent: 5, ...(settings.pricing || {}) },
       withholdings: withholdingsOf(settings),
       paymentTerms: paymentTermsOf(settings),
+      collectionReminders: remindersOf(settings),
       bankDetails: settings.bankDetails || {
         entityType: 'Persona',
         bankName: '',
@@ -159,7 +161,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       _categoryMigrations,
       withholdings,
       paymentTerms,
-    } = req.body;
+    } = req.body; // collectionReminders se ignora aquí: tiene su ruta propia (la app 1.1.20 manda todo el perfil)
 
     if (Array.isArray(customerCategories) && customerCategories.some((c) => !String(c ?? '').trim())) {
       return res.status(400).json({ error: 'Cada categoría necesita un nombre' });
@@ -292,6 +294,7 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
       pricing: settings.pricing || {},
       withholdings: withholdingsOf(settings),
       paymentTerms: paymentTermsOf(settings),
+      collectionReminders: remindersOf(settings),
       allowCustomization: settings.allowCustomization !== undefined ? settings.allowCustomization : true,
       customerCategories: settings.customerCategories || [],
       smtp: publicSettings({ smtp: newSettings.smtp }).smtp || { host: '', port: 587, secure: false, user: '', pass: '', from: '' },
@@ -316,6 +319,25 @@ router.put('/', authorize('admin', 'manager'), async (req, res) => {
 // Secuencias NCF con el contador real: B01/B02 cuentan en sus columnas (las usa la facturación)
 const liveSequences = (company) => (Array.isArray(company.settings?.ncfSequences) ? company.settings.ncfSequences : [])
   .map((s) => (['B01', 'B02'].includes(s.code) ? { ...s, next: company[`ncf${s.code}SequenceNext`] ?? s.next } : s));
+
+// PUT /settings/collection-reminders - Recordatorios de cobro: completa lo recibido con lo ya guardado
+router.put('/collection-reminders', authorize('admin', 'manager'), async (req, res) => {
+  try {
+    const result = await withSettingsLock(req.companyId, async (tx) => {
+      const company = await tx.company.findUnique({ where: { id: req.companyId }, select: { settings: true } });
+      const current = company?.settings || {};
+      const { error, value } = remindersUpdate(current, req.body?.collectionReminders);
+      if (error) return { error };
+      await tx.company.update({ where: { id: req.companyId }, data: { settings: { ...current, collectionReminders: value } } });
+      return { value };
+    });
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json({ collectionReminders: result.value });
+  } catch (error) {
+    console.error('Error updating collection reminders:', error);
+    res.status(500).json({ error: 'Error al guardar los recordatorios de cobro' });
+  }
+});
 
 // PUT /settings/ncf - Guardar las secuencias de talonarios (inicio, fin, siguiente y si está activa)
 router.put('/ncf', authorize(...rolesFor('finance-fiscal-management')), async (req, res) => {

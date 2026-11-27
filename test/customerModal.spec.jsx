@@ -113,3 +113,25 @@ describe('CustomerModal tipo de contribuyente', () => {
         expect(screen.getByLabelText(/^RNC/).value).toBe('100000004');
     });
 });
+
+describe('CustomerModal recordatorios de cobro', () => {
+    it('marcar la casilla manda remindersOff true; por defecto false', async () => {
+        const onSave = vi.fn();
+        render(<CustomerModal customer={{}} onClose={() => {}} onSave={onSave} />);
+        const box = screen.getByLabelText('No enviarle recordatorios de cobro');
+        expect(box.checked).toBe(false);
+        fireEvent.click(box);
+        fireEvent.change(screen.getByLabelText('Nombre Completo / Razón Social'), { target: { value: 'ZF SA' } });
+        fireEvent.click(screen.getByText('Guardar Cliente'));
+        await waitFor(() => expect(onSave).toHaveBeenCalled());
+        expect(onSave.mock.calls[0][0].remindersOff).toBe(true);
+    });
+
+    it('un cliente con remindersOff abre marcado y uno sin el campo, desmarcado', () => {
+        const { unmount } = render(<CustomerModal customer={{ id: 1, name: 'A', remindersOff: true }} onClose={() => {}} onSave={() => {}} />);
+        expect(screen.getByLabelText('No enviarle recordatorios de cobro').checked).toBe(true);
+        unmount();
+        render(<CustomerModal customer={{ id: 2, name: 'B' }} onClose={() => {}} onSave={() => {}} />);
+        expect(screen.getByLabelText('No enviarle recordatorios de cobro').checked).toBe(false);
+    });
+});
