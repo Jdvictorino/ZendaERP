@@ -66,13 +66,13 @@ export default function RemindersDueTab({ currency }) {
     try {
       const r = await collectionReminders.whatsapp({ invoiceId, dueDate, stage });
       if (r.status === 'sent') {
-        if (!win.go(r.url)) toast.error('No se pudo abrir WhatsApp');
-        await load();
+        if (!(await win.go(r.url))) toast.error('No se pudo abrir WhatsApp');
       } else { win.cancel(); toast.error(r.error || 'No se pudo enviar por WhatsApp'); }
     } catch (e) {
       win.cancel();
       toast.error(e.message || 'No se pudo enviar por WhatsApp');
     }
+    await load();
     setWaBusy(false);
     waLock.current = false;
   };
@@ -138,7 +138,7 @@ export default function RemindersDueTab({ currency }) {
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-2">
-                          {ok && <Button size="sm" disabled={!smtpReady || sending} onClick={() => send([r])}>{r.failed ? 'Reintentar' : 'Enviar'}</Button>}
+                          {ok && <Button size="sm" disabled={!smtpReady || sending} onClick={() => send([r])}>{r.failed && r.failed.channel !== 'whatsapp' ? 'Reintentar' : 'Enviar'}</Button>}
                           <Button size="sm" variant="secondary" disabled={r.phoneStatus !== 'ok' || waBusy} title={r.phoneStatus !== 'ok' ? 'Sin teléfono válido' : undefined} onClick={() => sendWhatsapp(r)}>WhatsApp</Button>
                         </div>
                       </td>

@@ -120,6 +120,27 @@ describe('WhatsApp en Por recordar hoy', () => {
         await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Ya se envió hoy'));
         expect(mocks.go).not.toHaveBeenCalled(); expect(mocks.cancel).toHaveBeenCalled();
     });
+    it('skipped y error también recargan la lista', async () => {
+        mocks.whatsapp.mockResolvedValue({ status: 'skipped', error: 'Ya se envió hoy' });
+        await open([row()]);
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(mocks.due).toHaveBeenCalledTimes(2));
+        mocks.whatsapp.mockRejectedValue(new Error('Red caída'));
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(mocks.due).toHaveBeenCalledTimes(3));
+    });
+    it('si el puente no abre WhatsApp: toast de error', async () => {
+        mocks.go.mockResolvedValueOnce(false);
+        await open([row()]);
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('No se pudo abrir WhatsApp'));
+    });
+    it('un fallo de WhatsApp no pone "Reintentar" en el correo', async () => {
+        await open([row({ failed: { channel: 'whatsapp', error: 'x' } })]);
+        const tr = screen.getByText('Cliente A').closest('tr');
+        expect(within(tr).queryByRole('button', { name: 'Reintentar' })).toBeNull();
+        expect(within(tr).getByRole('button', { name: 'Enviar' })).toBeTruthy();
+    });
     it('sin teléfono válido: deshabilitado con título', async () => {
         await open([row({ phone: '', phoneStatus: 'missing' })]);
         const b = screen.getByRole('button', { name: 'WhatsApp' });

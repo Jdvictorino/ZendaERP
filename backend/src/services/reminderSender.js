@@ -127,7 +127,7 @@ export async function registerWhatsapp({ prisma = defaultPrisma, company, item, 
   if (plan === 'create') {
     try {
       ({ id } = await prisma.collectionReminder.create({
-        data: { companyId: company.id, invoiceId: row.invoiceId, customerId: row.customerId, dueDate: new Date(row.dueDate), stage: row.stage, channel: 'whatsapp', status: 'sent', to: row.phone, sentById: userId },
+        data: { companyId: company.id, invoiceId: row.invoiceId, customerId: row.customerId, dueDate: new Date(row.dueDate), stage: row.stage, channel: 'whatsapp', status: 'sending', to: row.phone, sentById: userId },
       }));
     } catch (e) {
       if (e.code === 'P2002') return { status: 'skipped', error: 'Ya se registró este recordatorio' };
@@ -136,28 +136,22 @@ export async function registerWhatsapp({ prisma = defaultPrisma, company, item, 
   } else {
     const { count } = await prisma.collectionReminder.updateMany({
       where: { id: existing.id, status: existing.status, updatedAt: existing.updatedAt },
-      data: { status: 'sent', sentById: userId, to: row.phone, error: null, updatedAt: new Date() },
+      data: { status: 'sending', sentById: userId, to: row.phone, error: null, updatedAt: new Date() },
     });
     if (!count) return { status: 'skipped', error: 'Ya se registró este recordatorio' };
     id = existing.id;
   }
-  const error = 'Ya salió otro recordatorio de esta factura hoy';
-  let blocked;
-  try { blocked = await otherToday(prisma, row.invoiceId, id, today, now); }
-  catch (e) {
-    // Sin la comprobación no se sabe si toca: la fila no puede quedar 'sent'.
-    try { await prisma.collectionReminder.update({ where: { id }, data: { status: 'failed', error: String(e?.message || e).slice(0, 500) } }); }
-    catch (e2) { console.error('[reminderSender] no se pudo marcar failed el recordatorio', id, e2.message); }
-    throw e;
-  }
-  if (blocked) {
+  // Reservada en 'sending': solo pasa a 'sent' si se va a devolver la url. Si otherToday lanza, queda 'sending' y en 10 min es reintentable.
+  if (await otherToday(prisma, row.invoiceId, id, today, now)) {
+    const error = 'Ya salió otro recordatorio de esta factura hoy';
     await save(prisma, id, { status: 'failed', error });
     return { status: 'skipped', error };
   }
+  await prisma.collectionReminder.update({ where: { id }, data: { status: 'sent' } }); // lanza si falla: sin 'sent' no hay url
   return { status: 'sent', url: waUrl(row.phone, renderReminder(rules, row, company, today).text) };
 }
 
-export const autoItems = (rows) => rows.filter((r) => r.emailStatus === 'ok' && !r.failed);
+export const autoItems = (rows) => rows.filter((r) => r.emailStatus === 'ok' && (!r.failed || r.failed.channel === 'whatsapp'));
 
 // Hora RD (UTC-4 fijo) de now >= autoHour.
 export const shouldRunAuto = (rules, company, now = new Date()) =>

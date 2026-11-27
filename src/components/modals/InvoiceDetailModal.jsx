@@ -363,7 +363,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                 <Button onClick={() => generatePDF(invoice, 'invoice', companyProfile, customerDetails, emitterInfoForPDF, 'download')}><Download size={18} className="mr-2"/> Descargar Factura (Carta)</Button>
                                 <Button variant="secondary" onClick={() => handleOpenEmailModal('invoice')}><Mail size={18} className="mr-2"/> Enviar por Correo</Button>
                                 <Button variant="secondary" disabled={!waPhone} title={waPhone ? undefined : 'Sin teléfono válido'}
-                                    onClick={() => { if (!openWhatsapp(waUrl(waPhone, invoiceWhatsappText(invoice, customerDetails, companyProfile)))) toast.error('No se pudo abrir WhatsApp'); }}>
+                                    onClick={async () => { if (!(await openWhatsapp(waUrl(waPhone, invoiceWhatsappText(invoice, customerDetails, companyProfile))))) toast.error('No se pudo abrir WhatsApp'); }}>
                                     Enviar por WhatsApp
                                 </Button>
                                 <Button variant="secondary" onClick={async () => {

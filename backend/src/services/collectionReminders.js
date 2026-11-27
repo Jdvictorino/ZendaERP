@@ -62,7 +62,7 @@ const moneyOf = (company) => (n) => {
 };
 
 export const invoiceWhatsappText = (invoice, customer, company) =>
-  `Hola ${customer?.name || ''}, le enviamos su factura ${invoiceNumberOf(invoice)} por ${moneyOf(company)(invoice.total)}. Gracias por preferir ${company?.name || ''}.`;
+  `Hola${customer?.name ? ` ${customer.name}` : ''}, le enviamos su factura ${invoiceNumberOf(invoice)} por ${moneyOf(company)(invoice.total)}. Gracias por preferir ${company?.name || ''}.`;
 
 export const stageLabel = (n) =>
   n < 0 ? `${-n} ${n === -1 ? 'día' : 'días'} antes` : n === 0 ? 'vence hoy' : `${n} ${n === 1 ? 'día' : 'días'} de atraso`;
@@ -113,7 +113,7 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
         overdueTotal: round2(pending.filter((x) => x.dueDate < today).reduce((s, x) => s + x.remaining, 0)),
         balance,
         lastSentAt: mine.filter((x) => x.status === 'sent').map((x) => x.createdAt).sort((a, b) => time(a) - time(b)).pop() ?? null,
-        failed: failed ? { error: failed.status === 'sending' ? 'Interrumpido: puede que el correo ya haya salido' : failed.error || '' } : null,
+        failed: failed ? { channel: failed.channel, error: failed.status === 'sending' ? `Interrumpido: puede que ${failed.channel === 'whatsapp' ? 'el WhatsApp ya se haya abierto' : 'el correo ya haya salido'}` : failed.error || '' } : null,
       });
       break;
     }

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { waUrl } from '../src/utils/collectionReminders.js';
 import { isWhatsappUrl, openWhatsapp, prepareWhatsappWindow } from '../src/utils/openWhatsapp.js';
 
@@ -24,14 +25,28 @@ describe('isWhatsappUrl', () => {
   ])('rechaza %j', (u) => expect(isWhatsappUrl(u)).toBe(false));
 });
 
+describe('isWhatsappUrl en electron.js', () => {
+  it('es igual a la de src/utils/openWhatsapp.js', () => {
+    const body = (f) => {
+      const s = readFileSync(f, 'utf8').split(String.fromCharCode(13)).join('');
+      const i = s.indexOf('function isWhatsappUrl(url) {');
+      expect(i).toBeGreaterThan(-1);
+      return s.slice(i, s.indexOf(String.fromCharCode(10) + '}' + String.fromCharCode(10), i)).replace(/\s+/g, ' ');
+    };
+    expect(body('electron.js')).toBe(body('src/utils/openWhatsapp.js'));
+  });
+});
+
 describe('openWhatsapp', () => {
-  it('usa el puente de Electron si existe', () => {
+  it('usa el puente de Electron si existe y devuelve su resultado', async () => {
     const bridge = vi.fn().mockResolvedValue(true);
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     window.electronAPI = { openWhatsapp: bridge };
-    expect(openWhatsapp(OK)).toBe(true);
+    expect(await openWhatsapp(OK)).toBe(true);
     expect(bridge).toHaveBeenCalledWith(OK);
     expect(open).not.toHaveBeenCalled();
+    bridge.mockResolvedValue(false);
+    expect(await openWhatsapp(OK)).toBe(false);
   });
   it('sin puente usa window.open', () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
@@ -76,15 +91,17 @@ describe('prepareWhatsappWindow', () => {
     vi.spyOn(window, 'open').mockImplementation(() => null);
     expect(prepareWhatsappWindow().blocked).toBe(true);
   });
-  it('Electron: go usa el puente y no abre ventana', () => {
+  it('Electron: go espera el puente y no abre ventana', async () => {
     const bridge = vi.fn().mockResolvedValue(true);
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     window.electronAPI = { openWhatsapp: bridge };
     const p = prepareWhatsappWindow();
     expect(p.blocked).toBe(false);
-    expect(p.go(OK)).toBe(true);
+    expect(await p.go(OK)).toBe(true);
     expect(bridge).toHaveBeenCalledWith(OK);
     expect(open).not.toHaveBeenCalled();
+    bridge.mockResolvedValue(false);
+    expect(await p.go(OK)).toBe(false);
     p.cancel();
   });
 });

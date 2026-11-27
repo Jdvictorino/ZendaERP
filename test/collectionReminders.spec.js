@@ -84,7 +84,8 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
   });
 
   it('un envío en curso cuenta como fallido', () => {
-    expect(due([inv()], [sentRow({ status: 'sending' })])[0].failed).toEqual({ error: 'Interrumpido: puede que el correo ya haya salido' });
+    expect(due([inv()], [sentRow({ status: 'sending' })])[0].failed).toEqual({ channel: 'email', error: 'Interrumpido: puede que el correo ya haya salido' });
+    expect(due([inv()], [sentRow({ status: 'sending', channel: 'whatsapp' })])[0].failed).toEqual({ channel: 'whatsapp', error: 'Interrumpido: puede que el WhatsApp ya se haya abierto' });
   });
 
   it('exclusiones', () => {
@@ -108,7 +109,7 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
 
   it('fallido previo, cobro parcial y último envío', () => {
     const f = sentRow({ status: 'failed', error: 'SMTP caído' });
-    expect(due([inv()], [f])[0].failed).toEqual({ error: 'SMTP caído' });
+    expect(due([inv()], [f])[0].failed).toEqual({ channel: 'email', error: 'SMTP caído' });
     expect(due([inv({ amountPaid: 400 })])[0]).toMatchObject({ amount: 600, balance: 600 });
     expect(due([inv()], [sentRow({ dueDate: '2026-11-01', stage: 15, createdAt: '2026-12-01T15:00:00Z' })])[0].lastSentAt).toBe('2026-12-01T15:00:00Z');
   });
@@ -168,6 +169,10 @@ describe.each([['app', app], ['backend', srv]])('WhatsApp (%s)', (_n, m) => {
   it('invoiceWhatsappText', () => {
     const text = m.invoiceWhatsappText({ ncfNumber: 'B0100000001', total: 1180 }, { name: 'Juan' }, { name: 'Colmado X', currency: 'DOP' });
     expect(text).toBe('Hola Juan, le enviamos su factura B0100000001 por RD$1,180.00. Gracias por preferir Colmado X.');
+  });
+
+  it('invoiceWhatsappText sin nombre no deja espacio suelto', () => {
+    expect(m.invoiceWhatsappText({ ncfNumber: 'B01', total: 1180 }, {}, { name: 'X', currency: 'DOP' })).toMatch(/^Hola, le enviamos/);
   });
 
   it('canales mezclados: cualquier canal bloquea y cuenta la etapa', () => {

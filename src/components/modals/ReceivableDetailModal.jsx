@@ -209,8 +209,8 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
   };
 
   const waPhone = waNumber(customer.phone);
-  const handleWhatsapp = () => {
-    if (!openWhatsapp(waUrl(waPhone, invoiceWhatsappText(invoice, customer, companyProfile)))) toast.error('No se pudo abrir WhatsApp');
+  const handleWhatsapp = async () => {
+    if (!(await openWhatsapp(waUrl(waPhone, invoiceWhatsappText(invoice, customer, companyProfile))))) toast.error('No se pudo abrir WhatsApp');
   };
 
   if (!open || !entry) return null;

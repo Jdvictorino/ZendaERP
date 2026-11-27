@@ -11,8 +11,7 @@ export function isWhatsappUrl(url) {
 export function openWhatsapp(url) {
   if (!isWhatsappUrl(url)) return false;
   if (typeof window !== 'undefined' && window.electronAPI?.openWhatsapp) {
-    window.electronAPI.openWhatsapp(url);
-    return true;
+    return window.electronAPI.openWhatsapp(url); // promesa true/false del proceso principal
   }
   window.open(url, '_blank', 'noopener');
   return true;
@@ -21,7 +20,7 @@ export function openWhatsapp(url) {
 // Para abrir tras un await: la ventana se abre dentro del clic (si no, el navegador la bloquea) y luego se le asigna la URL.
 export function prepareWhatsappWindow() {
   if (typeof window !== 'undefined' && window.electronAPI?.openWhatsapp) {
-    return { blocked: false, go: (url) => openWhatsapp(url), cancel() {} };
+    return { blocked: false, go: async (url) => !!(await openWhatsapp(url)), cancel() {} };
   }
   const w = window.open('', '_blank');
   if (!w) return { blocked: true, go: () => false, cancel() {} };
