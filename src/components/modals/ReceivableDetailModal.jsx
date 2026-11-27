@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { invoices as invoicesApi } from '../../api/client.js';
 import { rdDate } from '../../utils/rdDate.js';
-import { stageLabel } from '../../utils/collectionReminders.js';
+import { stageLabel, waNumber, waUrl, invoiceWhatsappText } from '../../utils/collectionReminders.js';
+import { openWhatsapp } from '../../utils/openWhatsapp.js';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF, generateAccountStatementPDF } from '../../utils/pdfGenerator.js';
@@ -207,6 +208,11 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
     }
   };
 
+  const waPhone = waNumber(customer.phone);
+  const handleWhatsapp = () => {
+    if (!openWhatsapp(waUrl(waPhone, invoiceWhatsappText(invoice, customer, companyProfile)))) toast.error('No se pudo abrir WhatsApp');
+  };
+
   if (!open || !entry) return null;
 
   return (
@@ -314,7 +320,7 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
               <ul className="space-y-1 text-sm">
                 {reminders.map((r) => (
                   <li key={r.id} className="border-t border-line pt-1 first:border-0 first:pt-0">
-                    {rdDate(r.updatedAt || r.createdAt)} · {stageLabel(r.stage)} · {r.channel === 'email' ? 'correo' : r.channel} · {r.sentById ? 'manual' : 'automático'} ·{' '}
+                    {rdDate(r.updatedAt || r.createdAt)} · {stageLabel(r.stage)} · {r.channel === 'whatsapp' ? 'WhatsApp' : 'Correo'} · {r.sentById ? 'manual' : 'automático'} ·{' '}
                     <span className={r.status === 'failed' ? 'text-red-600' : 'text-ink-muted'}>{r.status === 'sent' ? 'enviado' : r.status === 'failed' ? 'falló' : 'en curso'}</span>
                     {r.status === 'failed' && r.error ? <span className="text-red-600"> ({r.error})</span> : null}
                   </li>
@@ -370,6 +376,7 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
             <div className="flex flex-wrap gap-2">
               <Button onClick={handlePrintInvoice}>Imprimir factura</Button>
               <Button variant="secondary" onClick={handleSendInvoiceEmail}><Mail size={16} className="mr-1"/> Enviar Factura</Button>
+              <Button variant="secondary" onClick={handleWhatsapp} disabled={!waPhone} title={waPhone ? undefined : 'Sin teléfono válido'}>Enviar por WhatsApp</Button>
               <Button variant="secondary" onClick={handleViewStatement} disabled={!statementEntries.length}>
                 Ver estado de cuenta
               </Button>

@@ -18,6 +18,8 @@ import BillingTypeModal from './BillingTypeModal.jsx';
 import SendEmailModal from './SendEmailModal.jsx';
 import { playSuccessSound, playErrorSound } from '../../utils/soundPlayer.js';
 import Button from '../ui/Button.jsx';
+import { openWhatsapp } from '../../utils/openWhatsapp.js';
+import { waNumber, waUrl, invoiceWhatsappText } from '../../utils/collectionReminders.js';
 
 const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, debitNotes, onClose, isMasterUser, currentUserProfile, couponRedemptionPolicy = 'both', onRefresh, fullPage = false }) => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -124,6 +126,7 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
     };
 
     const customerDetails = useMemo(() => (customers || []).find(c => c.id === invoice.customerId), [customers, invoice.customerId]);
+    const waPhone = waNumber(customerDetails?.phone);
     // Anular y emitir notas es de gerencia (el servidor también lo exige); el cajero solo factura
     const canManage = isMasterUser || ['admin', 'manager'].includes(currentUserProfile?.role);
     // originalNcf: la nota impresa indica el comprobante que modifica (DGII)
@@ -359,6 +362,10 @@ const InvoiceDetailModal = ({ invoice, companyProfile, customers, creditNotes, d
                                 <Button onClick={() => generatePDF(invoice, 'invoice', companyProfile, customerDetails, emitterInfoForPDF, 'view')}><FileText size={18} className="mr-2"/> Ver Factura (Carta)</Button>
                                 <Button onClick={() => generatePDF(invoice, 'invoice', companyProfile, customerDetails, emitterInfoForPDF, 'download')}><Download size={18} className="mr-2"/> Descargar Factura (Carta)</Button>
                                 <Button variant="secondary" onClick={() => handleOpenEmailModal('invoice')}><Mail size={18} className="mr-2"/> Enviar por Correo</Button>
+                                <Button variant="secondary" disabled={!waPhone} title={waPhone ? undefined : 'Sin teléfono válido'}
+                                    onClick={() => { if (!openWhatsapp(waUrl(waPhone, invoiceWhatsappText(invoice, customerDetails, companyProfile)))) toast.error('No se pudo abrir WhatsApp'); }}>
+                                    Enviar por WhatsApp
+                                </Button>
                                 <Button variant="secondary" onClick={async () => {
                                     const htmlString = generateThermalReceiptHTML(await withEcfPrintData(invoice), 'invoice', companyProfile, customerDetails, emitterInfoForPDF);
                                     const printerName = companyProfile?.cash?.printing?.printerName || '';
