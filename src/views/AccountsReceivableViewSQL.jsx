@@ -17,6 +17,8 @@ import SendEmailModal from '../components/modals/SendEmailModal.jsx';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
+import Segmented from '../components/ui/Segmented.jsx';
+import RemindersDueTab from '../components/receivables/RemindersDueTab.jsx';
 import FilterBar, { FilterField, SearchField } from '../components/ui/FilterBar.jsx';
 
 const parseTimestamp = (value) => {
@@ -62,6 +64,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
     const customers = customersRaw || [];
     const loading = loadingInvoices || loadingCustomers;
 
+    const [tab, setTab] = useState('cuentas');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('todos');
     const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -582,6 +585,10 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                 </div>
             </div>
 
+            <Segmented label="Vista" className="sm:w-auto sm:max-w-md" value={tab} onChange={setTab}
+                options={[{ value: 'cuentas', label: 'Cuentas por cobrar' }, { value: 'recordar', label: 'Por recordar hoy' }]} />
+            {tab === 'recordar' && <RemindersDueTab currency={currency} />}
+            {tab === 'cuentas' && (<>
             <div className="kpi-grid">
                 <KpiCard label="Total por Cobrar" value={formatCurrency(summary.totalOutstanding, currency)} icon={Wallet} tone="brand" />
                 <KpiCard label="Facturas Pendientes" value={summary.totalInvoices} icon={FileText} tone="info" />
@@ -969,6 +976,7 @@ const AccountsReceivableViewSQL = ({ companyProfile = {} }) => {
                     </div>
                 </CardBody>
             </Card>
+            </>)}
 
             {showPaymentModal && selectedInvoice && (
                 <PaymentModal

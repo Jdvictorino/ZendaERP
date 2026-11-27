@@ -276,7 +276,8 @@ export const invoices = {
   creditNotes: (params) => get('/invoices/credit-notes', params),
   createCreditNote: (id, data) => post(`/invoices/${id}/credit-note`, data),
   createDebitNote: (id, data) => post(`/invoices/${id}/debit-note`, data),
-  earlyPayment: (id, data) => post(`/invoices/${id}/early-payment`, data)
+  earlyPayment: (id, data) => post(`/invoices/${id}/early-payment`, data),
+  reminders: (id) => get(`/invoices/${id}/reminders`)
 };
 
 export const expenses = {
@@ -303,6 +304,11 @@ export const shifts = {
   getClosings: (params) => get('/shifts/closings', params),
   signClosing: (id, managerName) => post(`/shifts/${id}/sign`, { managerName }),
   createDailyClose: (data) => post('/shifts/daily-close', data)
+};
+
+export const collectionReminders = {
+  due: () => get('/collection-reminders/due'),
+  send: (items) => post('/collection-reminders/send', { items })
 };
 
 export const shipments = {
@@ -622,6 +628,7 @@ const api = {
   suppliers,
   categories,
   invoices,
+  collectionReminders,
   expenses,
   users,
   shifts,
