@@ -135,3 +135,31 @@ describe('CustomerModal recordatorios de cobro', () => {
         expect(screen.getByLabelText('No enviarle recordatorios de cobro').checked).toBe(false);
     });
 });
+
+describe('CustomerModal aviso de cédula', () => {
+    const AVISO = 'La cédula no pasa el dígito verificador; revísala.';
+    const fill = (type, id) => {
+        const onSave = vi.fn();
+        render(<CustomerModal customer={{}} onClose={() => {}} onSave={onSave} />);
+        fireEvent.change(screen.getByLabelText('Nombre Completo / Razón Social'), { target: { value: 'Juan' } });
+        fireEvent.change(screen.getByLabelText('Tipo de cliente'), { target: { value: type } });
+        fireEvent.change(screen.getByLabelText(/^(Cédula|RNC)/), { target: { value: id } });
+        return onSave;
+    };
+
+    it('avisa con una cédula que falla y deja guardar', async () => {
+        const onSave = fill('persona_fisica', '001-1391820-4');
+        expect(screen.getByText(AVISO)).toBeTruthy();
+        fireEvent.click(screen.getByText('Guardar Cliente'));
+        await waitFor(() => expect(onSave).toHaveBeenCalled());
+        expect(onSave.mock.calls[0][0].identificationNumber).toBe('00113918204');
+    });
+    it('sin aviso con una cédula válida', () => {
+        fill('persona_fisica', '00113918205');
+        expect(screen.queryByText(AVISO)).toBeNull();
+    });
+    it('sin aviso con un RNC válido', () => {
+        fill('persona_fisica', '100000004');
+        expect(screen.queryByText(AVISO)).toBeNull();
+    });
+});

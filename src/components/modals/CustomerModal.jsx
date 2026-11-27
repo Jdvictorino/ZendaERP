@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { TAXPAYER_TYPES } from '../../utils/tax.js';
 import { paymentTermsOf, isCashTerm } from '../../utils/paymentTerms.js';
 import { customerTermId } from '../../utils/saleTerms.js';
+import { rncValid, cedulaValid, CEDULA_WARNING } from '../../utils/supplierId.js';
 
 // Valores del selector viejo (mismo mapa que backend/src/services/customerTax.js)
 const LEGACY_TYPES = { Persona: 'consumidor_final', Empresa: 'empresa', 'Zona Franca': 'zona_franca', Gubernamental: 'gubernamental', ONG: 'ong' };
@@ -20,14 +21,6 @@ function onlyDigits(v = '') { return (v || '').replace(/\D/g, ''); }
 function validateCedula(ced) {
     const digits = onlyDigits(ced);
     return digits.length === 11;
-}
-function validateRNC(rnc) {
-    const digits = onlyDigits(rnc);
-    if (digits.length !== 9) return false;
-    const weights = [7,9,8,6,5,4,3,2];
-    let sum = 0;
-    for (let i = 0; i < 8; i++) sum += parseInt(digits[i], 10) * weights[i];
-    return (10 - (sum % 11)) % 9 + 1 === parseInt(digits[8], 10);
 }
 
 const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = false }) => {
@@ -75,6 +68,10 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
         }, [formData.taxpayerType]);
         const exemptible = TAXPAYER_TYPES.find(t => t.value === formData.taxpayerType)?.exemptible;
 
+        // Aviso, no error: una cédula real puede fallar la regla y aun así se guarda.
+        const idDigits = onlyDigits(formData.identificationNumber);
+        const cedulaWarning = ['consumidor_final', 'persona_fisica'].includes(formData.taxpayerType) && !hasLetters(formData.identificationNumber || '') && idDigits.length === 11 && !cedulaValid(idDigits) ? CEDULA_WARNING : null;
+
         const validateForm = () => {
             const errs = {};
             if (!formData.name.trim()) errs.name = 'Requerido';
@@ -88,11 +85,11 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
             } else if (formData.taxpayerType === 'persona_fisica') {
                 const d = onlyDigits(idValue);
                 if (!d) errs.identificationNumber = 'Requerido';
-                else if (d.length === 11 ? !validateCedula(d) : d.length === 9 ? !validateRNC(d) : true) errs.identificationNumber = 'Use una cédula (11 dígitos) o un RNC (9) válidos';
+                else if (d.length === 11 ? !validateCedula(d) : d.length === 9 ? !rncValid(d) : true) errs.identificationNumber = 'Use una cédula (11 dígitos) o un RNC (9) válidos';
             } else {
                 const rnc = onlyDigits(idValue);
                 if (!rnc) errs.identificationNumber = 'Requerido';
-                else if (!validateRNC(rnc)) errs.identificationNumber = 'RNC inválido';
+                else if (!rncValid(rnc)) errs.identificationNumber = 'RNC inválido';
             }
             setErrors(errs);
             return Object.keys(errs).length === 0;
@@ -198,6 +195,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                                                             <label htmlFor="identificationNumber" className="block text-ink-soft mb-1">{idTypeLabel}{!CEDULA_TYPES.includes(formData.taxpayerType) && <span className="text-red-600" aria-hidden="true"> *</span>}</label>
                                                                             <input id="identificationNumber" type="text" name="identificationNumber" value={formData.identificationNumber} onChange={onIdChange} className="input-base" aria-invalid={!!errors.identificationNumber} aria-describedby={errors.identificationNumber ? 'err-identificationNumber' : undefined} />
                                       {errors.identificationNumber && <p id="err-identificationNumber" className="field-error">{errors.identificationNumber}</p>}
+                                      {cedulaWarning && <p className="text-xs mt-1 text-amber-700 dark:text-amber-400" role="status">{cedulaWarning}</p>}
                                     </div>
                                     <div>
                                       <label className="block text-ink-soft mb-1">Teléfono</label>

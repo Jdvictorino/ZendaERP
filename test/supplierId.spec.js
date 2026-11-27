@@ -57,3 +57,25 @@ it('las dos copias son idénticas desde la línea 2', () => {
     const body = (p) => readFileSync(p, 'utf8').split(/\r?\n/).slice(1).join('|');
     expect(body('src/utils/supplierId.js')).toBe(body('backend/src/services/supplierId.js'));
 });
+
+const AVISO = 'La cédula no pasa el dígito verificador; revísala.';
+for (const [name, mod] of [['backend', back], ['app', front]]) describe(`cédula (${name})`, () => {
+    it('cedulaValid', () => {
+        expect(mod.cedulaValid('00113918205')).toBe(true);
+        expect(mod.cedulaValid('001-1391820-5')).toBe(true);
+        expect(mod.cedulaValid('00113918204')).toBe(false);
+        expect(mod.cedulaValid('00113918215')).toBe(false);
+        for (const v of ['', '1234', '001139182050', 'abc']) expect(mod.cedulaValid(v)).toBe(false);
+    });
+    it('normalizeSupplierId avisa sin bloquear', () => {
+        expect(mod.normalizeSupplierId('informal', '00113918204')).toEqual({ value: '00113918204', error: null, warning: AVISO });
+        expect(mod.normalizeSupplierId('persona_fisica', '00113918204').warning).toBe(AVISO);
+        expect(mod.normalizeSupplierId('persona_fisica', '00113918205').warning).toBeUndefined();
+        expect(mod.normalizeSupplierId('persona_fisica', '100000004').warning).toBeUndefined();
+    });
+});
+
+it('las dos copias son idénticas desde la línea 2', () => {
+    const body = (f) => readFileSync(f, 'utf8').replace(/\r/g, '').split('\n').slice(1).join('\n');
+    expect(body('src/utils/supplierId.js')).toBe(body('backend/src/services/supplierId.js'));
+});

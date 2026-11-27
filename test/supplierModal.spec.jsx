@@ -36,4 +36,15 @@ describe('SupplierModal', () => {
         await screen.findByText('El RNC es obligatorio para una empresa.');
         expect(onSave).not.toHaveBeenCalled();
     });
+
+    it('informal con cédula que falla avisa y guarda', async () => {
+        const onSave = setup();
+        fireEvent.change(screen.getByLabelText('Nombre / Razón Social'), { target: { value: 'Juan' } });
+        fireEvent.change(screen.getByLabelText('Tipo de proveedor'), { target: { value: 'informal' } });
+        fireEvent.change(screen.getByLabelText('Cédula del vendedor *'), { target: { value: '00113918204' } });
+        expect(screen.getByText('La cédula no pasa el dígito verificador; revísala.')).toBeTruthy();
+        fireEvent.click(screen.getByText('Guardar Proveedor'));
+        await waitFor(() => expect(onSave).toHaveBeenCalled());
+        expect(onSave.mock.calls[0][0].identificationNumber).toBe('00113918204');
+    });
 });
