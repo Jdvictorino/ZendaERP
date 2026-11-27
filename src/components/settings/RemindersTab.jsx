@@ -36,7 +36,7 @@ const RemindersTab = ({ companyProfile, canEdit, onProfileUpdate }) => {
         if (problem) { setError(problem); return; }
         setSaving(true);
         try {
-            const saved = await settingsApi.update({ collectionReminders: rules });
+            const saved = await settingsApi.updateCollectionReminders(rules);
             if (onProfileUpdate) onProfileUpdate(saved);
             toast.success('Recordatorios de cobro guardados');
         } catch (e) {

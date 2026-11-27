@@ -28,7 +28,7 @@ const toHtml = (text) => escapeHtml(text).replace(/\r?\n/g, '<br>');
 // Facturas con saldo posible y los recordatorios de email de esas facturas.
 const load = async (prisma, companyId, invoiceIds) => {
   const invoices = await prisma.invoice.findMany({
-    where: { companyId, ...(invoiceIds ? { id: { in: invoiceIds } } : { status: { notIn: EXCLUDED }, customerId: { not: null } }) },
+    where: { companyId, isBilled: true, ...(invoiceIds ? { id: { in: invoiceIds } } : { status: { notIn: EXCLUDED }, customerId: { not: null } }) },
     include: { customer: true },
   });
   const sent = invoices.length
@@ -72,7 +72,7 @@ export async function sendReminders({ prisma = defaultPrisma, sendMail = sendCom
     } else {
       const { count } = await prisma.collectionReminder.updateMany({
         where: { id: existing.id, status: existing.status, updatedAt: existing.updatedAt },
-        data: { status: 'sending', sentById: userId, to: row.email, error: null, updatedAt: now },
+        data: { status: 'sending', sentById: userId, to: row.email, error: null, updatedAt: new Date() },
       });
       if (!count) { results.push({ ...base, status: 'skipped' }); continue; }
       id = existing.id;
@@ -116,7 +116,7 @@ export const shouldRunAuto = (rules, company, now = new Date()) =>
 
 export async function runAutoReminders({ prisma = defaultPrisma, now = new Date(), sendMail } = {}) {
   // shortcut: carga todas las empresas y filtra en memoria; con muchas empresas, pasar a un filtro JSON de Prisma.
-  const all = await prisma.company.findMany();
+  const all = await prisma.company.findMany({ where: { billingStatus: { notIn: ['suspended', 'blocked', 'cancelled'] } } });
   const companies = all.filter((c) => remindersOf(c.settings).auto === true);
   let sent = 0, failed = 0;
   for (const company of companies) {

@@ -314,7 +314,7 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
               <ul className="space-y-1 text-sm">
                 {reminders.map((r) => (
                   <li key={r.id} className="border-t border-line pt-1 first:border-0 first:pt-0">
-                    {rdDate(r.createdAt)} · {stageLabel(r.stage)} · {r.channel === 'email' ? 'correo' : r.channel} · {r.sentById ? 'manual' : 'automático'} ·{' '}
+                    {rdDate(r.updatedAt || r.createdAt)} · {stageLabel(r.stage)} · {r.channel === 'email' ? 'correo' : r.channel} · {r.sentById ? 'manual' : 'automático'} ·{' '}
                     <span className={r.status === 'failed' ? 'text-red-600' : 'text-ink-muted'}>{r.status === 'sent' ? 'enviado' : r.status === 'failed' ? 'falló' : 'en curso'}</span>
                     {r.status === 'failed' && r.error ? <span className="text-red-600"> ({r.error})</span> : null}
                   </li>

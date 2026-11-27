@@ -273,12 +273,17 @@ server.listen(PORT, () => {
   }
 
   // Siempre activo: cada empresa lo enciende en Configuración (viene apagado por defecto).
+  let remindersRunning = false; // si la pasada anterior no terminó, se salta esta
   setInterval(async () => {
+    if (remindersRunning) return;
+    remindersRunning = true;
     try {
       const summary = await runAutoReminders({});
       if (summary.sent || summary.failed) console.log('📧 Recordatorios de cobro automáticos:', summary);
     } catch (error) {
       console.error('❌ Error en los recordatorios de cobro automáticos:', error.message);
+    } finally {
+      remindersRunning = false;
     }
   }, 60 * 60 * 1000);
   console.log('⏱️ Recordatorios de cobro automáticos: revisión cada 60 minuto(s).');

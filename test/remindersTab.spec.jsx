@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const update = vi.fn();
-vi.mock('../src/api/client.js', () => ({ settings: { update: (...a) => update(...a) } }));
+vi.mock('../src/api/client.js', () => ({ settings: { updateCollectionReminders: (...a) => update(...a) } }));
 const confirmDialog = vi.fn(async () => true);
 vi.mock('../src/utils/confirmDialog.jsx', () => ({ confirmDialog: (...a) => confirmDialog(...a) }));
 vi.mock('react-hot-toast', () => ({ default: { success: vi.fn(), error: vi.fn() } }));
@@ -12,7 +12,7 @@ import RemindersTab from '../src/components/settings/RemindersTab.jsx';
 
 const smtp = { host: 'smtp.x.com', user: 'a@x.com', hasPassword: true };
 
-beforeEach(() => { update.mockReset().mockImplementation(async (p) => p); confirmDialog.mockClear(); });
+beforeEach(() => { update.mockReset().mockImplementation(async (p) => ({ collectionReminders: p })); confirmDialog.mockClear(); });
 
 describe('RemindersTab', () => {
   it('guarda uno válido mandando solo collectionReminders con números', async () => {
@@ -21,9 +21,7 @@ describe('RemindersTab', () => {
     fireEvent.click(screen.getByLabelText('Enviar automáticamente'));
     fireEvent.click(screen.getByText('Guardar recordatorios'));
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
-    const arg = update.mock.calls[0][0];
-    expect(Object.keys(arg)).toEqual(['collectionReminders']);
-    expect(arg.collectionReminders).toMatchObject({ auto: true, autoHour: 14, stages: [-3, 0, 7, 15] });
+    expect(update.mock.calls[0][0]).toMatchObject({ auto: true, autoHour: 14, stages: [-3, 0, 7, 15] });
   });
 
   it('etapas repetidas muestran el error y no llaman a la API', async () => {
@@ -67,6 +65,6 @@ describe('RemindersTab', () => {
     expect(screen.getByLabelText('Enviar automáticamente').disabled).toBe(true);
     fireEvent.click(screen.getByText('Guardar recordatorios'));
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
-    expect(update.mock.calls[0][0].collectionReminders.auto).toBe(true);
+    expect(update.mock.calls[0][0].auto).toBe(true);
   });
 });

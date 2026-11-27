@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { rdDay, reservationPlan, smtpReady, sendReminders, autoItems, shouldRunAuto, runAutoReminders } from '../backend/src/services/reminderSender.js';
+import { dueRows, rdDay, reservationPlan, smtpReady, sendReminders, autoItems, shouldRunAuto, runAutoReminders } from '../backend/src/services/reminderSender.js';
 
 const now = new Date('2026-12-10T15:00:00Z'); // 11:00 en RD
 const ago = (min) => new Date(now.getTime() - min * 60000);
@@ -15,7 +15,7 @@ const fakePrisma = ({ invoices = [invoice()], reminders = [], createError, other
   const calls = { create: [], update: [], updateMany: [] };
   return {
     calls,
-    invoice: { findMany: async () => invoices },
+    invoice: { findMany: async (a) => { calls.invoiceWhere = a.where; return invoices.filter((i) => i.isBilled !== false); } },
     collectionReminder: {
       findMany: async () => reminders,
       findFirst: async (a) => { calls.findFirst = a; return other; },
@@ -113,11 +113,19 @@ describe('reminderSender', () => {
     expect(r[0]).toMatchObject({ status: 'failed', error: 'BD caída' });
   });
 
+  it('solo se recuerdan facturas facturadas (isBilled: true en el where)', async () => {
+    const p = fakePrisma({ invoices: [invoice({ isBilled: false })] }); const sendMail = vi.fn();
+    expect(await dueRows({ prisma: p, company, now })).toEqual([]);
+    expect(p.calls.invoiceWhere.isBilled).toBe(true);
+    expect((await run(p, sendMail))[0].status).toBe('skipped');
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
   it('el reintento escribe updatedAt explícito', async () => {
     const old = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'email', status: 'failed', createdAt: ago(300), updatedAt: ago(200) };
     const p = fakePrisma({ reminders: [old] });
     await run(p, async () => {});
-    expect(p.calls.updateMany[0].data.updatedAt).toEqual(now);
+    expect(p.calls.updateMany[0].data.updatedAt).toBeInstanceOf(Date); // la hora real, no el inicio de la llamada
   });
 
   describe('automático', () => {
@@ -143,14 +151,16 @@ describe('reminderSender', () => {
         { id: 'y', name: 'Y', settings: { ...company.settings, collectionReminders: { auto: true } } },
         { id: 'z', name: 'Z', settings: { collectionReminders: { auto: false } } },
       ];
+      let where;
       const prisma = {
         ...fakePrisma(),
-        company: { findMany: async () => cos },
+        company: { findMany: async (a) => { where = a?.where; return cos; } },
       };
       let n = 0;
       prisma.invoice.findMany = async () => { if (n++ === 0) throw new Error('boom'); return [invoice()]; };
       const sendMail = vi.fn(async () => {});
       const r = await runAutoReminders({ prisma, now: at9, sendMail });
+      expect(where).toEqual({ billingStatus: { notIn: ['suspended', 'blocked', 'cancelled'] } });
       expect(r).toEqual({ companies: 2, sent: 1, failed: 0 });
       expect(sendMail).toHaveBeenCalledTimes(1);
     });

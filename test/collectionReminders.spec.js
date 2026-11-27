@@ -27,6 +27,7 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
   it('correo y etiquetas', () => {
     expect(m.isValidEmail('juan@correo.com')).toBe(true);
     expect(m.isValidEmail('juan@')).toBe(false);
+    for (const bad of ['a@b.com,c@d.com', 'a@b.com;c@d.com', 'a b@c.com']) expect(m.isValidEmail(bad)).toBe(false);
     expect(m.stageLabel(-3)).toBe('3 días antes');
     expect(m.stageLabel(0)).toBe('vence hoy');
     expect(m.stageLabel(7)).toBe('7 días de atraso');
@@ -83,7 +84,7 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
   });
 
   it('un envío en curso cuenta como fallido', () => {
-    expect(due([inv()], [sentRow({ status: 'sending' })])[0].failed).toEqual({ error: 'Envío en curso o interrumpido' });
+    expect(due([inv()], [sentRow({ status: 'sending' })])[0].failed).toEqual({ error: 'Interrumpido: puede que el correo ya haya salido' });
   });
 
   it('exclusiones', () => {
@@ -124,9 +125,23 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
     expect(m.renderReminder(r, { ...row, dueDate: '2026-12-13' }, co, today).text).toContain('|en 3 días|');
     expect(m.renderReminder(r, row, { ...co, currency: 'USD' }, today).text).toContain('US$');
     expect(m.renderReminder(r, row, { ...co, currency: 'XX' }, today).text).toContain('RD$');
-    expect(m.renderReminder(rules, row, co, today).text).toContain('Saldo vencido: RD$1,000.00');
+    const initial = m.renderReminder(rules, { ...row, dueDate: '2026-12-13', overdueTotal: 0 }, co, today).text;
+    expect(initial).toContain('Vencimiento: 13/12/2026 (en 3 días)');
+    expect(initial).not.toMatch(/vence hace|Saldo vencido|RD\$0\.00/);
     expect(m.renderReminder(rules, row, co, today).text).not.toMatch(/\{\w+\}/);
   });
+});
+
+it('remindersUpdate completa lo recibido con lo guardado y rechaza lo que no es objeto', () => {
+  for (const m of [app, srv]) {
+    const saved = { collectionReminders: { auto: true, autoHour: 14, subject: 'Mi asunto' } };
+    const { value, error } = m.remindersUpdate(saved, { body: 'Otro texto' });
+    expect(error).toBeUndefined();
+    expect(value).toMatchObject({ auto: true, autoHour: 14, subject: 'Mi asunto', body: 'Otro texto', stages: [-3, 0, 7, 15] });
+    expect(m.remindersUpdate(saved, { auto: false }).value.auto).toBe(false);
+    for (const bad of [null, undefined, [], 'x', 5]) expect(m.remindersUpdate(saved, bad).error).toMatch(/objeto/);
+    expect(m.remindersUpdate(saved, { stages: [] }).error).toMatch(/etapa/);
+  }
 });
 
 it('las dos copias son idénticas desde la línea 2', () => {

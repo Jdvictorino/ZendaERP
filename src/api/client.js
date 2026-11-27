@@ -338,6 +338,7 @@ export const offers = {
 export const settings = {
   get: () => get('/settings'),
   update: (data) => put('/settings', data),
+  updateCollectionReminders: (collectionReminders) => put('/settings/collection-reminders', { collectionReminders }),
   getNcf: () => get('/settings/ncf'),
   updateNcf: (sequences) => put('/settings/ncf', sequences)
 };

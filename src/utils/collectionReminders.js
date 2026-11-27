@@ -12,9 +12,9 @@ export const DEFAULT_REMINDERS = {
   subject: 'Recordatorio de pago: factura {factura}',
   body:
     'Estimado/a {cliente}:\n\n' +
-    'Le recordamos que la factura {factura} por {monto} vence {dias} ({vence}).\n' +
-    'Saldo pendiente: {saldo}\n' +
-    'Saldo vencido: {vencido}\n\n' +
+    'Le recordamos que la factura {factura} por {monto} está pendiente de pago.\n' +
+    'Vencimiento: {vence} ({dias})\n' +
+    'Saldo pendiente: {saldo}\n\n' +
     'Si ya realizó el pago, por favor ignore este mensaje.\n\n' +
     'Gracias,\n{empresa}\nTel.: {telefono}\nCorreo: {correo}',
 };
@@ -38,7 +38,15 @@ export const validateReminders = (r) => {
   return null;
 };
 
-export const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+export const isValidEmail = (s) => /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(String(s || '').trim());
+
+// Lo guardado completado con lo recibido (un cliente viejo puede mandar solo parte): { error } o { value }.
+export const remindersUpdate = (settings, body) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'Envía los recordatorios de cobro como un objeto' };
+  const value = { ...remindersOf(settings), ...body };
+  const error = validateReminders(value);
+  return error ? { error } : { value };
+};
 
 export const stageLabel = (n) =>
   n < 0 ? `${-n} ${n === -1 ? 'día' : 'días'} antes` : n === 0 ? 'vence hoy' : `${n} ${n === 1 ? 'día' : 'días'} de atraso`;
@@ -86,7 +94,7 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
         overdueTotal: round2(pending.filter((x) => x.dueDate < today).reduce((s, x) => s + x.remaining, 0)),
         balance,
         lastSentAt: mine.filter((x) => x.status === 'sent').map((x) => x.createdAt).sort((a, b) => time(a) - time(b)).pop() ?? null,
-        failed: failed ? { error: failed.status === 'sending' ? 'Envío en curso o interrumpido' : failed.error || '' } : null,
+        failed: failed ? { error: failed.status === 'sending' ? 'Interrumpido: puede que el correo ya haya salido' : failed.error || '' } : null,
       });
       break;
     }
