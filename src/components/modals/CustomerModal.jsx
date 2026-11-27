@@ -36,7 +36,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 name: '', email: '', phone: '', taxpayerType: 'consumidor_final', exemptionNumber: '', exemptionExpiresAt: '', identificationNumber: '',
                 address: { street: '', sector: '', city: '', zipCode: '', country: 'República Dominicana' },
                 defaultDiscount: 0, logo: '',
-                status: 'active', category: 'Retail', paymentTermId: 'contado', creditLimit: 0, notes: '', customerCode: ''
+                status: 'active', category: 'Retail', paymentTermId: 'contado', creditLimit: 0, notes: '', customerCode: '', remindersOff: false
         });
         const [errors, setErrors] = useState({});
     
@@ -50,7 +50,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                 defaultDiscount: customer.defaultDiscount || 0, logo: customer.logo || '',
                                 status: customer.status || 'active', category: customer.category || 'Retail', paymentTermId: customerTermId(customer, terms),
                                 creditLimit: Number(customer.creditLimit || 0),
-                                notes: customer.notes || '', customerCode: customer.customerCode || ''
+                                notes: customer.notes || '', customerCode: customer.customerCode || '', remindersOff: !!customer.remindersOff
             });
         }
     }, [customer, terms]);
@@ -111,6 +111,7 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                 creditLimit: Number(formData.creditLimit || 0),
                 identificationNumber: hasLetters(formData.identificationNumber) ? passportOf(formData.identificationNumber) : onlyDigits(formData.identificationNumber),
                 // Normaliza status y category
+                remindersOff: !!formData.remindersOff,
                 status: formData.status || 'active',
                 category: formData.category || 'Retail',
             };
@@ -252,6 +253,9 @@ const CustomerModal = ({ customer, onClose, onSave, companyProfile, fullPage = f
                                         <input id="creditLimit" type="number" name="creditLimit" value={formData.creditLimit} onChange={handleChange} className={`input-base ${isCash ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`} min="0" disabled={isCash} />
                                     </div>
                                 </div>
+                                <label className="mt-4 flex items-center gap-2">
+                                    <input type="checkbox" aria-label="No enviarle recordatorios de cobro" checked={!!formData.remindersOff} onChange={(e) => setFormData({ ...formData, remindersOff: e.target.checked })} /> No enviarle recordatorios de cobro
+                                </label>
                                 <div className="mt-4">
                                     <label className="block text-ink-soft mb-1">Notas</label>
                                     <textarea name="notes" value={formData.notes} onChange={handleChange} className="input-base" rows={2} placeholder="Notas adicionales, preferencias, etc." />
