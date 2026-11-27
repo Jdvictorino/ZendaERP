@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { collectionReminders } from '../../api/client.js';
-import { openWhatsapp } from '../../utils/openWhatsapp.js';
+import { prepareWhatsappWindow } from '../../utils/openWhatsapp.js';
 import { stageLabel } from '../../utils/collectionReminders.js';
 import { rdDate } from '../../utils/rdDate.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
@@ -59,15 +59,18 @@ export default function RemindersDueTab({ currency }) {
 
   const sendWhatsapp = async ({ invoiceId, dueDate, stage }) => {
     if (waLock.current) return;
+    const win = prepareWhatsappWindow(); // antes del primer await: así el navegador no bloquea la ventana
+    if (win.blocked) { toast.error('Permite las ventanas emergentes para abrir WhatsApp.'); return; }
     waLock.current = true;
     setWaBusy(true);
     try {
       const r = await collectionReminders.whatsapp({ invoiceId, dueDate, stage });
       if (r.status === 'sent') {
-        if (!openWhatsapp(r.url)) toast.error('No se pudo abrir WhatsApp');
+        if (!win.go(r.url)) toast.error('No se pudo abrir WhatsApp');
         await load();
-      } else toast.error(r.error || 'No se pudo enviar por WhatsApp');
+      } else { win.cancel(); toast.error(r.error || 'No se pudo enviar por WhatsApp'); }
     } catch (e) {
+      win.cancel();
       toast.error(e.message || 'No se pudo enviar por WhatsApp');
     }
     setWaBusy(false);

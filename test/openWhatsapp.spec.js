@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { waUrl } from '../src/utils/collectionReminders.js';
-import { isWhatsappUrl, openWhatsapp } from '../src/utils/openWhatsapp.js';
+import { isWhatsappUrl, openWhatsapp, prepareWhatsappWindow } from '../src/utils/openWhatsapp.js';
 
 const OK = 'https://wa.me/18095551234?text=Hola';
 
@@ -45,5 +45,46 @@ describe('openWhatsapp', () => {
     expect(openWhatsapp('https://evil.com/')).toBe(false);
     expect(bridge).not.toHaveBeenCalled();
     expect(open).not.toHaveBeenCalled();
+  });
+});
+
+describe('prepareWhatsappWindow', () => {
+  const win = () => ({ location: {}, close: vi.fn() });
+  it('web: abre la ventana en el clic y go asigna la URL', () => {
+    const w = win();
+    const open = vi.spyOn(window, 'open').mockImplementation(() => w);
+    const p = prepareWhatsappWindow();
+    expect(open).toHaveBeenCalledWith('', '_blank');
+    expect(p.blocked).toBe(false);
+    expect(w.opener).toBe(null);
+    expect(p.go(OK)).toBe(true);
+    expect(w.location.href).toBe(OK);
+  });
+  it('web: URL invalida cierra la ventana', () => {
+    const w = win();
+    vi.spyOn(window, 'open').mockImplementation(() => w);
+    expect(prepareWhatsappWindow().go('https://evil.com/')).toBe(false);
+    expect(w.close).toHaveBeenCalled();
+  });
+  it('web: cancel cierra la ventana', () => {
+    const w = win();
+    vi.spyOn(window, 'open').mockImplementation(() => w);
+    prepareWhatsappWindow().cancel();
+    expect(w.close).toHaveBeenCalled();
+  });
+  it('web: window.open null -> blocked', () => {
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+    expect(prepareWhatsappWindow().blocked).toBe(true);
+  });
+  it('Electron: go usa el puente y no abre ventana', () => {
+    const bridge = vi.fn().mockResolvedValue(true);
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    window.electronAPI = { openWhatsapp: bridge };
+    const p = prepareWhatsappWindow();
+    expect(p.blocked).toBe(false);
+    expect(p.go(OK)).toBe(true);
+    expect(bridge).toHaveBeenCalledWith(OK);
+    expect(open).not.toHaveBeenCalled();
+    p.cancel();
   });
 });

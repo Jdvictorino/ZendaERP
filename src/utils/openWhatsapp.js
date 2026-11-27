@@ -17,3 +17,22 @@ export function openWhatsapp(url) {
   window.open(url, '_blank', 'noopener');
   return true;
 }
+
+// Para abrir tras un await: la ventana se abre dentro del clic (si no, el navegador la bloquea) y luego se le asigna la URL.
+export function prepareWhatsappWindow() {
+  if (typeof window !== 'undefined' && window.electronAPI?.openWhatsapp) {
+    return { blocked: false, go: (url) => openWhatsapp(url), cancel() {} };
+  }
+  const w = window.open('', '_blank');
+  if (!w) return { blocked: true, go: () => false, cancel() {} };
+  w.opener = null;
+  return {
+    blocked: false,
+    go(url) {
+      if (!isWhatsappUrl(url)) { w.close(); return false; }
+      w.location.href = url;
+      return true;
+    },
+    cancel() { w.close(); },
+  };
+}
