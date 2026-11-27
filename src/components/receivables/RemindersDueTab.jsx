@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { collectionReminders } from '../../api/client.js';
 import { stageLabel } from '../../utils/collectionReminders.js';
+import { rdDate } from '../../utils/rdDate.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Button from '../ui/Button.jsx';
 import Card, { CardBody } from '../ui/Card.jsx';
@@ -15,6 +16,7 @@ export default function RemindersDueTab({ currency }) {
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [sending, setSending] = useState(false);
+  const lock = useRef(false); // el estado llega tarde al segundo clic
 
   const load = useCallback(async () => {
     try {
@@ -33,7 +35,8 @@ export default function RemindersDueTab({ currency }) {
   const money = (n) => formatCurrency(Number(n) || 0, currency);
 
   const send = async (list) => {
-    if (!list.length || sending) return;
+    if (!list.length || lock.current) return;
+    lock.current = true;
     setSending(true);
     const total = { sent: 0, failed: 0, skipped: 0 };
     try {
@@ -47,6 +50,7 @@ export default function RemindersDueTab({ currency }) {
     const msg = `Enviados ${total.sent}, fallaron ${total.failed}${total.skipped ? `, omitidos ${total.skipped}` : ''}`;
     if (total.sent + total.failed + total.skipped) (total.failed ? toast.error : toast.success)(msg);
     setSending(false);
+    lock.current = false;
     await load();
   };
 
@@ -107,7 +111,7 @@ export default function RemindersDueTab({ currency }) {
                       <td className="p-3 text-right tabular-nums">{money(r.balance)}</td>
                       <td className="p-3 text-xs">
                         {r.failed ? <span className="text-red-600">Falló: {r.failed.error || 'error desconocido'}</span>
-                          : r.lastSentAt ? ddmmyyyy(r.lastSentAt) : <span className="text-ink-muted">Nunca</span>}
+                          : r.lastSentAt ? rdDate(r.lastSentAt) : <span className="text-ink-muted">Nunca</span>}
                       </td>
                       <td className="p-3 text-right">
                         {ok && <Button size="sm" disabled={!smtpReady || sending} onClick={() => send([r])}>{r.failed ? 'Reintentar' : 'Enviar'}</Button>}

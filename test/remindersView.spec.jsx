@@ -73,6 +73,36 @@ describe('Por recordar hoy', () => {
     });
 });
 
+describe('rondas de arreglos', () => {
+    beforeEach(() => vi.clearAllMocks());
+    it('doble clic en Enviar seleccionados: una sola llamada', async () => {
+        let done;
+        mocks.send.mockReturnValue(new Promise((r) => { done = r; }));
+        await open([row()]);
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar F-1' }));
+        const b = screen.getByRole('button', { name: /Enviar seleccionados/ });
+        fireEvent.click(b); fireEvent.click(b);
+        expect(mocks.send).toHaveBeenCalledTimes(1);
+        done([{ invoiceId: 'f1', dueDate: '2026-11-20', stage: 7, status: 'sent' }]);
+        await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    });
+    it('lastSentAt se muestra en hora de RD', async () => {
+        await open([row({ lastSentAt: '2026-12-11T01:30:00Z' })]);
+        expect(within(screen.getByText('Cliente A').closest('tr')).getByText('10/12/2026')).toBeTruthy();
+    });
+    it('el historial de la factura anterior no se ve si la nueva falla', async () => {
+        mocks.reminders.mockResolvedValueOnce([{ id: 'r1', stage: 7, channel: 'email', status: 'failed', error: 'Error de A', to: 'a@x.com', sentById: null, createdAt: '2026-12-11T01:30:00Z' }]);
+        mocks.reminders.mockRejectedValueOnce(new Error('x'));
+        const e = (id) => ({ invoice: { id }, customer: {}, total: 1, paid: 0, outstanding: 1 });
+        const { rerender } = render(<ReceivableDetailModal open onClose={() => {}} entry={e('A')} companyProfile={{}} />);
+        expect(await screen.findByText(/Error de A/)).toBeTruthy();
+        expect(screen.getByText(/10\/12\/2026/)).toBeTruthy();
+        rerender(<ReceivableDetailModal open onClose={() => {}} entry={e('B')} companyProfile={{}} />);
+        await waitFor(() => expect(mocks.reminders).toHaveBeenCalledWith('B'));
+        expect(screen.queryByText(/Error de A/)).toBeNull();
+    });
+});
+
 describe('historial en el detalle', () => {
     it('lista los recordatorios, automático si sentById es null', async () => {
         mocks.reminders.mockResolvedValue([
