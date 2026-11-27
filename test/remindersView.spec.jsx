@@ -2,12 +2,13 @@ import React from 'react';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ due: vi.fn(), send: vi.fn(), reminders: vi.fn(), crud: vi.fn() }));
+const mocks = vi.hoisted(() => ({ due: vi.fn(), send: vi.fn(), whatsapp: vi.fn(), go: vi.fn(() => true), cancel: vi.fn(), win: vi.fn(), reminders: vi.fn(), crud: vi.fn() }));
 vi.mock('../src/api/client.js', () => ({
     default: {},
     invoices: { reminders: mocks.reminders },
-    collectionReminders: { due: mocks.due, send: mocks.send },
+    collectionReminders: { due: mocks.due, send: mocks.send, whatsapp: mocks.whatsapp },
 }));
+vi.mock('../src/utils/openWhatsapp.js', () => ({ prepareWhatsappWindow: mocks.win }));
 vi.mock('../src/hooks/useApi.js', () => ({ useApiCrud: (path) => ({ data: mocks.crud(path), loading: false, refetch: vi.fn() }) }));
 vi.mock('../src/utils/pdfGenerator.js', () => ({ generatePDF: vi.fn(), generateAccountStatementPDF: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
@@ -17,7 +18,7 @@ import AccountsReceivableViewSQL from '../src/views/AccountsReceivableViewSQL.js
 import ReceivableDetailModal from '../src/components/modals/ReceivableDetailModal.jsx';
 
 const row = (o = {}) => ({
-    invoiceId: 'f1', customerId: 'c1', customerName: 'Cliente A', email: 'a@x.com', emailStatus: 'ok', invoiceNumber: 'F-1',
+    invoiceId: 'f1', customerId: 'c1', customerName: 'Cliente A', email: 'a@x.com', emailStatus: 'ok', phone: '18095551234', phoneStatus: 'ok', invoiceNumber: 'F-1',
     dueDate: '2026-11-20', stage: 7, amount: 500, overdueTotal: 500, balance: 1000, lastSentAt: null, failed: null, ...o,
 });
 const open = async (rows, smtpReady = true) => {
@@ -100,6 +101,72 @@ describe('rondas de arreglos', () => {
         rerender(<ReceivableDetailModal open onClose={() => {}} entry={e('B')} companyProfile={{}} />);
         await waitFor(() => expect(mocks.reminders).toHaveBeenCalledWith('B'));
         expect(screen.queryByText(/Error de A/)).toBeNull();
+    });
+});
+
+describe('WhatsApp en Por recordar hoy', () => {
+    beforeEach(() => { vi.clearAllMocks(); mocks.win.mockImplementation(() => ({ blocked: false, go: mocks.go, cancel: mocks.cancel })); mocks.whatsapp.mockResolvedValue({ status: 'sent', url: 'https://wa.me/18095551234?text=x' }); });
+    it('abre el chat y recarga con sent', async () => {
+        await open([row()]);
+        fireEvent.click(within(screen.getByText('Cliente A').closest('tr')).getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(mocks.go).toHaveBeenCalledWith('https://wa.me/18095551234?text=x'));
+        expect(mocks.whatsapp).toHaveBeenCalledWith({ invoiceId: 'f1', dueDate: '2026-11-20', stage: 7 });
+        await waitFor(() => expect(mocks.due).toHaveBeenCalledTimes(2));
+    });
+    it('skipped: toast de error y no abre nada', async () => {
+        mocks.whatsapp.mockResolvedValue({ status: 'skipped', error: 'Ya se envió hoy' });
+        await open([row()]);
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Ya se envió hoy'));
+        expect(mocks.go).not.toHaveBeenCalled(); expect(mocks.cancel).toHaveBeenCalled();
+    });
+    it('skipped y error también recargan la lista', async () => {
+        mocks.whatsapp.mockResolvedValue({ status: 'skipped', error: 'Ya se envió hoy' });
+        await open([row()]);
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(mocks.due).toHaveBeenCalledTimes(2));
+        mocks.whatsapp.mockRejectedValue(new Error('Red caída'));
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(mocks.due).toHaveBeenCalledTimes(3));
+    });
+    it('si el puente no abre WhatsApp: toast de error', async () => {
+        mocks.go.mockResolvedValueOnce(false);
+        await open([row()]);
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('No se pudo abrir WhatsApp'));
+    });
+    it('un fallo de WhatsApp no pone "Reintentar" en el correo', async () => {
+        await open([row({ failed: { channel: 'whatsapp', error: 'x' } })]);
+        const tr = screen.getByText('Cliente A').closest('tr');
+        expect(within(tr).queryByRole('button', { name: 'Reintentar' })).toBeNull();
+        expect(within(tr).getByRole('button', { name: 'Enviar' })).toBeTruthy();
+    });
+    it('sin teléfono válido: deshabilitado con título', async () => {
+        await open([row({ phone: '', phoneStatus: 'missing' })]);
+        const b = screen.getByRole('button', { name: 'WhatsApp' });
+        expect(b.disabled).toBe(true);
+        expect(b.title).toBe('Sin teléfono válido');
+    });
+    it('ventana bloqueada: no llama al servidor y avisa', async () => {
+        mocks.win.mockImplementation(() => ({ blocked: true, go: mocks.go, cancel: mocks.cancel }));
+        await open([row()]);
+        fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }));
+        expect(toast.error).toHaveBeenCalledWith('Permite las ventanas emergentes para abrir WhatsApp.');
+        expect(mocks.whatsapp).not.toHaveBeenCalled();
+    });
+    it('funciona sin SMTP', async () => {
+        await open([row()], false);
+        expect(screen.getByRole('button', { name: 'WhatsApp' }).disabled).toBe(false);
+    });
+    it('doble clic: una sola llamada', async () => {
+        let done;
+        mocks.whatsapp.mockReturnValue(new Promise((r) => { done = r; }));
+        await open([row()]);
+        const b = screen.getByRole('button', { name: 'WhatsApp' });
+        fireEvent.click(b); fireEvent.click(b);
+        expect(mocks.whatsapp).toHaveBeenCalledTimes(1);
+        done({ status: 'sent', url: 'https://wa.me/1?text=x' });
+        await waitFor(() => expect(mocks.go).toHaveBeenCalled());
     });
 });
 

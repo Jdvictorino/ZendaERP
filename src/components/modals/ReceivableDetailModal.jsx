@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { invoices as invoicesApi } from '../../api/client.js';
+import { invoices as invoicesApi, collectionReminders } from '../../api/client.js';
 import { rdDate } from '../../utils/rdDate.js';
-import { stageLabel } from '../../utils/collectionReminders.js';
+import { stageLabel, waNumber, waUrl, invoiceWhatsappText } from '../../utils/collectionReminders.js';
+import { openWhatsapp } from '../../utils/openWhatsapp.js';
 import Button from '../ui/Button.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { generatePDF, generateAccountStatementPDF } from '../../utils/pdfGenerator.js';
 import { Mail, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { confirmDialog } from '../../utils/confirmDialog.jsx';
 import SendEmailModal from './SendEmailModal.jsx';
 import { docLine } from '../../utils/docLines.js';
 import { installmentsOf } from '../../utils/paymentTerms.js';
@@ -40,13 +42,23 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
     ? installmentsOf({ ...invoice, amountPaid: invoice.paidAmount ?? invoice.amountPaid }, todayRD()) : [];
 
   const [reminders, setReminders] = useState([]);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => { setReminders([]); }, [open, invoice.id]);
   useEffect(() => {
-    setReminders([]);
     if (!open || !invoice.id) return undefined;
     let alive = true;
     (async () => { try { const r = await invoicesApi.reminders(invoice.id); if (alive) setReminders(Array.isArray(r) ? r : []); } catch { /* el historial es opcional */ } })();
     return () => { alive = false; };
-  }, [open, invoice.id]);
+  }, [open, invoice.id, reloadKey]);
+
+  const markUnsent = async (id) => {
+    if (!(await confirmDialog('¿Marcar este WhatsApp como no enviado? El recordatorio volverá a la lista para enviarlo por correo o reintentarlo.', { confirmText: 'Marcar como no enviado' }))) return;
+    try {
+      const r = await collectionReminders.markUnsent(id);
+      if (r?.status === 'updated') toast.success('Marcado como no enviado'); else toast.error(r?.error || 'No se pudo marcar el recordatorio.');
+      setReloadKey((k) => k + 1);
+    } catch (e) { toast.error(e?.message || 'No se pudo marcar el recordatorio.'); }
+  };
 
   const formatMoney = (value) => formatCurrency(Number(value) || 0, currency);
 
@@ -207,6 +219,11 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
     }
   };
 
+  const waPhone = waNumber(customer.phone);
+  const handleWhatsapp = async () => {
+    if (!(await openWhatsapp(waUrl(waPhone, invoiceWhatsappText(invoice, customer, companyProfile))))) toast.error('No se pudo abrir WhatsApp');
+  };
+
   if (!open || !entry) return null;
 
   return (
@@ -314,9 +331,12 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
               <ul className="space-y-1 text-sm">
                 {reminders.map((r) => (
                   <li key={r.id} className="border-t border-line pt-1 first:border-0 first:pt-0">
-                    {rdDate(r.updatedAt || r.createdAt)} · {stageLabel(r.stage)} · {r.channel === 'email' ? 'correo' : r.channel} · {r.sentById ? 'manual' : 'automático'} ·{' '}
+                    {rdDate(r.updatedAt || r.createdAt)} · {stageLabel(r.stage)} · {r.channel === 'whatsapp' ? 'WhatsApp' : 'Correo'} · {r.sentById ? 'manual' : 'automático'} ·{' '}
                     <span className={r.status === 'failed' ? 'text-red-600' : 'text-ink-muted'}>{r.status === 'sent' ? 'enviado' : r.status === 'failed' ? 'falló' : 'en curso'}</span>
                     {r.status === 'failed' && r.error ? <span className="text-red-600"> ({r.error})</span> : null}
+                    {r.channel === 'whatsapp' && r.status === 'sent' ? (
+                      <button type="button" className="ml-2 text-xs text-brand-600 underline" onClick={() => markUnsent(r.id)}>Marcar como no enviado</button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -370,6 +390,7 @@ const ReceivableDetailModal = ({ open, onClose, entry, statementEntries = [], co
             <div className="flex flex-wrap gap-2">
               <Button onClick={handlePrintInvoice}>Imprimir factura</Button>
               <Button variant="secondary" onClick={handleSendInvoiceEmail}><Mail size={16} className="mr-1"/> Enviar Factura</Button>
+              <Button variant="secondary" onClick={handleWhatsapp} disabled={!waPhone} title={waPhone ? undefined : 'Sin teléfono válido'}>Enviar por WhatsApp</Button>
               <Button variant="secondary" onClick={handleViewStatement} disabled={!statementEntries.length}>
                 Ver estado de cuenta
               </Button>

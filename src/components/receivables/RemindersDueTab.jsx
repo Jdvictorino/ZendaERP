@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { collectionReminders } from '../../api/client.js';
+import { prepareWhatsappWindow } from '../../utils/openWhatsapp.js';
 import { stageLabel } from '../../utils/collectionReminders.js';
 import { rdDate } from '../../utils/rdDate.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
@@ -17,6 +18,8 @@ export default function RemindersDueTab({ currency }) {
   const [selected, setSelected] = useState(new Set());
   const [sending, setSending] = useState(false);
   const lock = useRef(false); // el estado llega tarde al segundo clic
+  const waLock = useRef(false);
+  const [waBusy, setWaBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +55,26 @@ export default function RemindersDueTab({ currency }) {
     setSending(false);
     lock.current = false;
     await load();
+  };
+
+  const sendWhatsapp = async ({ invoiceId, dueDate, stage }) => {
+    if (waLock.current) return;
+    const win = prepareWhatsappWindow(); // antes del primer await: así el navegador no bloquea la ventana
+    if (win.blocked) { toast.error('Permite las ventanas emergentes para abrir WhatsApp.'); return; }
+    waLock.current = true;
+    setWaBusy(true);
+    try {
+      const r = await collectionReminders.whatsapp({ invoiceId, dueDate, stage });
+      if (r.status === 'sent') {
+        if (!(await win.go(r.url))) toast.error('No se pudo abrir WhatsApp');
+      } else { win.cancel(); toast.error(r.error || 'No se pudo enviar por WhatsApp'); }
+    } catch (e) {
+      win.cancel();
+      toast.error(e.message || 'No se pudo enviar por WhatsApp');
+    }
+    await load();
+    setWaBusy(false);
+    waLock.current = false;
   };
 
   const toggle = (k) => setSelected((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
@@ -114,7 +137,10 @@ export default function RemindersDueTab({ currency }) {
                           : r.lastSentAt ? rdDate(r.lastSentAt) : <span className="text-ink-muted">Nunca</span>}
                       </td>
                       <td className="p-3 text-right">
-                        {ok && <Button size="sm" disabled={!smtpReady || sending} onClick={() => send([r])}>{r.failed ? 'Reintentar' : 'Enviar'}</Button>}
+                        <div className="flex justify-end gap-2">
+                          {ok && <Button size="sm" disabled={!smtpReady || sending} onClick={() => send([r])}>{r.failed && r.failed.channel !== 'whatsapp' ? 'Reintentar' : 'Enviar'}</Button>}
+                          <Button size="sm" variant="secondary" disabled={r.phoneStatus !== 'ok' || waBusy} title={r.phoneStatus !== 'ok' ? 'Sin teléfono válido' : undefined} onClick={() => sendWhatsapp(r)}>WhatsApp</Button>
+                        </div>
                       </td>
                     </tr>
                   );

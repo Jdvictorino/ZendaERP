@@ -84,7 +84,8 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
   });
 
   it('un envío en curso cuenta como fallido', () => {
-    expect(due([inv()], [sentRow({ status: 'sending' })])[0].failed).toEqual({ error: 'Interrumpido: puede que el correo ya haya salido' });
+    expect(due([inv()], [sentRow({ status: 'sending' })])[0].failed).toEqual({ channel: 'email', error: 'Interrumpido: puede que el correo ya haya salido' });
+    expect(due([inv()], [sentRow({ status: 'sending', channel: 'whatsapp' })])[0].failed).toEqual({ channel: 'whatsapp', error: 'Interrumpido: puede que el WhatsApp ya se haya abierto' });
   });
 
   it('exclusiones', () => {
@@ -108,7 +109,7 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
 
   it('fallido previo, cobro parcial y último envío', () => {
     const f = sentRow({ status: 'failed', error: 'SMTP caído' });
-    expect(due([inv()], [f])[0].failed).toEqual({ error: 'SMTP caído' });
+    expect(due([inv()], [f])[0].failed).toEqual({ channel: 'email', error: 'SMTP caído' });
     expect(due([inv({ amountPaid: 400 })])[0]).toMatchObject({ amount: 600, balance: 600 });
     expect(due([inv()], [sentRow({ dueDate: '2026-11-01', stage: 15, createdAt: '2026-12-01T15:00:00Z' })])[0].lastSentAt).toBe('2026-12-01T15:00:00Z');
   });
@@ -147,4 +148,43 @@ it('remindersUpdate completa lo recibido con lo guardado y rechaza lo que no es 
 it('las dos copias son idénticas desde la línea 2', () => {
   const body = (f) => readFileSync(f, 'utf8').replace(/\r/g, '').split('\n').slice(1).join('\n');
   expect(body('src/utils/collectionReminders.js')).toBe(body('backend/src/services/collectionReminders.js'));
+});
+
+describe.each([['app', app], ['backend', srv]])('WhatsApp (%s)', (_n, m) => {
+  const rules = m.DEFAULT_REMINDERS;
+  const due = (invoices, sent = []) => m.remindersDue(invoices, { today, rules, sent });
+
+  it('waNumber normaliza números de RD y rechaza el resto', () => {
+    expect(m.waNumber('809-555-1234')).toBe('18095551234');
+    expect(m.waNumber('(829) 555 1234')).toBe('18295551234');
+    expect(m.waNumber('1-849-555-1234')).toBe('18495551234');
+    for (const bad of ['5551234', '+34 612 345 678', '', null, undefined, '123']) expect(m.waNumber(bad)).toBeNull();
+  });
+
+  it('waUrl codifica el mensaje entero', () => {
+    const t = 'Hola José & Cía\n#1';
+    expect(m.waUrl('18095551234', t)).toBe('https://wa.me/18095551234?text=' + encodeURIComponent(t));
+  });
+
+  it('invoiceWhatsappText', () => {
+    const text = m.invoiceWhatsappText({ ncfNumber: 'B0100000001', total: 1180 }, { name: 'Juan' }, { name: 'Colmado X', currency: 'DOP' });
+    expect(text).toBe('Hola Juan, le enviamos su factura B0100000001 por RD$1,180.00. Gracias por preferir Colmado X.');
+  });
+
+  it('invoiceWhatsappText sin nombre no deja espacio suelto', () => {
+    expect(m.invoiceWhatsappText({ ncfNumber: 'B01', total: 1180 }, {}, { name: 'X', currency: 'DOP' })).toMatch(/^Hola, le enviamos/);
+  });
+
+  it('canales mezclados: cualquier canal bloquea y cuenta la etapa', () => {
+    expect(due([inv()], [sentRow({ channel: 'whatsapp', createdAt: '2026-12-10T15:00:00Z' })])).toHaveLength(0);
+    expect(due([inv()], [sentRow({ channel: 'whatsapp' })])).toHaveLength(0);
+    expect(due([inv()], [])).toHaveLength(1);
+  });
+
+  it('phone y phoneStatus en las filas', () => {
+    const row = (phone) => due([inv({ customer: { ...cust, phone } })])[0];
+    expect(row('809 555 1234')).toMatchObject({ phone: '18095551234', phoneStatus: 'ok' });
+    expect(row(undefined)).toMatchObject({ phone: null, phoneStatus: 'missing' });
+    expect(row('123')).toMatchObject({ phone: null, phoneStatus: 'invalid' });
+  });
 });

@@ -216,6 +216,20 @@ ipcMain.handle('open-cash-drawer', async () => {
   }
 });
 
+// Copia de isWhatsappUrl en src/utils/openWhatsapp.js: el renderer no es de fiar, solo se abre https://wa.me/
+function isWhatsappUrl(url) {
+  if (typeof url !== 'string' || /[\s\u0000-\u001f\u007f]/.test(url) || !url.startsWith('https://wa.me/')) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && u.hostname === 'wa.me' && !u.username && !u.password && !u.port;
+  } catch { return false; }
+}
+
+ipcMain.handle('open-whatsapp', async (event, url) => {
+  if (!isWhatsappUrl(url)) return false;
+  try { await shell.openExternal(new URL(url).href); return true; } catch { return false; }
+});
+
 app.whenReady().then(() => {
   const menu = createCustomMenu();
   Menu.setApplicationMenu(menu);

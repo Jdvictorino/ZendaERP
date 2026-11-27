@@ -1,7 +1,7 @@
 // Envío de recordatorios de cobro por correo: lo usan la ruta manual y (tarea 4) el automático con userId null.
 import defaultPrisma from '../db.js';
 import { sendCompanyMail } from './emailService.js';
-import { remindersDue, renderReminder, remindersOf } from './collectionReminders.js';
+import { remindersDue, renderReminder, remindersOf, waUrl } from './collectionReminders.js';
 import { todayRD } from './tax.js';
 
 const STALE_MS = 10 * 60 * 1000; // un 'sending' más viejo se considera interrumpido
@@ -25,14 +25,14 @@ export const smtpReady = (company) => {
 const escapeHtml = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const toHtml = (text) => escapeHtml(text).replace(/\r?\n/g, '<br>');
 
-// Facturas con saldo posible y los recordatorios de email de esas facturas.
+// Facturas con saldo posible y los recordatorios (todos los canales) de esas facturas.
 const load = async (prisma, companyId, invoiceIds) => {
   const invoices = await prisma.invoice.findMany({
     where: { companyId, isBilled: true, ...(invoiceIds ? { id: { in: invoiceIds } } : { status: { notIn: EXCLUDED }, customerId: { not: null } }) },
     include: { customer: true },
   });
   const sent = invoices.length
-    ? await prisma.collectionReminder.findMany({ where: { invoiceId: { in: invoices.map((i) => i.id) }, channel: 'email' } })
+    ? await prisma.collectionReminder.findMany({ where: { invoiceId: { in: invoices.map((i) => i.id) } } })
     : [];
   return { invoices, sent };
 };
@@ -79,17 +79,7 @@ export async function sendReminders({ prisma = defaultPrisma, sendMail = sendCom
     }
 
     // Cada llamada reserva antes de comprobar: si otra reservó o envió esta factura hoy, no salen los dos correos.
-    const other = await prisma.collectionReminder.findFirst({
-      where: {
-        invoiceId: row.invoiceId, channel: 'email', id: { not: id },
-        OR: [
-          { status: 'sent', updatedAt: { gte: new Date(`${today}T04:00:00Z`) } },
-          { status: 'sending', updatedAt: { gte: new Date(now.getTime() - STALE_MS) } },
-        ],
-      },
-      select: { id: true },
-    });
-    if (other) {
+    if (await otherToday(prisma, row.invoiceId, id, today, now)) {
       await save(prisma, id, { status: 'failed', error: 'Ya salió otro recordatorio de esta factura hoy' });
       results.push({ ...base, status: 'skipped' });
       continue;
@@ -108,7 +98,69 @@ export async function sendReminders({ prisma = defaultPrisma, sendMail = sendCom
   return results;
 }
 
-export const autoItems = (rows) => rows.filter((r) => r.emailStatus === 'ok' && !r.failed);
+// Otro envío (de cualquier canal) hoy o en curso para la misma factura.
+const otherToday = (prisma, invoiceId, id, today, now) => prisma.collectionReminder.findFirst({
+  where: {
+    invoiceId, id: { not: id },
+    OR: [
+      { status: 'sent', updatedAt: { gte: new Date(`${today}T04:00:00Z`) } },
+      { status: 'sending', updatedAt: { gte: new Date(now.getTime() - STALE_MS) } },
+    ],
+  },
+  select: { id: true },
+});
+
+// Registra un recordatorio que la persona manda por WhatsApp; el envío lo hace ella con la url.
+export async function registerWhatsapp({ prisma = defaultPrisma, company, item, userId = null, now = new Date() }) {
+  const today = todayRD(now);
+  const rules = remindersOf(company.settings);
+  const { invoices, sent } = await load(prisma, company.id, [item.invoiceId]);
+  const row = remindersDue(invoices, { today, rules, sent })
+    .find((r) => r.invoiceId === item.invoiceId && r.dueDate === item.dueDate && r.stage === item.stage);
+  if (!row) return { status: 'skipped', error: 'Ya no corresponde enviarlo' };
+  if (row.phoneStatus !== 'ok') return { status: 'skipped', error: 'Sin teléfono válido' };
+  const existing = sent.find((x) => x.invoiceId === row.invoiceId && x.stage === row.stage && x.channel === 'whatsapp'
+    && new Date(x.dueDate).toISOString().slice(0, 10) === row.dueDate);
+  const plan = reservationPlan(existing, { now });
+  if (plan === 'skip') return { status: 'skipped', error: 'Ya se registró este recordatorio' };
+  let id;
+  if (plan === 'create') {
+    try {
+      ({ id } = await prisma.collectionReminder.create({
+        data: { companyId: company.id, invoiceId: row.invoiceId, customerId: row.customerId, dueDate: new Date(row.dueDate), stage: row.stage, channel: 'whatsapp', status: 'sending', to: row.phone, sentById: userId },
+      }));
+    } catch (e) {
+      if (e.code === 'P2002') return { status: 'skipped', error: 'Ya se registró este recordatorio' };
+      throw e;
+    }
+  } else {
+    const { count } = await prisma.collectionReminder.updateMany({
+      where: { id: existing.id, status: existing.status, updatedAt: existing.updatedAt },
+      data: { status: 'sending', sentById: userId, to: row.phone, error: null, updatedAt: new Date() },
+    });
+    if (!count) return { status: 'skipped', error: 'Ya se registró este recordatorio' };
+    id = existing.id;
+  }
+  // Reservada en 'sending': solo pasa a 'sent' si se va a devolver la url. Si otherToday lanza, queda 'sending' y en 10 min es reintentable.
+  if (await otherToday(prisma, row.invoiceId, id, today, now)) {
+    const error = 'Ya salió otro recordatorio de esta factura hoy';
+    await save(prisma, id, { status: 'failed', error });
+    return { status: 'skipped', error };
+  }
+  await prisma.collectionReminder.update({ where: { id }, data: { status: 'sent' } }); // lanza si falla: sin 'sent' no hay url
+  return { status: 'sent', url: waUrl(row.phone, renderReminder(rules, row, company, today).text) };
+}
+
+// Un WhatsApp 'sent' que no llegó (p. ej. un fijo) pasa a 'failed': la etapa vuelve a tocar. Un correo enviado no se toca.
+export async function markUnsent({ prisma = defaultPrisma, companyId, id }) {
+  const { count } = await prisma.collectionReminder.updateMany({
+    where: { id, companyId, channel: 'whatsapp', status: 'sent' },
+    data: { status: 'failed', error: 'Marcado como no enviado' },
+  });
+  return count ? { status: 'updated' } : { status: 'skipped', error: 'No se puede marcar este recordatorio.' };
+}
+
+export const autoItems = (rows) => rows.filter((r) => r.emailStatus === 'ok' && (!r.failed || r.failed.channel === 'whatsapp'));
 
 // Hora RD (UTC-4 fijo) de now >= autoHour.
 export const shouldRunAuto = (rules, company, now = new Date()) =>
