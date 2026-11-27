@@ -20,7 +20,7 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
     expect(m.remindersOf(undefined)).toEqual(rules);
     expect(m.remindersOf({ collectionReminders: { auto: true } })).toEqual({ ...rules, auto: true });
     expect(m.validateReminders(rules)).toBeNull();
-    for (const bad of [{ stages: [0, 0] }, { stages: [400] }, { stages: [] }, { stages: [1.5] }, { stages: [-61] }, { autoHour: 24 }, { subject: ' ' }, { body: '' }])
+    for (const bad of [{ stages: [0, 0] }, { stages: [400] }, { stages: [] }, { stages: [1.5] }, { stages: [-61] }, { autoHour: 24 }, { auto: 'si' }, { subject: ' ' }, { body: '' }])
       expect(typeof m.validateReminders({ ...rules, ...bad })).toBe('string');
   });
 
@@ -30,6 +30,8 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
     expect(m.stageLabel(-3)).toBe('3 días antes');
     expect(m.stageLabel(0)).toBe('vence hoy');
     expect(m.stageLabel(7)).toBe('7 días de atraso');
+    expect(m.stageLabel(-1)).toBe('1 día antes');
+    expect(m.stageLabel(1)).toBe('1 día de atraso');
   });
 
   it('cuota vencida hace 7 días: solo la etapa vigente', () => {
@@ -60,7 +62,32 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
     expect(due([two], [{ ...other, status: 'failed' }])).toHaveLength(1);
   });
 
+  it('si la cuota más vieja ya envió su etapa, sale la siguiente', () => {
+    const two = inv({ paymentTerm: { schedule: [{ dueDate: '2026-11-20', amount: 500 }, { dueDate: '2026-12-03', amount: 500 }] } });
+    const old = sentRow({ dueDate: '2026-11-20', stage: 15, createdAt: '2026-12-01T15:00:00Z' });
+    const rows = due([two], [old]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ dueDate: '2026-12-03', stage: 7, amount: 500, overdueTotal: 1000 });
+  });
+
+  it('el servidor entrega fechas Date', () => {
+    const d = (s) => new Date(s);
+    const s1 = sentRow({ dueDate: d('2026-12-03T12:00:00Z'), createdAt: d('2026-12-05T15:00:00Z'), updatedAt: d('2026-12-05T15:00:01Z') });
+    expect(due([inv()], [s1])).toEqual([]);
+    // reservada ayer y enviada hoy: cuenta el día RD de updatedAt
+    const s2 = sentRow({ dueDate: d('2026-11-20T12:00:00Z'), stage: 15, createdAt: d('2026-12-09T20:00:00Z'), updatedAt: d('2026-12-10T14:00:00Z') });
+    expect(due([inv()], [s2])).toEqual([]);
+    const a = sentRow({ dueDate: d('2026-11-01T12:00:00Z'), stage: 15, createdAt: d('2026-12-02T15:00:00Z'), updatedAt: d('2026-12-02T15:00:00Z') });
+    const b = { ...a, createdAt: d('2026-12-04T15:00:00Z'), updatedAt: d('2026-12-04T15:00:00Z') };
+    expect(due([inv()], [b, a])[0].lastSentAt).toEqual(b.createdAt);
+  });
+
+  it('un envío en curso cuenta como fallido', () => {
+    expect(due([inv()], [sentRow({ status: 'sending' })])[0].failed).toEqual({ error: 'Envío en curso o interrumpido' });
+  });
+
   it('exclusiones', () => {
+    expect(due([inv({ customer: null })])).toEqual([]);
     expect(due([inv({ status: 'Anulado' })])).toEqual([]);
     expect(due([inv({ status: 'Cancelado' })])).toEqual([]);
     expect(due([inv({ amountPaid: 1000 })])).toEqual([]);
@@ -86,15 +113,18 @@ describe.each([['app', app], ['backend', srv]])('collectionReminders (%s)', (_n,
   });
 
   it('renderReminder reemplaza todos los marcadores', () => {
-    const body = '{cliente}|{empresa}|{factura}|{monto}|{vence}|{dias}|{saldo}|{telefono}|{correo}';
+    const body = '{cliente}|{empresa}|{factura}|{monto}|{vence}|{dias}|{saldo}|{vencido}|{telefono}|{correo}';
     const r = { ...rules, subject: 'Pago {factura}', body };
     const row = due([inv()])[0];
     const co = { name: 'Mi Empresa', phone: '809-555-0000', email: 'info@mi.com' };
     const out = m.renderReminder(r, row, co, today);
     expect(out.subject).toBe('Pago B0100000001');
-    expect(out.text).toBe('Juan Pérez|Mi Empresa|B0100000001|RD$1,000.00|03/12/2026|hace 7 días|RD$1,000.00|809-555-0000|info@mi.com');
+    expect(out.text).toBe('Juan Pérez|Mi Empresa|B0100000001|RD$1,000.00|03/12/2026|hace 7 días|RD$1,000.00|RD$1,000.00|809-555-0000|info@mi.com');
     expect(m.renderReminder(r, { ...row, dueDate: '2026-12-10' }, co, today).text).toContain('|hoy|');
     expect(m.renderReminder(r, { ...row, dueDate: '2026-12-13' }, co, today).text).toContain('|en 3 días|');
+    expect(m.renderReminder(r, row, { ...co, currency: 'USD' }, today).text).toContain('US$');
+    expect(m.renderReminder(r, row, { ...co, currency: 'XX' }, today).text).toContain('RD$');
+    expect(m.renderReminder(rules, row, co, today).text).toContain('Saldo vencido: RD$1,000.00');
     expect(m.renderReminder(rules, row, co, today).text).not.toMatch(/\{\w+\}/);
   });
 });

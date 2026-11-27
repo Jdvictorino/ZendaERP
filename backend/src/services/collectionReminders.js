@@ -12,7 +12,9 @@ export const DEFAULT_REMINDERS = {
   subject: 'Recordatorio de pago: factura {factura}',
   body:
     'Estimado/a {cliente}:\n\n' +
-    'Le recordamos que la factura {factura} por {monto} vence {dias} ({vence}). Su saldo pendiente es {saldo}.\n\n' +
+    'Le recordamos que la factura {factura} por {monto} vence {dias} ({vence}).\n' +
+    'Saldo pendiente: {saldo}\n' +
+    'Saldo vencido: {vencido}\n\n' +
     'Si ya realizó el pago, por favor ignore este mensaje.\n\n' +
     'Gracias,\n{empresa}\nTel.: {telefono}\nCorreo: {correo}',
 };
@@ -23,7 +25,8 @@ export const remindersOf = (settings) => {
 };
 
 export const validateReminders = (r) => {
-  const stages = r?.stages;
+  if (typeof r?.auto !== 'boolean') return 'El envío automático debe ser sí o no';
+  const stages = r.stages;
   if (!Array.isArray(stages) || !stages.length) return 'Indique al menos una etapa de recordatorio';
   if (stages.some((s) => typeof s !== 'number' || !Number.isInteger(s) || s < -60 || s > 365))
     return 'Las etapas deben ser números enteros entre -60 y 365 días';
@@ -37,10 +40,14 @@ export const validateReminders = (r) => {
 
 export const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
 
-export const stageLabel = (n) => (n < 0 ? `${-n} días antes` : n === 0 ? 'vence hoy' : `${n} días de atraso`);
+export const stageLabel = (n) =>
+  n < 0 ? `${-n} ${n === -1 ? 'día' : 'días'} antes` : n === 0 ? 'vence hoy' : `${n} ${n === 1 ? 'día' : 'días'} de atraso`;
 
+// Prisma entrega Date; la lógica compara 'YYYY-MM-DD'.
+const day = (v) => (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
+const time = (v) => new Date(v).getTime();
 // Día de RD (UTC-4 fijo) de una marca de tiempo.
-const rdDay = (ts) => new Date(new Date(ts).getTime() - 4 * 3600e3).toISOString().slice(0, 10);
+const rdDay = (ts) => new Date(time(ts) - 4 * 3600e3).toISOString().slice(0, 10);
 
 // Una fila por factura: la cuota pendiente más vieja cuya etapa vigente aún no se envió.
 export const remindersDue = (invoices, { today, rules, sent = [] }) => {
@@ -48,9 +55,10 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
   const rows = [];
   for (const inv of invoices) {
     const c = inv.customer;
-    if (VOID_STATUSES.includes(inv.status) || c?.remindersOff) continue;
+    if (!c || VOID_STATUSES.includes(inv.status) || c.remindersOff) continue;
     const mine = sent.filter((x) => x.invoiceId === inv.id);
-    if (mine.some((x) => x.status === 'sent' && rdDay(x.createdAt) === today)) continue;
+    // El momento en que pasó a 'sent' es updatedAt.
+    if (mine.some((x) => x.status === 'sent' && rdDay(x.updatedAt || x.createdAt) === today)) continue;
     const pending = installmentsOf(inv, today).filter((x) => x.remaining > 0.01);
     const balance = round2(pending.reduce((s, x) => s + x.remaining, 0));
     if (balance <= 0.01) continue;
@@ -58,14 +66,17 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
       const late = diffDays(today, ins.dueDate);
       const stage = stages.filter((s) => s <= late).pop();
       if (stage === undefined) continue;
-      const same = (x) => x.dueDate === ins.dueDate && x.stage === stage;
+      const same = (x) => day(x.dueDate) === ins.dueDate && x.stage === stage;
       if (mine.some((x) => same(x) && x.status === 'sent')) continue;
-      const failed = mine.filter((x) => same(x) && x.status === 'failed').sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
-      const email = String(c?.email || '').trim();
+      // 'sending' sin terminar cuenta como fallida: el automático no la toca y la persona puede reintentar.
+      const failed = mine
+        .filter((x) => same(x) && (x.status === 'failed' || x.status === 'sending'))
+        .sort((a, b) => time(b.createdAt) - time(a.createdAt))[0];
+      const email = String(c.email || '').trim();
       rows.push({
         invoiceId: inv.id,
-        customerId: inv.customerId || c?.id || null,
-        customerName: c?.name || '',
+        customerId: inv.customerId || c.id || null,
+        customerName: c.name || '',
         email,
         emailStatus: !email ? 'missing' : isValidEmail(email) ? 'ok' : 'invalid',
         invoiceNumber: inv.ncfNumber || inv.invoiceNumber || inv.orderNumber || inv.id,
@@ -74,8 +85,8 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
         amount: ins.remaining,
         overdueTotal: round2(pending.filter((x) => x.dueDate < today).reduce((s, x) => s + x.remaining, 0)),
         balance,
-        lastSentAt: mine.filter((x) => x.status === 'sent').map((x) => x.createdAt).sort().pop() ?? null,
-        failed: failed ? { error: failed.error || '' } : null,
+        lastSentAt: mine.filter((x) => x.status === 'sent').map((x) => x.createdAt).sort((a, b) => time(a) - time(b)).pop() ?? null,
+        failed: failed ? { error: failed.status === 'sending' ? 'Envío en curso o interrumpido' : failed.error || '' } : null,
       });
       break;
     }
@@ -84,7 +95,10 @@ export const remindersDue = (invoices, { today, rules, sent = [] }) => {
 };
 
 export const renderReminder = (rules, row, company, today) => {
-  const money = (n) => `${company?.currencySymbol || 'RD$'}${Number(n).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+  const money = (n) => {
+    try { return new Intl.NumberFormat('es-DO', { style: 'currency', currency: company?.currency || 'DOP' }).format(n); }
+    catch { return `RD$${Number(n).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`; }
+  };
   const d = diffDays(today, row.dueDate);
   const [y, m, dd] = row.dueDate.slice(0, 10).split('-');
   const vars = {
@@ -95,6 +109,7 @@ export const renderReminder = (rules, row, company, today) => {
     vence: `${dd}/${m}/${y}`,
     dias: d === 0 ? 'hoy' : d > 0 ? `hace ${d} ${d === 1 ? 'día' : 'días'}` : `en ${-d} ${d === -1 ? 'día' : 'días'}`,
     saldo: money(row.balance),
+    vencido: money(row.overdueTotal),
     telefono: company?.phone || '',
     correo: company?.email || '',
   };
