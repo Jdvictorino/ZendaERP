@@ -108,6 +108,34 @@ export async function sendReminders({ prisma = defaultPrisma, sendMail = sendCom
   return results;
 }
 
+export const autoItems = (rows) => rows.filter((r) => r.emailStatus === 'ok' && !r.failed);
+
+// Hora RD (UTC-4 fijo) de now >= autoHour.
+export const shouldRunAuto = (rules, company, now = new Date()) =>
+  !!rules.auto && smtpReady(company) && new Date(now.getTime() - 4 * 3600e3).getUTCHours() >= rules.autoHour;
+
+export async function runAutoReminders({ prisma = defaultPrisma, now = new Date(), sendMail } = {}) {
+  // shortcut: carga todas las empresas y filtra en memoria; con muchas empresas, pasar a un filtro JSON de Prisma.
+  const all = await prisma.company.findMany();
+  const companies = all.filter((c) => remindersOf(c.settings).auto === true);
+  let sent = 0, failed = 0;
+  for (const company of companies) {
+    try {
+      if (!shouldRunAuto(remindersOf(company.settings), company, now)) continue;
+      // Máximo 100 ítems por llamada; lo que falte sale en la próxima corrida horaria.
+      const items = autoItems(await dueRows({ prisma, company, now })).slice(0, 100)
+        .map(({ invoiceId, dueDate, stage }) => ({ invoiceId, dueDate, stage }));
+      if (!items.length) continue;
+      const res = await sendReminders({ prisma, company, items, userId: null, now, ...(sendMail && { sendMail }) });
+      sent += res.filter((r) => r.status === 'sent').length;
+      failed += res.filter((r) => r.status === 'failed').length;
+    } catch (e) {
+      console.error('[reminderSender] error en el envío automático de', company.id, e.message);
+    }
+  }
+  return { companies: companies.length, sent, failed };
+}
+
 // Si el update final falla, se registra y la llamada sigue con el siguiente ítem.
 async function save(prisma, id, data) {
   try { await prisma.collectionReminder.update({ where: { id }, data }); }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { rdDay, reservationPlan, smtpReady, sendReminders } from '../backend/src/services/reminderSender.js';
+import { rdDay, reservationPlan, smtpReady, sendReminders, autoItems, shouldRunAuto, runAutoReminders } from '../backend/src/services/reminderSender.js';
 
 const now = new Date('2026-12-10T15:00:00Z'); // 11:00 en RD
 const ago = (min) => new Date(now.getTime() - min * 60000);
@@ -118,5 +118,41 @@ describe('reminderSender', () => {
     const p = fakePrisma({ reminders: [old] });
     await run(p, async () => {});
     expect(p.calls.updateMany[0].data.updatedAt).toEqual(now);
+  });
+
+  describe('automático', () => {
+    const at9 = new Date('2026-12-10T13:00:00Z'); // 9:00 RD
+    const rules = { auto: true, autoHour: 9 };
+    it('autoItems omite failed y los sin correo válido', () => {
+      const rows = [
+        { invoiceId: 'a', emailStatus: 'ok' },
+        { invoiceId: 'b', emailStatus: 'ok', failed: true },
+        { invoiceId: 'c', emailStatus: 'missing' },
+      ];
+      expect(autoItems(rows).map((r) => r.invoiceId)).toEqual(['a']);
+    });
+    it('shouldRunAuto', () => {
+      expect(shouldRunAuto({ ...rules, auto: false }, company, at9)).toBe(false);
+      expect(shouldRunAuto(rules, { settings: {} }, at9)).toBe(false);
+      expect(shouldRunAuto(rules, company, new Date('2026-12-10T12:59:00Z'))).toBe(false);
+      expect(shouldRunAuto(rules, company, at9)).toBe(true);
+    });
+    it('runAutoReminders: un error en una empresa no detiene las demás', async () => {
+      const cos = [
+        { id: 'x', name: 'X', settings: { ...company.settings, collectionReminders: { auto: true } } },
+        { id: 'y', name: 'Y', settings: { ...company.settings, collectionReminders: { auto: true } } },
+        { id: 'z', name: 'Z', settings: { collectionReminders: { auto: false } } },
+      ];
+      const prisma = {
+        ...fakePrisma(),
+        company: { findMany: async () => cos },
+      };
+      let n = 0;
+      prisma.invoice.findMany = async () => { if (n++ === 0) throw new Error('boom'); return [invoice()]; };
+      const sendMail = vi.fn(async () => {});
+      const r = await runAutoReminders({ prisma, now: at9, sendMail });
+      expect(r).toEqual({ companies: 2, sent: 1, failed: 0 });
+      expect(sendMail).toHaveBeenCalledTimes(1);
+    });
   });
 });
