@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { rolesFor } from '../permissions.js';
-import { dueRows, registerWhatsapp, sendReminders, smtpReady } from '../services/reminderSender.js';
+import { dueRows, markUnsent, registerWhatsapp, sendReminders, smtpReady } from '../services/reminderSender.js';
 
 const router = Router();
 router.use(authenticate, authorize(...rolesFor('finance-accounts-receivable')));
@@ -39,6 +39,10 @@ router.post('/whatsapp', async (req, res, next) => {
     const item = waSchema.parse(req.body);
     res.json(await registerWhatsapp({ company: await fullCompany(req), item, userId: req.user.id }));
   } catch (e) { next(e); }
+});
+
+router.post('/:id/unsent', async (req, res, next) => {
+  try { res.json(await markUnsent({ companyId: req.companyId, id: req.params.id })); } catch (e) { next(e); }
 });
 
 export default router;

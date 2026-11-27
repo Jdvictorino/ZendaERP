@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { dueRows, rdDay, reservationPlan, smtpReady, sendReminders, registerWhatsapp, autoItems, shouldRunAuto, runAutoReminders } from '../backend/src/services/reminderSender.js';
+import { dueRows, rdDay, reservationPlan, smtpReady, sendReminders, registerWhatsapp, markUnsent, autoItems, shouldRunAuto, runAutoReminders } from '../backend/src/services/reminderSender.js';
 
 const now = new Date('2026-12-10T15:00:00Z'); // 11:00 en RD
 const ago = (min) => new Date(now.getTime() - min * 60000);
@@ -231,6 +231,26 @@ describe('reminderSender', () => {
       expect(where).toEqual({ billingStatus: { notIn: ['suspended', 'blocked', 'cancelled'] } });
       expect(r).toEqual({ companies: 2, sent: 1, failed: 0 });
       expect(sendMail).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('markUnsent', () => {
+    it('marca como fallido solo un WhatsApp enviado de esa empresa', async () => {
+      const prisma = fakePrisma();
+      expect(await markUnsent({ prisma, companyId: 'c9', id: 'r1' })).toEqual({ status: 'updated' });
+      expect(prisma.calls.updateMany[0]).toEqual({
+        where: { id: 'r1', companyId: 'c9', channel: 'whatsapp', status: 'sent' },
+        data: { status: 'failed', error: 'Marcado como no enviado' },
+      });
+    });
+    it('count 0 devuelve skipped', async () => {
+      expect(await markUnsent({ prisma: fakePrisma({ count: 0 }), companyId: 'c9', id: 'r1' }))
+        .toEqual({ status: 'skipped', error: 'No se puede marcar este recordatorio.' });
+    });
+    it('un WhatsApp fallido no bloquea el día y la etapa vuelve a tocar', async () => {
+      const f = { invoiceId: 'i1', dueDate: new Date('2026-12-03'), stage: 7, channel: 'whatsapp', status: 'failed', error: 'Marcado como no enviado', updatedAt: ago(5), createdAt: ago(5) };
+      const rows = await dueRows({ prisma: fakePrisma({ reminders: [f] }), company, now });
+      expect(rows.map((r) => r.stage)).toContain(7);
     });
   });
 });

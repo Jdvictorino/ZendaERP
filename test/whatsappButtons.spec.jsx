@@ -1,9 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ reminders: vi.fn(), openWa: vi.fn() }));
-vi.mock('../src/api/client.js', () => ({ default: {}, invoices: { reminders: mocks.reminders } }));
+const mocks = vi.hoisted(() => ({ reminders: vi.fn(), openWa: vi.fn(), unsent: vi.fn(), confirm: vi.fn() }));
+vi.mock('../src/api/client.js', () => ({ default: {}, invoices: { reminders: mocks.reminders }, collectionReminders: { markUnsent: mocks.unsent } }));
+vi.mock('../src/utils/confirmDialog.jsx', () => ({ confirmDialog: mocks.confirm }));
 vi.mock('../src/utils/openWhatsapp.js', () => ({ openWhatsapp: mocks.openWa }));
 vi.mock('../src/utils/pdfGenerator.js', () => ({ generatePDF: vi.fn(), generateAccountStatementPDF: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
@@ -37,6 +38,25 @@ describe('Enviar por WhatsApp en Cuentas por Cobrar', () => {
         show({ name: 'Ana', phone: '8095551234' });
         expect(await screen.findByText(/WhatsApp ·/)).toBeTruthy();
         expect(screen.getByText(/Correo ·/)).toBeTruthy();
+        expect(screen.getAllByRole('button', { name: /Marcar como no enviado/ })).toHaveLength(1);
+    });
+    it('Marcar como no enviado confirma, llama a la ruta y recarga', async () => {
+        mocks.reminders.mockResolvedValue([{ id: 'a', stage: 7, channel: 'whatsapp', status: 'sent', sentById: 'u1', createdAt: '2026-11-27T13:00:00Z' }]);
+        mocks.confirm.mockResolvedValue(true);
+        mocks.unsent.mockResolvedValue({ status: 'updated' });
+        show({ name: 'Ana', phone: '8095551234' });
+        fireEvent.click(await screen.findByRole('button', { name: /Marcar como no enviado/ }));
+        await waitFor(() => expect(mocks.unsent).toHaveBeenCalledWith('a'));
+        expect(mocks.confirm.mock.calls[0][0]).toMatch(/¿Marcar este WhatsApp como no enviado\?/);
+        await waitFor(() => expect(mocks.reminders).toHaveBeenCalledTimes(2));
+    });
+    it('si no se confirma no llama a la ruta', async () => {
+        mocks.reminders.mockResolvedValue([{ id: 'a', stage: 7, channel: 'whatsapp', status: 'sent', sentById: 'u1', createdAt: '2026-11-27T13:00:00Z' }]);
+        mocks.confirm.mockResolvedValue(false);
+        show({ name: 'Ana', phone: '8095551234' });
+        fireEvent.click(await screen.findByRole('button', { name: /Marcar como no enviado/ }));
+        await waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
+        expect(mocks.unsent).not.toHaveBeenCalled();
     });
 });
 

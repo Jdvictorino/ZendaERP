@@ -309,7 +309,8 @@ export const shifts = {
 export const collectionReminders = {
   due: () => get('/collection-reminders/due'),
   send: (items) => post('/collection-reminders/send', { items }),
-  whatsapp: (item) => post('/collection-reminders/whatsapp', item)
+  whatsapp: (item) => post('/collection-reminders/whatsapp', item),
+  markUnsent: (id) => post(`/collection-reminders/${id}/unsent`, {})
 };
 
 export const shipments = {

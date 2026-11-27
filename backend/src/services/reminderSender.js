@@ -151,6 +151,15 @@ export async function registerWhatsapp({ prisma = defaultPrisma, company, item, 
   return { status: 'sent', url: waUrl(row.phone, renderReminder(rules, row, company, today).text) };
 }
 
+// Un WhatsApp 'sent' que no llegó (p. ej. un fijo) pasa a 'failed': la etapa vuelve a tocar. Un correo enviado no se toca.
+export async function markUnsent({ prisma = defaultPrisma, companyId, id }) {
+  const { count } = await prisma.collectionReminder.updateMany({
+    where: { id, companyId, channel: 'whatsapp', status: 'sent' },
+    data: { status: 'failed', error: 'Marcado como no enviado' },
+  });
+  return count ? { status: 'updated' } : { status: 'skipped', error: 'No se puede marcar este recordatorio.' };
+}
+
 export const autoItems = (rows) => rows.filter((r) => r.emailStatus === 'ok' && (!r.failed || r.failed.channel === 'whatsapp'));
 
 // Hora RD (UTC-4 fijo) de now >= autoHour.
