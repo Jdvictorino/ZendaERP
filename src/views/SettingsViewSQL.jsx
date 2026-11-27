@@ -172,6 +172,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
             const cleanPayload = sanitizeForBackend(formData);
             cleanPayload.emailProvider = null;
             delete cleanPayload.customerCategories; // las categorías no viajan sin _categoryMigrations
+            delete cleanPayload.paymentTerms; delete cleanPayload.withholdings; // sus pestañas los guardan; un perfil viejo no debe revertirlos
             await settingsApi.update(cleanPayload);
 
             const result = await api.email.send({
@@ -202,6 +203,7 @@ const SettingsViewSQL = ({ companyProfile = {}, onProfileUpdate, isMasterUser, c
         const payloadToSave = customPayload || formData;
         const cleanPayload = sanitizeForBackend(payloadToSave);
         cleanPayload.emailProvider = null;
+        delete cleanPayload.paymentTerms; delete cleanPayload.withholdings; // sus pestañas los guardan; un perfil viejo no debe revertirlos
 
         if (cleanPayload.customerCategories) {
             const { entries, error } = buildCategoryMigrations(origCategories, formData.customerCategories || [], pendingMigrations, loadedCategories);

@@ -460,7 +460,7 @@ const CustomersViewSQL = ({ companyProfile }) => {
                                         </div>
                                         <div className="flex flex-col items-end">
                                             <span className={`text-xs uppercase font-bold px-2 py-0.5 rounded-full ${
-                                                customerTermName(c, terms) !== 'Contado' ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'
+                                                !isCashCustomer(c, terms) ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'
                                             }`}>
                                                 {customerTermName(c, terms)}
                                             </span>

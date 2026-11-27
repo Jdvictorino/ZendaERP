@@ -2,7 +2,7 @@ import { assertSameCompany } from '../services/ownership.js';
 import { appendPayments } from '../services/payments.js';
 import { invoiceBalance } from '../services/withholdings.js';
 import { paymentTermsOf } from '../services/paymentTerms.js';
-import { planInvoiceTerms } from '../services/invoiceTerms.js';
+import { planBillingTerms, planInvoiceTerms, rescaleSchedule } from '../services/invoiceTerms.js';
 import { planInvoicePayment } from '../services/invoicePayment.js';
 import { planEarlyPayment } from '../services/earlyPayment.js';
 import { Router } from 'express';
@@ -297,7 +297,7 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
     if (terms.error) return res.status(400).json({ error: terms.error });
 
     // Venta a crédito: no puede pasar el límite del cliente (límite 0 = sin límite)
-    if (customer && /cr[eé]dito/i.test(data.paymentMethod || '')) {
+    if (customer && (terms.paymentTerm || /cr[eé]dito/i.test(data.paymentMethod || ''))) {
       const open = await prisma.invoice.aggregate({
         where: { companyId: req.companyId, customerId: customer.id, status: { notIn: VOID_STATUSES } },
         _sum: { total: true, amountPaid: true, itbisRetenido: true, retencionRenta: true, creditedAmount: true }
@@ -529,6 +529,8 @@ router.put('/:id', authorize(...rolesFor('orders', 'invoices')), async (req, res
       Object.assign(updateData, discountedAmounts({ ...invoice, ...updateData }));
     }
     const total = updateData.total ?? Number(invoice.total);
+    // Con cupón nuevo el calendario de cuotas se reescala al total nuevo
+    if (updateData.total !== undefined && invoice.paymentTerm?.schedule?.length) updateData.paymentTerm = rescaleSchedule(invoice.paymentTerm, total);
 
     // Cobro: el monto se valida contra el total y el estado de pago sale de los montos, no de la pantalla
     const plan = planInvoicePayment(
@@ -641,6 +643,10 @@ router.post('/:id/bill', authorize(...rolesFor('orders')), async (req, res, next
       if (voucherProblem) return res.status(400).json({ error: voucherProblem });
     }
 
+    // Orden craft: el plazo cuenta desde que se factura, no desde el pedido
+    const rebill = planBillingTerms(invoice, paymentTermsOf((await prisma.company.findUnique({ where: { id: req.companyId }, select: { settings: true } }))?.settings), todayRD());
+    if (rebill) await prisma.invoice.update({ where: { id: invoice.id }, data: rebill });
+
     // ── e-CF: Tipos electrónicos (E31, E32, E33, E34, etc.) ──
     if (ncfType && ncfType.startsWith('E')) {
       const company = await prisma.company.findUnique({ where: { id: req.companyId } });
@@ -716,6 +722,9 @@ router.post('/:id/cancel', authorize('admin', 'manager'), async (req, res, next)
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Factura no encontrada' });
+    }
+    if (invoice.creditNotes.length) {
+      return res.status(400).json({ error: 'Esta factura tiene notas de crédito; emite una nota por el resto en vez de anularla.' });
     }
 
     await prisma.$transaction(async (tx) => {

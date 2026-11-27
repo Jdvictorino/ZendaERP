@@ -72,9 +72,9 @@ export const missingTermId = (current, next) => {
 // Fechas 'YYYY-MM-DD' con aritmética de calendario en UTC (sin hora local).
 const parts = (s) => String(s).slice(0, 10).split('-').map(Number);
 const fmt = (ms) => new Date(ms).toISOString().slice(0, 10);
-const addDays = (s, days) => { const [y, m, d] = parts(s); return fmt(Date.UTC(y, m - 1, d + days)); };
+export const addDays = (s, days) => { const [y, m, d] = parts(s); return fmt(Date.UTC(y, m - 1, d + days)); };
 const monthEnd = (s) => { const [y, m] = parts(s); return fmt(Date.UTC(y, m, 0)); };
-const diffDays = (a, b) => {
+export const diffDays = (a, b) => {
   const [y1, m1, d1] = parts(a);
   const [y2, m2, d2] = parts(b);
   return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 864e5);

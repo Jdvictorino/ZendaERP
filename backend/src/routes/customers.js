@@ -5,7 +5,7 @@ import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { createAlert } from './alerts.js';
 import { paymentTermsOf } from '../services/paymentTerms.js';
-import { legacyCustomerTermId } from '../services/invoiceTerms.js';
+import { termIdForCreditDays } from '../services/invoiceTerms.js';
 import { customerTaxFields, exemptionChangeError, normalizeCustomerId, customerIdError } from '../services/customerTax.js';
 
 const router = Router();
@@ -66,9 +66,10 @@ function transformCustomerData(data) {
 // paymentTermId explícito (o null para quitarlo); si solo llega creditDays (apps viejas) se busca el plazo equivalente
 async function applyPaymentTerm(data, parsed, companyId) {
   if (parsed.paymentTermId !== undefined) data.paymentTermId = parsed.paymentTermId || null;
-  else if (parsed.creditDays > 0 || parsed.creditDays === 0 || parsed.accountType === 'contado') {
+  // la app 1.1.20 manda siempre 'contado' y 0 días: eso no cambia el plazo, solo creditDays > 0 lo mapea
+  else if (parsed.creditDays > 0) {
     const company = await prisma.company.findUnique({ where: { id: companyId }, select: { settings: true } });
-    const id = legacyCustomerTermId(parsed, paymentTermsOf(company?.settings));
+    const id = termIdForCreditDays(parsed.creditDays, paymentTermsOf(company?.settings));
     if (id !== undefined) data.paymentTermId = id;
   }
 }
