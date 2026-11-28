@@ -1,4 +1,4 @@
-import { orderTotals, planReceipt, nextStatus, planInvoice, purchaseSuggestions, allocateCharges, averageCost, validateCharges } from '../backend/src/services/purchases.js';
+import { orderTotals, planReceipt, nextStatus, planInvoice, purchaseSuggestions, allocateCharges, averageCost, validateCharges, normalizeCharges } from '../backend/src/services/purchases.js';
 
 const item = (o = {}) => ({ id: 'i1', productId: 'p1', quantity: 10, receivedQuantity: 0, invoicedQuantity: 0, unitCost: 100, taxRate: 18, packagingId: null, packagingFactor: 1, ...o });
 const prods = { p1: { name: 'Agua', allowFractions: false }, p2: { name: 'Queso', allowFractions: true } };
@@ -40,6 +40,30 @@ describe('compras', () => {
       const r = allocateCharges(ls, { otros: 10 });
       expect(Math.round((r.a + r.b + r.c) * 100)).toBe(1000);
     });
+    it('peso 0 no recibe centavos ni hay partes negativas', () => {
+      const ls = [1, 1, 0].map((v, i) => ({ itemId: 'l' + i, quantity: 1, unitCost: v, factor: 1 }));
+      const r = allocateCharges(ls, { flete: 0.01 });
+      expect(r.l2).toBe(0);
+      expect(Object.values(r).every((x) => x >= 0)).toBe(true);
+      expect(Math.round(Object.values(r).reduce((a, b) => a + b, 0) * 100)).toBe(1);
+    });
+    it('propiedad con repartos al azar', () => {
+      let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (let n = 0; n < 500; n++) {
+        const ls = Array.from({ length: 1 + Math.floor(rnd() * 5) }, (_, i) => ({ itemId: 'l' + i, quantity: 1 + Math.floor(rnd() * 3), unitCost: rnd() < 0.3 ? 0 : Math.round(rnd() * 5000) / 100, factor: 1 }));
+        const total = Math.round(rnd() * 100000) / 100;
+        const r = allocateCharges(ls, { otros: total });
+        const anyValue = ls.some((l) => l.unitCost > 0);
+        let cents = 0;
+        for (const l of ls) {
+          const w = anyValue ? l.quantity * l.unitCost : l.quantity;
+          expect(r[l.itemId]).toBeGreaterThanOrEqual(0);
+          if (w === 0) expect(r[l.itemId]).toBe(0);
+          cents += Math.round(r[l.itemId] * 100);
+        }
+        expect(cents).toBe(Math.round(total * 100));
+      }
+    });
     it('todo bonificación -> por cantidad base', () => {
       expect(allocateCharges([{ itemId: 'a', quantity: 1, unitCost: 0, factor: 1 }, { itemId: 'b', quantity: 3, unitCost: 0, factor: 1 }], { flete: 40 })).toEqual({ a: 10, b: 30 });
     });
@@ -57,6 +81,14 @@ describe('compras', () => {
     expect(validateCharges({ seguro: 'abc' })).toEqual(expect.any(String));
     expect(validateCharges({ flete: 5, otros: '2' })).toBeNull();
     expect(validateCharges(undefined)).toBeNull();
+    expect(validateCharges({ extra: 1 })).toEqual(expect.any(String));
+    for (const bad of [true, [5], {}]) expect(validateCharges({ flete: bad })).toEqual(expect.any(String));
+    expect(validateCharges({ flete: '  ' })).toBeNull();
+  });
+  it('normalizeCharges', () => {
+    expect(normalizeCharges({ flete: '5', otros: ' ' })).toEqual({ flete: 5, seguro: 0, aranceles: 0, otros: 0 });
+    expect(normalizeCharges(undefined)).toEqual({ flete: 0, seguro: 0, aranceles: 0, otros: 0 });
+    expect(averageCost(10, 5, 10, NaN)).toBe(2.5);
   });
 
   it('nextStatus', () => {

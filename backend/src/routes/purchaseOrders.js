@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { averageCost, nextStatus, orderTotals, planInvoice, planReceipt, purchaseSuggestions, validateCharges, validateOrderLines } from '../services/purchases.js';
+import { averageCost, nextStatus, orderTotals, planInvoice, planReceipt, purchaseSuggestions, normalizeCharges, validateCharges, validateOrderLines } from '../services/purchases.js';
 
 const router = Router();
 router.use(authenticate);
@@ -237,7 +237,7 @@ router.post('/:id/receive', authorize(...rolesFor('purchases')), async (req, res
 
       const receipt = await tx.purchaseReceipt.create({
         data: {
-          purchaseOrderId: cur.id, userId: req.user.id, notes: data.notes || null, charges: data.charges || undefined,
+          purchaseOrderId: cur.id, userId: req.user.id, notes: data.notes || null, charges: data.charges ? normalizeCharges(data.charges) : undefined,
           items: plan.changes.map((c) => ({ itemId: c.itemId, quantity: c.quantity, unitCostFinal: c.unitCostFinal }))
         }
       });

@@ -22,36 +22,48 @@ const round4 = (n) => Math.round((n + Number.EPSILON) * 1e4) / 1e4;
 const CHARGE_KEYS = ['flete', 'seguro', 'aranceles', 'otros'];
 const CHARGE_LABELS = { flete: 'el flete', seguro: 'el seguro', aranceles: 'los aranceles', otros: 'los otros gastos' };
 
+const chargeNum = (v) => (typeof v === 'string' && v.trim() === '' ? 0 : typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN);
+
 export function validateCharges(charges) {
+  if (charges === undefined || charges === null) return null;
+  for (const k of Object.keys(charges)) {
+    if (!CHARGE_KEYS.includes(k)) return `Gasto desconocido: "${k}".`;
+  }
   for (const k of CHARGE_KEYS) {
-    const v = charges?.[k];
-    if (v === undefined || v === null || v === '') continue;
-    if (!Number.isFinite(Number(v)) || Number(v) < 0) return `Revisa ${CHARGE_LABELS[k]}: debe ser un monto de 0 o más.`;
+    const v = charges[k];
+    if (v === undefined || v === null) continue;
+    const n = chargeNum(v);
+    if (!Number.isFinite(n) || n < 0) return `Revisa ${CHARGE_LABELS[k]}: debe ser un monto de 0 o más.`;
   }
   return null;
 }
 
-// Reparte los gastos (RD$) entre las líneas por valor (o por cantidad base si todo vale 0); la última absorbe el redondeo.
+export const normalizeCharges = (charges) =>
+  Object.fromEntries(CHARGE_KEYS.map((k) => [k, charges?.[k] == null ? 0 : chargeNum(charges[k]) || 0]));
+
+// Reparte los gastos (RD$) por valor (o por cantidad base si todo vale 0) con el método del mayor residuo, en centavos enteros.
 export function allocateCharges(lines, charges = {}) {
-  const total = round2(CHARGE_KEYS.reduce((a, k) => a + (Number(charges?.[k]) || 0), 0));
+  const c = normalizeCharges(charges);
+  const T = Math.round(CHARGE_KEYS.reduce((a, k) => a + c[k], 0) * 100);
   const value = lines.map((l) => Number(l.quantity) * Number(l.unitCost));
   const weights = value.some((v) => v > 0) ? value : lines.map((l) => Number(l.quantity) * (Number(l.factor) || 1));
   const sum = weights.reduce((a, b) => a + b, 0);
-  const out = {};
-  let given = 0;
-  lines.forEach((l, i) => {
-    const part = i === lines.length - 1 ? round2(total - given) : (sum > 0 ? round2(total * weights[i] / sum) : 0);
-    given = round2(given + part);
-    out[l.itemId] = part;
-  });
-  return out;
+  const cents = weights.map((w) => (sum > 0 ? Math.floor(T * w / sum) : 0));
+  if (sum > 0) {
+    let left = T - cents.reduce((a, b) => a + b, 0);
+    const order = weights.map((w, i) => i).filter((i) => weights[i] > 0)
+      .sort((i, j) => (T * weights[j] / sum - cents[j]) - (T * weights[i] / sum - cents[i]) || i - j);
+    for (let k = 0; left > 0; k++, left--) cents[order[k % order.length]]++;
+  }
+  return Object.fromEntries(lines.map((l, i) => [l.itemId, cents[i] / 100]));
 }
 
 // Promedio ponderado; con existencia <= 0 el costo nuevo es el de la recepción.
 export function averageCost(stock, currentCost, qBase, unitCostFinal) {
-  const s = Math.max(Number(stock) || 0, 0), q = Number(qBase) || 0;
-  if (s + q === 0) return round4(Number(currentCost) || 0);
-  return round4((s * (Number(currentCost) || 0) + q * Number(unitCostFinal)) / (s + q));
+  const fin = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const s = Math.max(fin(stock), 0), q = fin(qBase), cur = fin(currentCost);
+  if (s + q === 0) return round4(cur);
+  return round4((s * cur + q * fin(unitCostFinal)) / (s + q));
 }
 
 const nameOf = (item, productsById) => item.productName || productsById?.[item.productId]?.name || 'el producto';
