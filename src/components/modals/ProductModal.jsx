@@ -190,7 +190,7 @@ const ProductModal = ({ product, onClose, onSave, suppliers, categories, isMaste
                             <input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-ink-soft mb-1">Precio Compra</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="input-base" required min="0" step="0.01" /></div>
+                            <div><label className="block text-ink-soft mb-1">Precio Compra</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="input-base" required min="0" step="any" /></div>
                             <div>
                                 <label className="block text-ink-soft mb-1">Precio de venta (sin ITBIS)</label>
                                 <input type="number" name="salePrice" value={formData.salePrice} onChange={handleChange} className="input-base" required min="0" step="0.01" />

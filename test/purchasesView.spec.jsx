@@ -16,6 +16,7 @@ vi.mock('../src/api/client.js', () => ({
 vi.mock('../src/utils/pdfGenerator.js', () => ({ generatePDF: vi.fn() }));
 
 import PurchasesView from '../src/views/PurchasesView.jsx';
+import ReceiveModal from '../src/components/purchases/ReceiveModal.jsx';
 import PurchaseOrderForm from '../src/components/purchases/PurchaseOrderForm.jsx';
 
 describe('PurchasesView', () => {
@@ -55,5 +56,35 @@ describe('PurchaseOrderForm', () => {
         expect(screen.getByTestId('po-total').textContent).toMatch(/286\.00/);
         fireEvent.change(screen.getByLabelText('Cantidad', { selector: '#po-qty-1' }), { target: { value: '3' } });
         expect(screen.getByTestId('po-subtotal').textContent).toMatch(/350\.00/);
+    });
+});
+
+describe('ReceiveModal: gastos de importación', () => {
+    const order = { number: 'OC-1', items: [{ id: 'i1', quantity: 1, receivedQuantity: 0, unitCost: '120', packagingFactor: '12', product: { name: 'Agua' }, packagingName: 'Caja x12' }] };
+    const abrir = (onSubmit = vi.fn()) => { render(<ReceiveModal isOpen onClose={() => {}} order={order} onSubmit={onSubmit} />); return onSubmit; };
+
+    it('sección plegable con cuatro campos, nota del ITBIS y vista previa 11.0000', () => {
+        abrir();
+        expect(screen.getByText('Gastos de importación')).toBeTruthy();
+        for (const l of ['Flete', 'Seguro', 'Aranceles', 'Otros']) expect(screen.getByLabelText(l)).toBeTruthy();
+        expect(screen.getByText('No incluyas el ITBIS de aduana: es crédito fiscal')).toBeTruthy();
+        fireEvent.change(screen.getByLabelText('Flete'), { target: { value: '12' } });
+        expect(screen.getByTestId('rc-cost-i1').textContent).toBe('11.0000');
+    });
+
+    it('manda charges numéricos al confirmar', async () => {
+        const onSubmit = abrir();
+        fireEvent.change(screen.getByLabelText('Flete'), { target: { value: '12' } });
+        fireEvent.click(screen.getByText('Registrar recepción'));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+        expect(onSubmit.mock.calls[0][0].charges).toEqual({ flete: 12, seguro: 0, aranceles: 0, otros: 0 });
+    });
+
+    it('un monto negativo muestra error y no envía', () => {
+        const onSubmit = abrir();
+        fireEvent.change(screen.getByLabelText('Seguro'), { target: { value: '-5' } });
+        fireEvent.click(screen.getByText('Registrar recepción'));
+        expect(screen.getByRole('alert').textContent).toMatch(/seguro/i);
+        expect(onSubmit).not.toHaveBeenCalled();
     });
 });

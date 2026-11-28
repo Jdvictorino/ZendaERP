@@ -206,7 +206,7 @@ router.post('/:id/cancel', authorize(...rolesFor('purchases')), async (req, res,
 
 const receiveSchema = z.object({
   lines: z.array(z.object({ itemId: z.string().uuid(), quantity: z.coerce.number() })).refine((l) => new Set(l.map((x) => x.itemId)).size === l.length, 'Una línea está repetida.'),
-  charges: z.object({ flete: z.any(), seguro: z.any(), aranceles: z.any(), otros: z.any() }).partial().optional(),
+  charges: z.object({ flete: z.any(), seguro: z.any(), aranceles: z.any(), otros: z.any() }).partial().nullish(),
   notes: z.string().optional().nullable()
 });
 

@@ -98,21 +98,22 @@ const productSchemaBase = z.object({
 });
 
 // Helper para transformar campos del frontend al modelo
-const transformProductData = (data) => {
+// create=true solo al crear: en un PUT parcial no se inventan costo ni mínimo (borrarían el costo promedio).
+export const transformProductData = (data, create = false) => {
   const result = { ...data };
   
   // costPrice: usar purchasePrice si costPrice no está definido
   if (result.costPrice === undefined && result.purchasePrice !== undefined) {
     result.costPrice = result.purchasePrice;
   }
-  result.costPrice = result.costPrice ?? 0;
+  if (create) result.costPrice = result.costPrice ?? 0;
   delete result.purchasePrice;
   
   // minStock: usar stockThreshold si minStock no está definido
   if (result.minStock === undefined && result.stockThreshold !== undefined) {
     result.minStock = result.stockThreshold;
   }
-  result.minStock = result.minStock ?? 0;
+  if (create) result.minStock = result.minStock ?? 0;
   delete result.stockThreshold;
   
   // taxRate: derivar de taxStatus si viene del frontend
@@ -126,7 +127,7 @@ const transformProductData = (data) => {
 };
 
 // Schema completo para crear productos
-const productSchema = productSchemaBase.transform(transformProductData);
+const productSchema = productSchemaBase.transform((d) => transformProductData(d, true));
 
 // Schema parcial para actualizar productos (partial ANTES de transform)
 const updateProductSchema = productSchemaBase.partial().transform(transformProductData);
