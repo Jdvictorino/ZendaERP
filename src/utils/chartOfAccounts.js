@@ -99,10 +99,10 @@ export function invoiceToJournalEntries(invoice) {
   }
 
   // Costo de ventas (si tenemos costPrice)
-  const costTotal = (invoice.items || []).reduce((sum, item) => {
+  const costTotal = Math.round((invoice.items || []).reduce((sum, item) => {
     if (item.costPrice == null) return sum; // factura vieja sin costo: no se inventa
     return sum + Number(item.costPrice) * baseQuantity({ quantity: item.quantity || 1, factor: item.packagingFactor ?? 1 });
-  }, 0);
+  }, 0) * 100) / 100;
 
   if (costTotal > 0) {
     entries.push({ date, account: ACCOUNTS.COGS, debit: costTotal, credit: 0, ref, desc: `Costo de venta: ${desc}`, sourceType: 'invoice', sourceId: invoice.id });
@@ -199,9 +199,12 @@ export function debitNoteToJournalEntries(note) {
 /**
  * Genera TODOS los asientos del diario a partir de los datos disponibles.
  */
+// Anulada por /cancel (sin notas): la mercancía volvió al almacén y la venta no cuenta. Con nota total, la nota la compensa y sigue.
+export const isVoidedWithoutNotes = (inv) => ['Anulado', 'Cancelado'].includes(inv.status) && !(inv._count?.creditNotes > 0);
+
 export function generateAllJournalEntries({ invoices = [], expenses = [], creditNotes = [], debitNotes = [] }) {
   const entries = [];
-  invoices.forEach(inv => entries.push(...invoiceToJournalEntries(inv)));
+  invoices.filter(inv => !isVoidedWithoutNotes(inv)).forEach(inv => entries.push(...invoiceToJournalEntries(inv)));
   expenses.forEach(exp => entries.push(...expenseToJournalEntries(exp)));
   creditNotes.forEach(cn => entries.push(...creditNoteToJournalEntries(cn)));
   debitNotes.forEach(dn => entries.push(...debitNoteToJournalEntries(dn)));

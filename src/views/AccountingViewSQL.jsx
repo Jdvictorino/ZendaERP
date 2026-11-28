@@ -9,7 +9,7 @@ import KpiCard from '../components/ui/KpiCard.jsx';
 import { useApiCrud } from '../hooks/useApi.js';
 import api from '../api/client.js';
 import toast from 'react-hot-toast';
-import { generateAllJournalEntries, filterByPeriod } from '../utils/chartOfAccounts.js';
+import { generateAllJournalEntries, isVoidedWithoutNotes, filterByPeriod } from '../utils/chartOfAccounts.js';
 
 // Tab components
 import PeriodSelector from '../components/accounting/PeriodSelector.jsx';
@@ -290,7 +290,7 @@ const AccountingViewSQL = ({ companyProfile }) => {
       {activeTab === 'mayor' && <MayorGeneral entries={filteredJournalEntries} currency={currency} />}
       {activeTab === 'balanza' && <BalanzaComprobacion entries={filteredJournalEntries} currency={currency} />}
       {activeTab === 'ajustado' && <BalanceAjustado entries={filteredJournalEntries} currency={currency} />}
-      {activeTab === 'costo' && <CostoDeVentas invoices={filteredInvoices} expenses={filteredExpenses} products={products} currency={currency} />}
+      {activeTab === 'costo' && <CostoDeVentas invoices={filteredInvoices.filter((i) => !isVoidedWithoutNotes(i))} expenses={filteredExpenses} products={products} currency={currency} />}
     </div>
   );
 };
