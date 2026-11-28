@@ -1,5 +1,7 @@
 import { isLateNote, noteAmounts, noteReturnLines } from './noteSplit.js';
 import { expensePayable } from './expensePayable.js';
+import { baseQuantity } from './units.js';
+import { isVoidInvoice } from './invoiceStatus.js';
 /**
  * Plan de Cuentas Contable estándar para Zenda ERP.
  * Mapea transacciones del sistema a asientos de doble partida.
@@ -98,10 +100,10 @@ export function invoiceToJournalEntries(invoice) {
   }
 
   // Costo de ventas (si tenemos costPrice)
-  const costTotal = (invoice.items || []).reduce((sum, item) => {
-    const costPrice = Number(item.costPrice || 0);
-    return sum + (costPrice * (item.quantity || 1));
-  }, 0);
+  const costTotal = Math.round((invoice.items || []).reduce((sum, item) => {
+    if (item.costPrice == null) return sum; // factura vieja sin costo: no se inventa
+    return sum + Number(item.costPrice) * baseQuantity({ quantity: item.quantity || 1, factor: item.packagingFactor ?? 1 });
+  }, 0) * 100) / 100;
 
   if (costTotal > 0) {
     entries.push({ date, account: ACCOUNTS.COGS, debit: costTotal, credit: 0, ref, desc: `Costo de venta: ${desc}`, sourceType: 'invoice', sourceId: invoice.id });
@@ -130,8 +132,11 @@ export function expenseToJournalEntries(expense) {
   // Mapear tipo de gasto a cuenta
   const expenseAccount = mapExpenseType(expense.expenseType);
 
-  // Débito: gasto
-  entries.push({ date, account: expenseAccount, debit: net, credit: 0, ref, desc, sourceType: 'expense', sourceId: expense.id });
+  // Inventario permanente: la mercancía facturada desde una orden de compra entra a Inventario (el costo sale al vender, 6101); el resto va al gasto
+  const goods = expense.purchaseOrderId ? Math.min(num(expense.montoBienes), net) : 0;
+  if (goods > 0) entries.push({ date, account: ACCOUNTS.INVENTORY, debit: goods, credit: 0, ref, desc, sourceType: 'expense', sourceId: expense.id });
+  const rest = Math.round((net - goods) * 100) / 100;
+  if (rest > 0 || goods === 0) entries.push({ date, account: expenseAccount, debit: rest, credit: 0, ref, desc, sourceType: 'expense', sourceId: expense.id });
 
   // Débito: ITBIS pagado (crédito fiscal)
   if (tax > 0) {
@@ -173,6 +178,12 @@ export function creditNoteToJournalEntries(note) {
   const entries = [{ date, account: ACCOUNTS.SALES_RETURNS, debit: returns, credit: 0, ref, desc, sourceType: 'creditNote', sourceId: note.id }];
   if (tax) entries.push({ date, account: late ? ACCOUNTS.ABSORBED_TAX : ACCOUNTS.TAXES_PAYABLE, debit: tax, credit: 0, ref, desc: late ? `ITBIS asumido: ${desc}` : `ITBIS: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
   entries.push({ date, account: ACCOUNTS.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount, ref, desc, sourceType: 'creditNote', sourceId: note.id });
+  // Devolución de artículos: el costo vuelve a Inventario (solo líneas con costPrice)
+  const cost = Math.round(noteReturnLines(note, note.invoice || {}).reduce((s, l) => s + (l.costPrice == null ? 0 : Number(l.costPrice) * baseQuantity({ quantity: l.quantity, factor: l.packagingFactor ?? 1 })), 0) * 100) / 100;
+  if (cost > 0) {
+    entries.push({ date, account: ACCOUNTS.INVENTORY, debit: cost, credit: 0, ref, desc: `Reingreso a inventario: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
+    entries.push({ date, account: ACCOUNTS.COGS, debit: 0, credit: cost, ref, desc: `Reverso costo de venta: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
+  }
   return entries;
 }
 
@@ -189,12 +200,16 @@ export function debitNoteToJournalEntries(note) {
   ];
 }
 
+// Anulada por /cancel (sin notas): la mercancía volvió al almacén y la venta no cuenta. Con nota total, la nota la compensa y sigue.
+export const isVoidedWithoutNotes = (inv) => isVoidInvoice(inv) && !(inv._count?.creditNotes > 0);
+
 /**
  * Genera TODOS los asientos del diario a partir de los datos disponibles.
  */
+
 export function generateAllJournalEntries({ invoices = [], expenses = [], creditNotes = [], debitNotes = [] }) {
   const entries = [];
-  invoices.forEach(inv => entries.push(...invoiceToJournalEntries(inv)));
+  invoices.filter(inv => !isVoidedWithoutNotes(inv)).forEach(inv => entries.push(...invoiceToJournalEntries(inv)));
   expenses.forEach(exp => entries.push(...expenseToJournalEntries(exp)));
   creditNotes.forEach(cn => entries.push(...creditNoteToJournalEntries(cn)));
   debitNotes.forEach(dn => entries.push(...debitNoteToJournalEntries(dn)));

@@ -18,10 +18,59 @@ export function orderTotals(items) {
   return { subtotal, itbis, total: round2(subtotal + itbis) };
 }
 
+const round4 = (n) => Math.round((n + Number.EPSILON) * 1e4) / 1e4;
+const CHARGE_KEYS = ['flete', 'seguro', 'aranceles', 'otros'];
+const CHARGE_LABELS = { flete: 'el flete', seguro: 'el seguro', aranceles: 'los aranceles', otros: 'los otros gastos' };
+
+const chargeNum = (v) => (typeof v === 'string' && v.trim() === '' ? 0 : typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN);
+
+export function validateCharges(charges) {
+  if (charges === undefined || charges === null) return null;
+  for (const k of Object.keys(charges)) {
+    if (!CHARGE_KEYS.includes(k)) return `Gasto desconocido: "${k}".`;
+  }
+  for (const k of CHARGE_KEYS) {
+    const v = charges[k];
+    if (v === undefined || v === null) continue;
+    const n = chargeNum(v);
+    if (!Number.isFinite(n) || n < 0) return `Revisa ${CHARGE_LABELS[k]}: debe ser un monto de 0 o más.`;
+  }
+  return null;
+}
+
+export const normalizeCharges = (charges) =>
+  Object.fromEntries(CHARGE_KEYS.map((k) => [k, charges?.[k] == null ? 0 : chargeNum(charges[k]) || 0]));
+
+// Reparte los gastos (RD$) por valor (o por cantidad base si todo vale 0) con el método del mayor residuo, en centavos enteros.
+export function allocateCharges(lines, charges = {}) {
+  const c = normalizeCharges(charges);
+  const T = Math.round(CHARGE_KEYS.reduce((a, k) => a + c[k], 0) * 100);
+  const value = lines.map((l) => Number(l.quantity) * Number(l.unitCost));
+  const weights = value.some((v) => v > 0) ? value : lines.map((l) => Number(l.quantity) * (Number(l.factor) || 1));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const cents = weights.map((w) => (sum > 0 ? Math.floor(T * w / sum) : 0));
+  if (sum > 0) {
+    let left = T - cents.reduce((a, b) => a + b, 0);
+    const order = weights.map((w, i) => i).filter((i) => weights[i] > 0)
+      .sort((i, j) => (T * weights[j] / sum - cents[j]) - (T * weights[i] / sum - cents[i]) || i - j);
+    for (let k = 0; left > 0; k++, left--) cents[order[k % order.length]]++;
+  }
+  return Object.fromEntries(lines.map((l, i) => [l.itemId, cents[i] / 100]));
+}
+
+// Promedio ponderado; con existencia <= 0 el costo nuevo es el de la recepción.
+export function averageCost(stock, currentCost, qBase, unitCostFinal) {
+  const fin = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const s = Math.max(fin(stock), 0), q = fin(qBase), cur = fin(currentCost);
+  if (s + q === 0) return round4(cur);
+  return round4((s * cur + q * fin(unitCostFinal)) / (s + q));
+}
+
 const nameOf = (item, productsById) => item.productName || productsById?.[item.productId]?.name || 'el producto';
 
-export function planReceipt(orderItems, receiptLines, productsById = {}) {
+export function planReceipt(orderItems, receiptLines, productsById = {}, charges = {}) {
   const changes = [];
+  const alloc = [];
   for (const line of receiptLines) {
     const quantity = Number(line.quantity);
     if (quantity === 0) continue;
@@ -33,14 +82,21 @@ export function planReceipt(orderItems, receiptLines, productsById = {}) {
     const received = Number(item.receivedQuantity);
     if (quantity > roundQty(Number(item.quantity) - received)) return { changes: [], error: `No puedes recibir más de lo pendiente de "${name}".` };
     const factor = Number(item.packagingFactor ?? 1) || 1;
+    alloc.push({ itemId: item.id, quantity, unitCost: Number(item.unitCost), factor });
     changes.push({
       itemId: item.id, productId: item.productId, quantity,
       baseQuantity: roundQty(quantity * factor),
       newReceived: roundQty(received + quantity),
-      costPrice: round2(Number(item.unitCost) / factor) // 0 = bonificación: la ruta no pisa el costo del producto
+      costPrice: 0, unitCostFinal: 0 // se completan abajo con el reparto de gastos
     });
   }
   if (!changes.length) return { changes, error: 'No hay nada que recibir.' };
+  const parts = allocateCharges(alloc, charges);
+  for (const c of changes) {
+    const a = alloc.find((x) => x.itemId === c.itemId);
+    c.unitCostFinal = c.baseQuantity > 0 ? round4(a.unitCost / a.factor + parts[c.itemId] / c.baseQuantity) : 0;
+    c.costPrice = c.unitCostFinal;
+  }
   return { changes, error: null };
 }
 

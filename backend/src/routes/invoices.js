@@ -14,6 +14,7 @@ import { createAlert } from './alerts.js';
 import { ECF_RECEIVED, emitEcf, emitNoteEcf, retryEcfSend, syncInvoiceWithEcf } from '../services/ecfService.js';
 import { httpError, issueChannel, reserveEncf, takeNcf } from '../services/ncfService.js';
 import { requireApproval } from '../services/approvals.js';
+import { readLineCost } from '../services/saleCost.js';
 import { priceInvoiceLines } from '../services/invoiceAmounts.js';
 import { discountedAmounts } from '../services/ecfXmlBuilder.js';
 import { isTaxExempt, todayRD, voucherError } from '../services/tax.js';
@@ -337,6 +338,13 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
       const nextNumber = lastInvoice ? parseInt(lastInvoice.orderNumber.replace(/\D/g, '')) + 1 : 1;
       const orderNumber = `ORD-${String(nextNumber).padStart(6, '0')}`;
 
+      // Primero se descuenta la existencia y luego se lee el costo: así una recepción simultánea no deja un costo viejo
+      const costs = [];
+      for (const item of data.items) {
+        if (item.productId) await takeStock(tx, req.companyId, item);
+        costs.push(await readLineCost(tx, req.companyId, item));
+      }
+
       const newInvoice = await tx.invoice.create({
         data: {
           companyId: req.companyId,
@@ -361,8 +369,9 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
           notes: data.notes,
           status: data.status,
           items: {
-            create: itemsWithTotals.map((i) => ({
+            create: itemsWithTotals.map((i, n) => ({
               ...i,
+              costPrice: costs[n],
               customizationNotes: i.customizationNotes || null,
               customImageUrls: i.customImageUrls || [],
               variantInfo: i.variantInfo || null
@@ -379,11 +388,9 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
         }
       });
 
-      // Actualizar stock de productos (o de la variante)
+      // Registro de inventario de la venta (el stock ya se descontó arriba)
       for (const item of data.items) {
         if (item.productId) {
-          await takeStock(tx, req.companyId, item);
-
           await tx.inventoryLog.create({
             data: {
               productId: item.productId,
