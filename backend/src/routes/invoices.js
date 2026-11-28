@@ -388,7 +388,7 @@ router.post('/', authorize(...rolesFor('orders')), async (req, res, next) => {
         }
       });
 
-      // Actualizar stock de productos (o de la variante)
+      // Registro de inventario de la venta (el stock ya se descontó arriba)
       for (const item of data.items) {
         if (item.productId) {
           await tx.inventoryLog.create({

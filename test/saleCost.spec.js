@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { lineCost } from '../backend/src/services/saleCost.js';
 import { lineCostFor } from '../src/utils/saleCost.js';
-import { invoiceToJournalEntries, creditNoteToJournalEntries, generateAllJournalEntries } from '../src/utils/chartOfAccounts.js';
+import { invoiceToJournalEntries, creditNoteToJournalEntries, generateAllJournalEntries, computeTrialBalance } from '../src/utils/chartOfAccounts.js';
 
 const base = { id: 'f1', date: new Date('2026-11-01T15:00:00Z'), total: 1000, subtotal: 1000, taxAmount: 0, amountPaid: 1000, status: 'Pagado' };
 
@@ -57,10 +57,28 @@ describe('facturas anuladas en el diario', () => {
   it('anulada con nota total sigue (venta y costo), igual que su nota', () => {
     const e = generateAllJournalEntries({ invoices: [{ ...base, status: 'Anulado', items, _count: { creditNotes: 1 } }] });
     expect(e.some((x) => x.desc.startsWith('Costo de venta'))).toBe(true);
-    expect(e.some((x) => x.account.code === '4101' || x.credit === 1000)).toBe(true);
+    expect(e.some((x) => x.account.code === '4101')).toBe(true);
   });
   it('costo redondeado a 2 decimales: 1.2345 x 3 = 3.70', () => {
     const e = invoiceToJournalEntries({ ...base, items: [{ quantity: 3, costPrice: 1.2345 }] });
     expect(e.find((x) => x.desc.startsWith('Costo de venta')).debit).toBe(3.7);
+  });
+});
+
+describe('inventario permanente: compra desde orden + venta', () => {
+  const po = { id: 'g1', invoiceDate: '2026-11-01', ncf: 'B0100000001', supplierName: 'Sup', expenseType: '09-COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', montoBienes: 50, montoServicios: 0, montoFacturado: 50, itbisFacturado: 0, purchaseOrderId: 'o1' };
+  const manual = { ...po, id: 'g2', purchaseOrderId: null };
+  const sale = { ...base, items: [{ quantity: 4, costPrice: 5 }] };
+  const bal = (entries) => Object.fromEntries(computeTrialBalance(entries).map((r) => [r.account.code, r.balance]));
+  it('orden: Inventario 30, Costo de Ventas 20, Compras sin movimiento', () => {
+    const b = bal(generateAllJournalEntries({ invoices: [sale], expenses: [po] }));
+    expect(b['1103']).toBe(30);
+    expect(b['6101']).toBe(20);
+    expect(b['6102'] ?? 0).toBe(0);
+  });
+  it('gasto 09 manual sigue en 6102', () => {
+    const b = bal(generateAllJournalEntries({ expenses: [manual] }));
+    expect(b['6102']).toBe(50);
+    expect(b['1103'] ?? 0).toBe(0);
   });
 });

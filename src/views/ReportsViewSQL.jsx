@@ -13,6 +13,7 @@ import { loadScript } from '../utils/loadScript.js';
 import PageSkeleton from '../components/ui/Skeleton.jsx';
 import { baseQuantity, roundQty } from '../utils/units.js';
 import { isVoidInvoice } from '../utils/invoiceStatus.js';
+import { lineCostFor } from '../utils/saleCost.js';
 import FilterBar, { DateRangeField, FilterField } from '../components/ui/FilterBar.jsx';
 
 // La API entrega los montos Decimal como texto ("2360.00"): sumarlos sin convertir los concatena
@@ -206,7 +207,7 @@ const ReportsViewSQL = ({ companyProfile }) => {
                 const baseQty = baseQuantity({ quantity: qty, factor: item.packagingFactor ?? 1 });
                 const lineRevenue = item.subtotal != null ? num(item.subtotal) : num(item.unitPrice ?? item.price) * qty;
                 items = roundQty(items + baseQty);
-                cost += unitCost(item.productId) * baseQty;
+                cost += lineCostFor(item, productsMap) * baseQty;
                 const name = item.productName || item.name || productsMap.get(item.productId)?.name || 'Producto';
                 productRevenue.set(name, (productRevenue.get(name) || 0) + lineRevenue);
                 productUnits.set(name, roundQty((productUnits.get(name) || 0) + baseQty));
@@ -335,7 +336,7 @@ const ReportsViewSQL = ({ companyProfile }) => {
                 const name = item.productName || item.name || 'Producto';
                 const lineRevenue = item.subtotal != null ? num(item.subtotal) : num(item.unitPrice ?? item.price) * qty;
                 const p = profit.get(name) || { units: 0, revenue: 0, cost: 0 };
-                p.units = roundQty(p.units + baseQty); p.revenue += lineRevenue; p.cost += unitCost(item.productId) * baseQty;
+                p.units = roundQty(p.units + baseQty); p.revenue += lineRevenue; p.cost += lineCostFor(item, productsMap) * baseQty;
                 profit.set(name, p);
             });
         });

@@ -1,6 +1,7 @@
 import { isLateNote, noteAmounts, noteReturnLines } from './noteSplit.js';
 import { expensePayable } from './expensePayable.js';
 import { baseQuantity } from './units.js';
+import { isVoidInvoice } from './invoiceStatus.js';
 /**
  * Plan de Cuentas Contable estándar para Zenda ERP.
  * Mapea transacciones del sistema a asientos de doble partida.
@@ -131,8 +132,11 @@ export function expenseToJournalEntries(expense) {
   // Mapear tipo de gasto a cuenta
   const expenseAccount = mapExpenseType(expense.expenseType);
 
-  // Débito: gasto
-  entries.push({ date, account: expenseAccount, debit: net, credit: 0, ref, desc, sourceType: 'expense', sourceId: expense.id });
+  // Inventario permanente: la mercancía facturada desde una orden de compra entra a Inventario (el costo sale al vender, 6101); el resto va al gasto
+  const goods = expense.purchaseOrderId ? Math.min(num(expense.montoBienes), net) : 0;
+  if (goods > 0) entries.push({ date, account: ACCOUNTS.INVENTORY, debit: goods, credit: 0, ref, desc, sourceType: 'expense', sourceId: expense.id });
+  const rest = Math.round((net - goods) * 100) / 100;
+  if (rest > 0 || goods === 0) entries.push({ date, account: expenseAccount, debit: rest, credit: 0, ref, desc, sourceType: 'expense', sourceId: expense.id });
 
   // Débito: ITBIS pagado (crédito fiscal)
   if (tax > 0) {
@@ -196,11 +200,12 @@ export function debitNoteToJournalEntries(note) {
   ];
 }
 
+// Anulada por /cancel (sin notas): la mercancía volvió al almacén y la venta no cuenta. Con nota total, la nota la compensa y sigue.
+export const isVoidedWithoutNotes = (inv) => isVoidInvoice(inv) && !(inv._count?.creditNotes > 0);
+
 /**
  * Genera TODOS los asientos del diario a partir de los datos disponibles.
  */
-// Anulada por /cancel (sin notas): la mercancía volvió al almacén y la venta no cuenta. Con nota total, la nota la compensa y sigue.
-export const isVoidedWithoutNotes = (inv) => ['Anulado', 'Cancelado'].includes(inv.status) && !(inv._count?.creditNotes > 0);
 
 export function generateAllJournalEntries({ invoices = [], expenses = [], creditNotes = [], debitNotes = [] }) {
   const entries = [];

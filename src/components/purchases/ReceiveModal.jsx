@@ -21,7 +21,7 @@ const ReceiveModal = ({ isOpen, onClose, order, onSubmit }) => {
     );
 
     const submit = async () => {
-        if (badKey) { setError(`Revisa ${CHARGE_FIELDS[badKey].toLowerCase()}: debe ser un monto de 0 o más.`); return; }
+        if (badKey) { setError(`Revisa ${({ flete: 'el flete', seguro: 'el seguro', aranceles: 'los aranceles', otros: 'los otros gastos' })[badKey]}: debe ser un monto de 0 o más.`); return; }
         setError('');
         setSaving(true);
         try {
