@@ -1,4 +1,4 @@
-import { orderTotals, planReceipt, nextStatus, planInvoice, purchaseSuggestions } from '../backend/src/services/purchases.js';
+import { orderTotals, planReceipt, nextStatus, planInvoice, purchaseSuggestions, allocateCharges, averageCost, validateCharges } from '../backend/src/services/purchases.js';
 
 const item = (o = {}) => ({ id: 'i1', productId: 'p1', quantity: 10, receivedQuantity: 0, invoicedQuantity: 0, unitCost: 100, taxRate: 18, packagingId: null, packagingFactor: 1, ...o });
 const prods = { p1: { name: 'Agua', allowFractions: false }, p2: { name: 'Queso', allowFractions: true } };
@@ -11,7 +11,7 @@ describe('compras', () => {
   it('planReceipt: caja de 24 a 1200 -> base 48, costo 50', () => {
     const r = planReceipt([item({ quantity: 5, unitCost: '1200', packagingId: 'k', packagingFactor: '24' })], [{ itemId: 'i1', quantity: 2 }], prods);
     expect(r.error).toBeNull();
-    expect(r.changes).toEqual([{ itemId: 'i1', productId: 'p1', quantity: 2, baseQuantity: 48, newReceived: 2, costPrice: 50 }]);
+    expect(r.changes).toEqual([{ itemId: 'i1', productId: 'p1', quantity: 2, baseQuantity: 48, newReceived: 2, costPrice: 50, unitCostFinal: 50 }]);
   });
   it('planReceipt: errores', () => {
     const o = [item({ quantity: 5, receivedQuantity: 4 })];
@@ -24,6 +24,39 @@ describe('compras', () => {
   it('planReceipt: ignora cantidad 0 si hay otra', () => {
     const o = [item(), item({ id: 'i2' })];
     expect(planReceipt(o, [{ itemId: 'i1', quantity: 0 }, { itemId: 'i2', quantity: 3 }], prods).changes).toHaveLength(1);
+  });
+
+  it('planReceipt: empaque de 12 a 120 con flete 12 -> costo final 11', () => {
+    const r = planReceipt([item({ quantity: 5, unitCost: 120, packagingId: 'k', packagingFactor: 12 })], [{ itemId: 'i1', quantity: 1 }], prods, { flete: 12 });
+    expect(r.changes[0]).toMatchObject({ baseQuantity: 12, unitCostFinal: 11, costPrice: 11 });
+  });
+
+  describe('allocateCharges', () => {
+    it('reparte por valor', () => {
+      expect(allocateCharges([{ itemId: 'a', quantity: 1, unitCost: 100, factor: 1 }, { itemId: 'b', quantity: 1, unitCost: 300, factor: 1 }], { flete: 40 })).toEqual({ a: 10, b: 30 });
+    });
+    it('el redondeo suma exacto', () => {
+      const ls = ['a', 'b', 'c'].map((itemId) => ({ itemId, quantity: 1, unitCost: 10, factor: 1 }));
+      const r = allocateCharges(ls, { otros: 10 });
+      expect(Math.round((r.a + r.b + r.c) * 100)).toBe(1000);
+    });
+    it('todo bonificación -> por cantidad base', () => {
+      expect(allocateCharges([{ itemId: 'a', quantity: 1, unitCost: 0, factor: 1 }, { itemId: 'b', quantity: 3, unitCost: 0, factor: 1 }], { flete: 40 })).toEqual({ a: 10, b: 30 });
+    });
+  });
+
+  it('averageCost', () => {
+    expect(averageCost(10, 5, 10, 7)).toBe(6);
+    expect(averageCost(-3, 5, 10, 7)).toBe(7);
+    expect(averageCost(0, 0, 0, 0)).toBe(0);
+    expect(averageCost(10, 6, 10, 0)).toBe(3);
+  });
+
+  it('validateCharges', () => {
+    expect(validateCharges({ flete: -1 })).toMatch(/flete/i);
+    expect(validateCharges({ seguro: 'abc' })).toEqual(expect.any(String));
+    expect(validateCharges({ flete: 5, otros: '2' })).toBeNull();
+    expect(validateCharges(undefined)).toBeNull();
   });
 
   it('nextStatus', () => {
