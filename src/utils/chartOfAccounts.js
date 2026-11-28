@@ -1,5 +1,6 @@
 import { isLateNote, noteAmounts, noteReturnLines } from './noteSplit.js';
 import { expensePayable } from './expensePayable.js';
+import { baseQuantity } from './units.js';
 /**
  * Plan de Cuentas Contable estándar para Zenda ERP.
  * Mapea transacciones del sistema a asientos de doble partida.
@@ -99,8 +100,8 @@ export function invoiceToJournalEntries(invoice) {
 
   // Costo de ventas (si tenemos costPrice)
   const costTotal = (invoice.items || []).reduce((sum, item) => {
-    const costPrice = Number(item.costPrice || 0);
-    return sum + (costPrice * (item.quantity || 1));
+    if (item.costPrice == null) return sum; // factura vieja sin costo: no se inventa
+    return sum + Number(item.costPrice) * baseQuantity({ quantity: item.quantity || 1, factor: item.packagingFactor ?? 1 });
   }, 0);
 
   if (costTotal > 0) {
@@ -173,6 +174,12 @@ export function creditNoteToJournalEntries(note) {
   const entries = [{ date, account: ACCOUNTS.SALES_RETURNS, debit: returns, credit: 0, ref, desc, sourceType: 'creditNote', sourceId: note.id }];
   if (tax) entries.push({ date, account: late ? ACCOUNTS.ABSORBED_TAX : ACCOUNTS.TAXES_PAYABLE, debit: tax, credit: 0, ref, desc: late ? `ITBIS asumido: ${desc}` : `ITBIS: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
   entries.push({ date, account: ACCOUNTS.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount, ref, desc, sourceType: 'creditNote', sourceId: note.id });
+  // Devolución de artículos: el costo vuelve a Inventario (solo líneas con costPrice)
+  const cost = Math.round(noteReturnLines(note, note.invoice || {}).reduce((s, l) => s + (l.costPrice == null ? 0 : Number(l.costPrice) * baseQuantity({ quantity: l.quantity, factor: l.packagingFactor ?? 1 })), 0) * 100) / 100;
+  if (cost > 0) {
+    entries.push({ date, account: ACCOUNTS.INVENTORY, debit: cost, credit: 0, ref, desc: `Reingreso a inventario: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
+    entries.push({ date, account: ACCOUNTS.COGS, debit: 0, credit: cost, ref, desc: `Reverso costo de venta: ${desc}`, sourceType: 'creditNote', sourceId: note.id });
+  }
   return entries;
 }
 

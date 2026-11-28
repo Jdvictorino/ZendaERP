@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { baseQuantity, roundQty } from '../../utils/units.js';
+import { lineCostFor } from '../../utils/saleCost.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Card, { CardBody, CardHeader } from '../ui/Card.jsx';
 import { ShoppingCart, TrendingUp, TrendingDown, Download, Package } from 'lucide-react';
@@ -12,10 +13,11 @@ export default function CostoDeVentas({ invoices = [], expenses = [], products =
     const salesTax = invoices.reduce((s, inv) => s + Number(inv.taxAmount || 0), 0);
     const netSales = salesTotal - salesTax;
 
-    // Costo directo de items vendidos (si tenemos costPrice en items)
+    // Costo directo de items vendidos: el guardado en la venta; las facturas viejas usan el costo actual del producto
+    const productsById = new Map(products.map((p) => [p.id, p]));
     const directCost = invoices.reduce((sum, inv) => {
       return sum + (inv.items || []).reduce((s, item) => {
-        const cost = Number(item.costPrice || 0);
+        const cost = lineCostFor(item, productsById);
         return s + (cost * baseQuantity({ quantity: item.quantity || 1, factor: item.packagingFactor ?? 1 }));
       }, 0);
     }, 0);
