@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../db.js';
 import { rolesFor } from '../permissions.js';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { nextStatus, orderTotals, planInvoice, planReceipt, purchaseSuggestions, validateOrderLines } from '../services/purchases.js';
+import { averageCost, nextStatus, orderTotals, planInvoice, planReceipt, purchaseSuggestions, validateCharges, validateOrderLines } from '../services/purchases.js';
 
 const router = Router();
 router.use(authenticate);
@@ -206,6 +206,7 @@ router.post('/:id/cancel', authorize(...rolesFor('purchases')), async (req, res,
 
 const receiveSchema = z.object({
   lines: z.array(z.object({ itemId: z.string().uuid(), quantity: z.coerce.number() })).refine((l) => new Set(l.map((x) => x.itemId)).size === l.length, 'Una línea está repetida.'),
+  charges: z.object({ flete: z.any(), seguro: z.any(), aranceles: z.any(), otros: z.any() }).partial().optional(),
   notes: z.string().optional().nullable()
 });
 
@@ -229,21 +230,27 @@ router.post('/:id/receive', authorize(...rolesFor('purchases')), async (req, res
         packagingFactor: i.packagingFactor == null ? 1 : Number(i.packagingFactor)
       }));
       const productsById = Object.fromEntries(cur.items.map((i) => [i.productId, i.product]));
-      const plan = planReceipt(items, data.lines, productsById);
+      const chargesError = validateCharges(data.charges);
+      if (chargesError) throw bad(chargesError);
+      const plan = planReceipt(items, data.lines, productsById, data.charges);
       if (plan.error) throw bad(plan.error);
 
       const receipt = await tx.purchaseReceipt.create({
         data: {
-          purchaseOrderId: cur.id, userId: req.user.id, notes: data.notes || null,
-          items: plan.changes.map((c) => ({ itemId: c.itemId, quantity: c.quantity }))
+          purchaseOrderId: cur.id, userId: req.user.id, notes: data.notes || null, charges: data.charges || undefined,
+          items: plan.changes.map((c) => ({ itemId: c.itemId, quantity: c.quantity, unitCostFinal: c.unitCostFinal }))
         }
       });
       for (const c of plan.changes) {
-        const exists = await tx.product.count({ where: { id: c.productId, companyId: req.companyId } });
-        if (!exists) throw bad('Uno de los productos de la orden ya no existe.', 409);
+        // Bloquea el producto antes de leer existencia y costo: dos recepciones a la vez no pisan el promedio
+        const locked = await tx.$queryRaw`SELECT id FROM products WHERE id = ${c.productId} AND "companyId" = ${req.companyId} FOR UPDATE`;
+        if (!locked.length) throw bad('Uno de los productos de la orden ya no existe.', 409);
+        const prev = await tx.product.findUnique({ where: { id: c.productId }, select: { stock: true, costPrice: true } });
         const added = new Prisma.Decimal(c.baseQuantity);
+        // Una bonificación (costo 0) también entra al promedio
+        const costPrice = averageCost(Number(prev.stock), Number(prev.costPrice), c.baseQuantity, c.unitCostFinal);
         // Incremento atómico: no pisa una venta que confirme a la vez
-        const { stock } = await tx.product.update({ where: { id: c.productId }, data: { stock: { increment: added }, ...(c.costPrice > 0 && { costPrice: c.costPrice }) }, select: { stock: true } });
+        const { stock } = await tx.product.update({ where: { id: c.productId }, data: { stock: { increment: added }, costPrice }, select: { stock: true } });
         const newStock = new Prisma.Decimal(stock);
         const previous = newStock.minus(added);
         await tx.inventoryLog.create({
